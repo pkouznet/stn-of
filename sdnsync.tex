@@ -1,0 +1,317 @@
+\documentclass[11pt,pdftex,letter]{article}
+%\documentclass[11pt]{llncs}
+%\documentclass[11pt,pdftex]{article}
+%\documentclass{sig-alternate-10pt}
+%\usepackage{amsthm}
+%\usepackage{algorithm}
+%\usepackage[noend]{algorithmic}
+\usepackage[lined,boxed,commentsnumbered]{algorithm2e}
+
+
+\usepackage{amssymb}
+\usepackage{comment}
+\usepackage{amsmath}
+%\usepackage{graphicx}
+%\usepackage{color}
+\usepackage{fullpage}
+%\usepackage[pdftex]{graphicx}
+%\DeclareGraphicsRule{*}{mps}{*}{<++>}
+
+\ifx\pdftexversion\undefined
+\usepackage[dvips]{graphicx}
+\else
+  \usepackage[pdftex]{graphicx}
+  \DeclareGraphicsRule{*}{mps}{*}{}
+\fi
+
+
+\def\lf{\tiny}
+\def\rrnnll{\setcounter{linenumber}{0}}
+\def\nnll{\refstepcounter{linenumber}\lf\thelinenumber}
+\newcounter{linenumber}
+
+\usepackage[usenames,dvipsnames]{color}
+%\usepackage[caption=true,font=footnotesize]{subfig}
+\usepackage{subfigure}
+%\usepackage{xspace} 	% Guesses whether a space is needed when invoked
+\usepackage{listings}
+\usepackage{url}
+\usepackage{wrapfig}
+\usepackage{cite}
+%\usepackage{framed}
+\usepackage{framed,color}
+\definecolor{shadecolor}{rgb}{0.9,0.9,0.9}
+%
+\usepackage[boxed]{algorithm2e}
+%\usepackage{comment}
+
+%[[PKto change spacing
+%\usepackage{titlesec}
+%\titlespacing\section{0pt}{7pt}{6pt}
+%]]
+
+%\newtheorem{theorem}{Theorem}[section]
+%\newtheorem{takeaway}[theorem]{Takeaway}
+%\newtheorem{fact}[theorem]{Fact}
+
+
+%\pdfpagewidth=8.5in
+%\pdfpageheight=11in
+
+% url.sty was written by Donald Arseneau. It provides better support for
+% handling and breaking URLs. url.sty is already installed on most LaTeX
+% systems. The latest version can be obtained at:
+% http://www.ctan.org/tex-archive/macros/latex/contrib/misc/
+% Read the url.sty source comments for usage information. Basically,
+% \url{my_url_here}.
+
+\newcommand{\CPO}{\textsc{FixTag}}
+\newcommand{\DPO}{\textsc{ReuseTag}}
+\newcommand{\PS}{\textsc{PS}}
+\newcommand{\Bit}{\textsc{Bit}}
+
+\newcommand{\gns}{Global Network State\xspace}
+\newcommand{\GNS}{\textsc{GNS}\xspace}
+
+%\newtheorem{theorem}{Theorem}[section]
+%\newtheorem{lemma}{Lemma}[section]
+%\newtheorem{claim}{Claim}[section]
+%\newtheorem{scenarios}{Scenarios}[section]
+%\newtheorem{observation}{Observation}
+%\newtheorem{takeaway}{Takeaway}[section]
+%\newtheorem{definition}{Definition}
+
+
+%
+%
+% carry over Herald's group cool way of marking changes
+\definecolor{heraldBlue}{rgb}{0.0,0.0,0.8}
+\definecolor{heraldRed}{rgb}{0.8,0.0,0.0}
+\definecolor{heraldGray}{rgb}{0.4,0.4,0.4}
+\definecolor{heraldBlack}{rgb}{0.0,0.0,0.0} %removes comment color
+\definecolor{heraldGreen}{rgb}{0.0,0.4,0.0} %removes comment color
+\def\r#1{\textcolor{heraldBlue}{\em #1}}
+\def\q#1{\textcolor{heraldRed}{\em #1}}
+\def\d#1{\textcolor{heraldBlue}{#1}}
+\def\R#1{\textcolor{heraldBlue}{#1}}
+\def\D#1{\textcolor{heraldBlue}{#1}}
+%
+%\DeclareMathOperator{\respc}{res}
+
+\newcommand{\len}{\text{d}}
+
+\newcommand{\nodes}{\mathcal{N}}
+\newcommand{\links}{\mathcal{E}}
+\newcommand{\epoints}{\Pi}
+\newcommand{\epoint}{\pi}
+\newcommand{\legsw}{\mathcal{L}}
+\newcommand{\sdnsw}{\mathcal{S}}
+\newcommand{\sw}{\legsw\sqcup\sdnsw}
+\newcommand{\fset}{FS}
+
+\newcommand{\Cost}{\gamma}
+
+\newcommand{\ft}{ft}
+
+\newcommand{\eepath}{p}
+\newcommand{\link}{e}
+
+\newcommand{\dom}{\textit{dom}}
+\newcommand{\pr}{\textit{pr}}
+\newcommand{\CPOs}{\textit{paths}}
+\newcommand{\seq}{\textit{seq}}
+\newcommand{\cur}{\textit{cur}}
+\newcommand{\Tag}{\textit{tag}}
+
+
+\newcommand{\ports}{\Pi}
+\newcommand{\seport}{\pi}
+\newcommand{\inports}{\overrightarrow{\ports}}
+\newcommand{\swports}{\overleftrightarrow{\ports}}
+\newcommand{\seinports}{\epoints^{\bullet}}
+\newcommand{\seinportsone}{\seinports_1}
+\newcommand{\seinportstwo}{\seinports_2}
+\newcommand{\seinportsthree}{\seinports_3}
+\newcommand{\neinports}{\epoints^{\circ}}
+
+\newcommand{\readt}{\texttt{r}}
+\newcommand{\writet}{\texttt{w}}
+\newcommand{\op}{\texttt{op}}
+
+
+\newcommand{\cellblocks}{CB}
+\newcommand{\cellblock}{c}
+\newcommand{\frontier}{\mathcal{F}}
+\newcommand{\MIP}{\textsc{Opt}}
+\newcommand{\smartparagraph}[1]{\noindent{\bf #1}\ }
+\newcommand{\eg}{{\it e.g.}}
+\newcommand{\ie}{{\it i.e.}}
+\newcommand{\etc}{{\it etc.}}
+\newcommand{\etal}{{\it et al.}\xspace}
+\newcommand{\id}{{\it id}}
+
+\def\TR{0}
+\def\NOTES{1}
+\def\SAVESPACE{1}
+\def\SHOWAUTHORS{1}
+\def\SHOWGIT{0}
+% variables may contain the above definitions to control build options at compile-time
+%\input{variables}
+
+\if \SAVESPACE 1
+%\usepackage{setspace}
+%\usepackage{titlesec}
+%\titlespacing\section{0pt}{7pt}{6pt}
+\usepackage{titlesec}
+\titlespacing\section{0pt}{7pt}{6pt}
+
+\fi
+
+\if \NOTES 1
+\newcommand{\mcnote}[1]{\textcolor{heraldBlue}{\small \bf [MC: #1]}}
+\newcommand{\dlnote}[1]{\textcolor{heraldBlue}{\small \bf [DL: #1]}}
+\newcommand{\ssnote}[1]{\textcolor{heraldBlue}{\small \bf [SS: #1]}}
+\newcommand{\pknote}[1]{\textcolor{heraldBlue}{\small \bf [PK: #1]}}
+%\newcommand{\problem}[1]{\textcolor{heraldRed}{\small \bf [PROBLEM: #1]}}
+\else
+\newcommand{\mcnote}[1]{}
+\newcommand{\dlnote}[1]{}
+\newcommand{\ssnote}[1]{}
+\newcommand{\pknote}[1]{}
+\newcommand{\problem}[1]{}
+\fi
+
+%Petr's definitions
+\newcommand{\ack}{\textit{ack}}
+\newcommand{\nack}{\textit{nack}}
+\newcommand{\rmw}{\textit{rmw}}
+\newcommand{\State}{\mathit{States}}
+\newcommand{\ignore}[1]{}
+\newcommand{\Pb}{CPC}
+\newcommand{\E}{\mathcal E}
+%
+
+%[[PK environments for article style
+\newtheorem{theorem}{Theorem}
+\newtheorem{conjecture}[theorem]{Conjecture}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{observation}[theorem]{Observation}
+\newenvironment{proof}[1][Proof]{\noindent\textbf{#1.} }{\hfill $\Box$\\[2mm]}
+\newenvironment{proofsketch}[1][Proof sketch]{\noindent\textbf{#1.} }{\hfill $\Box$\\[2mm]}
+%]]
+
+\begin{document}
+\sloppy
+
+%\title{Distributed Network Programming}
+%\title{The Distributed SDN Update Problem:\\Towards Software Transactional Networks}
+
+%\title{On Consistent Updates in Software Defined Networks under Unreliable Control}
+%\title{The Case for Reliable Software Transactional Networking}
+
+%\title{A Distributed SDN Control Plane for Concurrent Policy Updates}
+
+\title{Programming SDN: A Transactional Approach}
+
+
+
+\author{
+	Marco Canini$^{1}$ \quad Petr Kuznetsov$^{2}$ \quad Dan
+        Levin$^{3}$ \quad Stefan Schmid$^{4}$\\
+%\thanks{Contact author:
+ %         stefan@net.t-labs.tu-berlin.de, FG INET, TEL 16,
+  %        Ernst-Reuter Platz 7, 10587 Berlin, Germany}
+\\
+        $^{1}$ Universit\'{e} catholique de Louvain, Place Sainte Barbe 2, 1348 Louvain-la-Neuve, Belgium\\
+        marco.canini@uclouvain.be\\
+\\
+        $^{2}$ T\'el\'ecom ParisTech, 46 Rue Barrault, 75013 Paris, France\\
+        petr.kuznetsov@telecom-paristech.fr\\
+\\
+        $^{3}$ TU Berlin, Marchstr. 23, 10587 Berlin, Germany\\
+        dlevin@inet.tu-berlin.de\\
+\\
+        $^{4}$ TU Berlin \& T-Labs, Ernst-Reuter Platz 7, 10587 Berlin, Germany\\
+	    stefan.schmid@tu-berlin.de}
+%	}
+
+%\institute{}
+
+\date{}
+
+
+\maketitle
+
+
+\thispagestyle{empty}
+
+%\if \SAVESPACE 1
+%\setlength{\floatsep}{3pt}
+%\setlength{\textfloatsep}{3pt}
+%\setlength{\dbltextfloatsep}{3pt}
+%\setlength{\intextsep}{3pt}
+%\setlength{\abovecaptionskip}{3pt}
+%\fi
+
+% A category with the (minimum) three required fields
+%\category{C.2.1}{Network Architecture and Design}{Centralized Networks}
+%\category{C.2.4}{Distributed Systems}{Network Operating Systems}
+%\terms{Measurement, Performance}
+%\keywords{}
+
+
+
+\begin{abstract}
+Computer networking currently goes through a transition phase:
+the paradigm of Software-Defined Networking (SDN)
+is discussed intensively, both in the industry and in the academia. In
+a nutshell, SDN out-sources the control over the network 
+to a logically centralized software, called the \emph{control plane}. 
+The ability of the control plane to ``program'' the network (the
+\emph{data plane}) opens new interesting opportunities to network
+operators and system designers.
+In is important that the execution of such programs should appear
+transparent to the network. 
+Intuitively, no user application should be negatively affected by the
+concurrent configuration changes.
+We propose a way to capture this intuition formally and describe
+algorithms to implement it.    
+\end{abstract}
+
+%\vspace{1cm}
+
+%\begin{center}
+%{\bf [Regular paper only]}
+%\end{center}
+%[[PK I guess not anymore?]]
+
+%\vspace{1cm}
+
+%\begin{center}
+%{\emph{Contact Address:}\\Marco Canini, Place Sainte Barbe~2, 1348 Louvain-la-Neuve, Belgium\\Tel: $+$32 10 47 48 32,
+%marco.canini@uclouvain.be}
+% {\emph{Contact Address:}\\Stefan Schmid, MAR 4-4, Marchstr.~23, 10587 Berlin, Germany\\Tel: $+$49 175 930 98 75,
+% stefan.schmid@tu-berlin.de}
+%\end{center}
+
+
+%\newpage
+
+%\begin{center}
+%{\bf Regular and student paper: Dan Levin is a full-time student.}
+%\end{center}
+
+\newpage
+\pagenumbering{arabic}\setcounter{page}{1}
+
+%\section*{todo before submission}
+
+
+
+\bibliographystyle{abbrv}
+\bibliography{references}  % main.bib is the name of the Bibliography in this case
+
+
+\end{document}
