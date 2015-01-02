@@ -213,29 +213,11 @@
 
 %\title{A Distributed SDN Control Plane for Concurrent Policy Updates}
 
-\title{Programming SDN: A Transactional Approach}
+\title{Solving Consensus with OpenFlow}
 
 
 
-\author{
-	Marco Canini$^{1}$ \quad Petr Kuznetsov$^{2}$ \quad Dan
-        Levin$^{3}$ \quad Stefan Schmid$^{4}$\\
-%\thanks{Contact author:
- %         stefan@net.t-labs.tu-berlin.de, FG INET, TEL 16,
-  %        Ernst-Reuter Platz 7, 10587 Berlin, Germany}
-\\
-        $^{1}$ Universit\'{e} catholique de Louvain, Place Sainte Barbe 2, 1348 Louvain-la-Neuve, Belgium\\
-        marco.canini@uclouvain.be\\
-\\
-        $^{2}$ T\'el\'ecom ParisTech, 46 Rue Barrault, 75013 Paris, France\\
-        petr.kuznetsov@telecom-paristech.fr\\
-\\
-        $^{3}$ TU Berlin, Marchstr. 23, 10587 Berlin, Germany\\
-        dlevin@inet.tu-berlin.de\\
-\\
-        $^{4}$ TU Berlin \& T-Labs, Ernst-Reuter Platz 7, 10587 Berlin, Germany\\
-	    stefan.schmid@tu-berlin.de}
-%	}
+\author{Liron, Stefan, Petr}
 
 %\institute{}
 
@@ -264,20 +246,7 @@
 
 
 \begin{abstract}
-Computer networking currently goes through a transition phase:
-the paradigm of Software-Defined Networking (SDN)
-is discussed intensively, both in the industry and in the academia. In
-a nutshell, SDN out-sources the control over the network 
-to a logically centralized software, called the \emph{control plane}. 
-The ability of the control plane to ``program'' the network (the
-\emph{data plane}) opens new interesting opportunities to network
-operators and system designers.
-In is important that the execution of such programs should appear
-transparent to the network. 
-Intuitively, no user application should be negatively affected by the
-concurrent configuration changes.
-We propose a way to capture this intuition formally and describe
-algorithms to implement it.    
+We solve consensus with OpenFlow, using multi-write
 \end{abstract}
 
 %\vspace{1cm}
@@ -303,10 +272,52 @@ algorithms to implement it.
 %{\bf Regular and student paper: Dan Levin is a full-time student.}
 %\end{center}
 
-\newpage
-\pagenumbering{arabic}\setcounter{page}{1}
-
 %\section*{todo before submission}
+
+\section{Introduction}\label{sec:intro}
+
+
+\section{SDN switch configuration space as shared memory}\label{sec:todo}
+
+
+We address the problem of committing consistent policies to SDN switch concurrently by multiple controllers.
+We show that assuming minimalistic control protocol, SDN switch configuration space can be used to implement a consensus object thereby allowing controllers to agree on each next policy update.
+
+Our first observation is that a match-action configuration which is accessed by multiple controllers can be considered as shared memory. Note however that standard memory map and index/offset to a word, while Flow Table entries are not indexed. To overcome this we can use the match part of an entry as the index and the action part as the word value.
+
+In order to solve consensus we suggest to use the atomic multiple entries update capability (which is discussed in OpenFlow standard). A shared memory system that supports atomic write to (enough) multiple locations is known to allow the implementation of consensus objects. For example consider the following implementation utilizing $n^2$ memory locations, $M_{i,j}$, where $i,j\in[n]$, and the suggested values $\{v_i\}_{i\in [n]}$. All locations are initialized to zero.
+
+In order to participate, a server i, writes its suggested value $V_i$ and atomically rewrites row i ($M_{i,*}$) with value "1" and column i ($M_{*,i}$) with value "2". After the atomic write, a server $i$ first reads the diagonal ($M_{j,j}$ for $j\in [n]$), and consider all observed servers as candidate set S.  Then server i reads all candidates intersections (locations $M_{j,k}$ where $j,k\in S$. And computes the winner server id w that was overwritten by all other candidates, i.e. such that $M_{w,k}=2$ for all $k\in S {w}$. The consensus value is $v_w$.
+Note that a snapshot could replace the two reading phases.
+
+Going back to the policy update problem, the consensus scheme allow all servers to decide on next policy by using consensus value as policy identifier, and writing the policy in advance. However this scheme doesn't actually apply the policy on incoming packets and it remains to configure the switch according to the next policy once it is decided. Making this scheme fail safe (handling failure of winning server) can be ensured by allowing any server to reconfigure the switch.
+
+\section{The one touch policy update problem}\label{sec:todo}
+
+
+In some scenarios it may be desirable to shorten the policy update time by avoiding the consensus reading and policy configuration step. We define this as the one touch policy update, namely we require each server to contact the switch only once in order to (try and) update the policy, in other words participating in reaching consensus and applying it with one atomic write. Solving this problem also has significance in understanding the strength of the SDN switch computation model.
+
+The main idea of our solution is to adjust the previous policy update scheme in a way that performs consensus validation phase during every packet processing thereby requiring the servers only to make the first phase of the consensus - atomically writing the matrix.
+In order to allow the packets to validate the consensus we make the following observation: while servers can be abstracted as memory writers, the packets processed by the switch are the readers. OpenFlow standard define an atomic write transaction as being atomic in relation to the processed packets thereby making packet processing a multiple read transaction but one read location per table is allowed. This means that if each memory location used in the consensus scheme will be stored in different table then each packet will be able to read all of them.
+
+However, reading each memory location is not enough, as the scheme requires to make a validation that involves multiple values. We utilize the metadata field in order to store all read values, in more details, each memory value $M_{i,j}$ is stored in offset i+j*n in the metadata field. Once all values are in the metadata field, we can detect the consensus winner by trying different matches on the metadata. Although we can have one match entry per possible matrix state, this solution requires exponential number of entries. A better way which we describe next requires only $O(n^2)$ entries utilizing n tables.
+
+Our compact validation use additional temp variable, $temp_winner$, to hold the current best consensus candidate. Each of the n validating tables checks different "column" in the matrix and update $temp_winner$ to keep track of the winner so far (after examining a prefix sub set of the columns). The entry t in table k $(0<=k<n)$  matches the case where current winner=t and location $(t,k)$ in the matrix (packet header) equals 1 and location (k,k) is non-zero. After all validating tables are processed, $temp_winner$ stores the id of the winning server which can be used to match on its policy rules (filtering out other policies) or to use the goto table command to jump to a designated policy table of the server.
+
+
+\section{Dealing with multiple updates}\label{sec:todo}
+
+TBD - adding the notion of versions and cleanup/GC. probably no good way to solve infinite versions... maybe check literature on shared memory and multiple writes.
+
+
+\section{Improving the scheme with advanced OpenFlow features}\label{sec:todo}
+
+TBD - much less resources. easily solving the infinite versions issue.
+
+
+\section{Solving just concurrent policy update without consensus}\label{sec:todo}
+
+TBD - should be simple given two previous sections
 
 
 
