@@ -1,6 +1,8 @@
 %\documentclass[11pt,pdftex,letter]{article}
 \documentclass[conference]{sigcomm-alternate}
 
+%\documentclass{sig-alternate-10pt}
+
 
 %\documentclass[11pt]{llncs}
 %\documentclass[11pt,pdftex]{article}
@@ -8,7 +10,6 @@
 %\usepackage{amsthm}
 %\usepackage{algorithm}
 %\usepackage[noend]{algorithmic}
-\usepackage[lined,boxed,commentsnumbered]{algorithm2e}
 
 
 \usepackage{amssymb}
@@ -16,36 +17,17 @@
 \usepackage{amsmath}
 %\usepackage{graphicx}
 %\usepackage{color}
-\usepackage{fullpage}
 %\usepackage[pdftex]{graphicx}
 %\DeclareGraphicsRule{*}{mps}{*}{<++>}
 
-\ifx\pdftexversion\undefined
-\usepackage[dvips]{graphicx}
-\else
-  \usepackage[pdftex]{graphicx}
-  \DeclareGraphicsRule{*}{mps}{*}{}
-\fi
 
-
-\def\lf{\tiny}
-\def\rrnnll{\setcounter{linenumber}{0}}
-\def\nnll{\refstepcounter{linenumber}\lf\thelinenumber}
-\newcounter{linenumber}
-
-\usepackage[usenames,dvipsnames]{color}
 %\usepackage[caption=true,font=footnotesize]{subfig}
-\usepackage{subfigure}
 %\usepackage{xspace} 	% Guesses whether a space is needed when invoked
-\usepackage{listings}
-\usepackage{url}
-\usepackage{wrapfig}
 \usepackage{cite}
 %\usepackage{framed}
 \usepackage{framed,color}
 \definecolor{shadecolor}{rgb}{0.9,0.9,0.9}
 %
-\usepackage[boxed]{algorithm2e}
 %\usepackage{comment}
 
 %[[PKto change spacing
@@ -68,142 +50,6 @@
 % Read the url.sty source comments for usage information. Basically,
 % \url{my_url_here}.
 
-\newcommand{\CPO}{\textsc{FixTag}}
-\newcommand{\DPO}{\textsc{ReuseTag}}
-\newcommand{\PS}{\textsc{PS}}
-\newcommand{\Bit}{\textsc{Bit}}
-
-\newcommand{\gns}{Global Network State\xspace}
-\newcommand{\GNS}{\textsc{GNS}\xspace}
-
-%\newtheorem{theorem}{Theorem}[section]
-%\newtheorem{lemma}{Lemma}[section]
-%\newtheorem{claim}{Claim}[section]
-%\newtheorem{scenarios}{Scenarios}[section]
-%\newtheorem{observation}{Observation}
-%\newtheorem{takeaway}{Takeaway}[section]
-%\newtheorem{definition}{Definition}
-
-
-%
-%
-% carry over Herald's group cool way of marking changes
-\definecolor{heraldBlue}{rgb}{0.0,0.0,0.8}
-\definecolor{heraldRed}{rgb}{0.8,0.0,0.0}
-\definecolor{heraldGray}{rgb}{0.4,0.4,0.4}
-\definecolor{heraldBlack}{rgb}{0.0,0.0,0.0} %removes comment color
-\definecolor{heraldGreen}{rgb}{0.0,0.4,0.0} %removes comment color
-\def\r#1{\textcolor{heraldBlue}{\em #1}}
-\def\q#1{\textcolor{heraldRed}{\em #1}}
-\def\d#1{\textcolor{heraldBlue}{#1}}
-\def\R#1{\textcolor{heraldBlue}{#1}}
-\def\D#1{\textcolor{heraldBlue}{#1}}
-%
-%\DeclareMathOperator{\respc}{res}
-
-\newcommand{\len}{\text{d}}
-
-\newcommand{\nodes}{\mathcal{N}}
-\newcommand{\links}{\mathcal{E}}
-\newcommand{\epoints}{\Pi}
-\newcommand{\epoint}{\pi}
-\newcommand{\legsw}{\mathcal{L}}
-\newcommand{\sdnsw}{\mathcal{S}}
-\newcommand{\sw}{\legsw\sqcup\sdnsw}
-\newcommand{\fset}{FS}
-
-\newcommand{\Cost}{\gamma}
-
-\newcommand{\ft}{ft}
-
-\newcommand{\eepath}{p}
-\newcommand{\link}{e}
-
-\newcommand{\dom}{\textit{dom}}
-\newcommand{\pr}{\textit{pr}}
-\newcommand{\CPOs}{\textit{paths}}
-\newcommand{\seq}{\textit{seq}}
-\newcommand{\cur}{\textit{cur}}
-\newcommand{\Tag}{\textit{tag}}
-
-
-\newcommand{\ports}{\Pi}
-\newcommand{\seport}{\pi}
-\newcommand{\inports}{\overrightarrow{\ports}}
-\newcommand{\swports}{\overleftrightarrow{\ports}}
-\newcommand{\seinports}{\epoints^{\bullet}}
-\newcommand{\seinportsone}{\seinports_1}
-\newcommand{\seinportstwo}{\seinports_2}
-\newcommand{\seinportsthree}{\seinports_3}
-\newcommand{\neinports}{\epoints^{\circ}}
-
-\newcommand{\readt}{\texttt{r}}
-\newcommand{\writet}{\texttt{w}}
-\newcommand{\op}{\texttt{op}}
-
-
-\newcommand{\cellblocks}{CB}
-\newcommand{\cellblock}{c}
-\newcommand{\frontier}{\mathcal{F}}
-\newcommand{\MIP}{\textsc{Opt}}
-\newcommand{\smartparagraph}[1]{\noindent{\bf #1}\ }
-\newcommand{\eg}{{\it e.g.}}
-\newcommand{\ie}{{\it i.e.}}
-\newcommand{\etc}{{\it etc.}}
-\newcommand{\etal}{{\it et al.}\xspace}
-\newcommand{\id}{{\it id}}
-
-\def\TR{0}
-\def\NOTES{1}
-\def\SAVESPACE{1}
-\def\SHOWAUTHORS{1}
-\def\SHOWGIT{0}
-% variables may contain the above definitions to control build options at compile-time
-%\input{variables}
-
-\if \SAVESPACE 1
-%\usepackage{setspace}
-%\usepackage{titlesec}
-%\titlespacing\section{0pt}{7pt}{6pt}
-\usepackage{titlesec}
-\titlespacing\section{0pt}{7pt}{6pt}
-
-\fi
-
-\if \NOTES 1
-\newcommand{\mcnote}[1]{\textcolor{heraldBlue}{\small \bf [MC: #1]}}
-\newcommand{\dlnote}[1]{\textcolor{heraldBlue}{\small \bf [DL: #1]}}
-\newcommand{\ssnote}[1]{\textcolor{heraldBlue}{\small \bf [SS: #1]}}
-\newcommand{\pknote}[1]{\textcolor{heraldBlue}{\small \bf [PK: #1]}}
-%\newcommand{\problem}[1]{\textcolor{heraldRed}{\small \bf [PROBLEM: #1]}}
-\else
-\newcommand{\mcnote}[1]{}
-\newcommand{\dlnote}[1]{}
-\newcommand{\ssnote}[1]{}
-\newcommand{\pknote}[1]{}
-\newcommand{\problem}[1]{}
-\fi
-
-%Petr's definitions
-\newcommand{\ack}{\textit{ack}}
-\newcommand{\nack}{\textit{nack}}
-\newcommand{\rmw}{\textit{rmw}}
-\newcommand{\State}{\mathit{States}}
-\newcommand{\ignore}[1]{}
-\newcommand{\Pb}{CPC}
-\newcommand{\E}{\mathcal E}
-%
-
-%[[PK environments for article style
-\newtheorem{theorem}{Theorem}
-\newtheorem{conjecture}[theorem]{Conjecture}
-\newtheorem{corollary}[theorem]{Corollary}
-\newtheorem{definition}[theorem]{Definition}
-\newtheorem{lemma}[theorem]{Lemma}
-\newtheorem{observation}[theorem]{Observation}
-\newenvironment{proof}[1][Proof]{\noindent\textbf{#1.} }{\hfill $\Box$\\[2mm]}
-\newenvironment{proofsketch}[1][Proof sketch]{\noindent\textbf{#1.} }{\hfill $\Box$\\[2mm]}
-%]]
 
 \begin{document}
 \sloppy
@@ -218,12 +64,16 @@
 
 \title{Solving Consensus with OpenFlow}
 
-\title{Efficient Coordination of Distributed SDN Controllers:\\The Case for Multi-Write Consensus}
+\title{One-Shot Coordination of Distributed SDN Controllers:\\The Case for Multi-Write Consensus}
 
-\title{Consistent Coordination of Distributed SDN Controllers:\\Leveraging the Consensus Power of OpenFlow}
+\title{One-Shot Coordination of Distributed SDN Controllers:\\On the Consensus Power of OpenFlow}
 
 
-\author{Liron, Stefan, Petr}
+\author{
+Liron Schiff\thanks{Supported by the European Research Council (ERC) Starting Grant no. 259085 and by the Israel Science Foundation Grant no.~1386/11.} $^1$, 
+Stefan Schmid$^2$, Petr Kuznetsov$^3$ \\
+\small $^1$ Tel Aviv University, Israel; $^2$ TU Berlin \& T-Labs, Germany; $^3$ ParisTech, France
+}
 
 %\institute{}
 
@@ -250,15 +100,25 @@
 %\keywords{}
 
 
-
 \begin{abstract}
-idea: reliable and scalable SDN needs distributed control; consistent network updates
-is a key challenge, especially if distributed;
+The control plane of future Software-Defined Networks (SDNs)
+is likely to be \emph{distributed}: a redundant control plane
+can ensure a high availability, and a spatially distributed
+control plane allows to handle time-critical dataplane
+events close to their origin. Moreover, future SDNs may also
+allow multiple administrators or participatory users to update
+policies concurrently, e.g., by offering transactional interfaces. 
+However, not much is known today about how to implement 
+a consistent distributed control plane which supports concurrent
+policy installations. 
 
-idea: this paper shows that Openflow can be leveraged to provide strong consensus
-abstractions! the case for the long-forgotten multi-write
-
-idea: we show how to synchronize controllers, single update but also multiple and efficient
+In this paper, we propose to coordinate distributed controllers
+directly on the Openflow switches: exploiting classic results
+on multi-writer consensus, we show how to use Openflow 
+to synchronize controllers and install policies in a consistent
+manner, \emph{in one shot}. Our approach is attractive as it
+does not require complicated helping mechanisms in case of controller
+failures. 
 \end{abstract}
 
 %\vspace{1cm}
@@ -288,22 +148,69 @@ idea: we show how to synchronize controllers, single update but also multiple an
 
 \section{Introduction}\label{sec:intro}
 
-idea: reliable and scalable SDN needs distributed control; consistent network updates
-is a key challenge, especially if distributed;
+By consolidating and outsourcing the control over the dataplane switches to a logically
+centralized controller,
+Software-defined networks (SDNs) simplify the network management and facilitate faster
+innovations, as the (software) control plane is decoupled and can evolve independently.
+Moreover, Openflow, the standard SDN protocol today, introduces many generalizations,
+in terms of traffic engineering, definition of flows, as well as in-band network functionalities,
+by relying on a simple match-action paradigm which allows us to define
+forwarding rules based not only on Layer-2, but also Layer-3 and Layer-4 (and possibly beyond)
+header fields.
+ 
+While the logically centralized network perspective has the potential to simplify
+the network management---many network tasks are inherently non-local---and introduces
+many flexibilities,
+managing and operating an SDN in a more adaptive but consistent manner is non-trivial, even with SDN.
+A particularly interesting problem regards the consistent installation of new policies
+or routes.~\cite{todo,todo,todo} While implementing consistent network updates 
+is challenging already from the perspective of a single controller, there exists a wide consensus
+that the logically centralized SDN control planes will likely be \emph{actually distributed} in the future.
 
+The reason for implementing SDN control planes in a distributed manner are manyfold.
+First, in order to provide a high availability as well as a minimal degree of
+fault-tolerance, controllers should be redundant~\cite{onix,stn,todo}: a failure
+of one controller can be masked by other controllers. Second, it has also been proposed
+to distribute controllers \emph{spatially}, in order to handle latency-sensitive and
+communication intensive control plane events close to their origin.~\cite{devoflow,kandoo,jukka,disco}
+Third, larger SDNs are likely to be operated by multiple administrators or may even offer
+participatory interfaces where different users can install and trigger policy changes
+concurrently.~\cite{participatory,stn}
+
+However, today, we do not have a good understanding of how to realize
+such distributed control planes. The problem is essentially a distributed
+computing one: Multiple controllers may simultaneously try to
+install conflicting policies, and a consensus must be reached which one of
+the two is actually installed. Moreover, controllers may also fail,
+and a mechanism must be provided to complete an update in this scenario.
 
 \subsection{Our Contributions}
 
-idea: this paper shows that Openflow can be leveraged to provide strong consensus
-abstractions! the case for the long-forgotten multi-write
-
-idea: we show how to synchronize controllers, single update but also multiple and efficient
+In this paper, we propose an approach to solve these problems.
+In particular, we promote a very direct approach to coordinate controllers,
+using the Openflow bundle feature to make an atomic consensus and update:
+using one message, a single controller will be able to install its policy,
+\emph{in one shot}. Our approach relies on a classic result in 
+distributed computing, namely multi-writer consensus. Interestingly,
+this result is not well-known even in the distributed computing community,
+and we believe that the SDN paradigm offers a very practical
+application for it. We believe that our approach nicely complements
+existing, more theoretical literature on distributed control planes; for example,
+it shows how to realize STN~\cite{stn}.
 
 \subsection{Organization}
 
 The remainder of this paper is organized as follows.
+In Section~\ref{sec:background}, we provide the theoretical
+background on our approach. Section~\ref{sec:realization}
+then discusses the basic implementation of this approach in Openflow.
+Section~\ref{sec:extensions} discusses practical issues and extensions.
+After reviewing related literature in Section~\ref{sec:relwork},
+we conclude our work in
+Section~\ref{sec:conclusion}.
 
-\section{Background}
+
+\section{Fundamental Idea}\label{sec:background}
 
 idea: multi-write consensus, a not well-known result!
 
@@ -313,7 +220,10 @@ In order to participate, a server i, writes its suggested value $V_i$ and atomic
 Note that a snapshot could replace the two reading phases.
 
 
-\section{SDN switch configuration space as shared memory}\label{sec:todo}
+
+\section{One-Touch Policy Update}\label{sec:realization}
+
+SDN switch configuration space as shared memory
 
 
 We address the problem of committing consistent policies to SDN switch concurrently by multiple controllers.
@@ -323,9 +233,6 @@ Our first observation is that a match-action configuration which is accessed by 
 
 
 Going back to the policy update problem, the consensus scheme allow all servers to decide on next policy by using consensus value as policy identifier, and writing the policy in advance. However this scheme doesn't actually apply the policy on incoming packets and it remains to configure the switch according to the next policy once it is decided. Making this scheme fail safe (handling failure of winning server) can be ensured by allowing any server to reconfigure the switch.
-
-\section{The one touch policy update problem}\label{sec:todo}
-
 
 In some scenarios it may be desirable to shorten the policy update time by avoiding the consensus reading and policy configuration step. We define this as the one touch policy update, namely we require each server to contact the switch only once in order to (try and) update the policy, in other words participating in reaching consensus and applying it with one atomic write. Solving this problem also has significance in understanding the strength of the SDN switch computation model.
 
@@ -337,7 +244,9 @@ However, reading each memory location is not enough, as the scheme requires to m
 Our compact validation use additional temp variable, $temp_winner$, to hold the current best consensus candidate. Each of the n validating tables checks different "column" in the matrix and update $temp_winner$ to keep track of the winner so far (after examining a prefix sub set of the columns). The entry t in table k $(0<=k<n)$  matches the case where current winner=t and location $(t,k)$ in the matrix (packet header) equals 1 and location (k,k) is non-zero. After all validating tables are processed, $temp_winner$ stores the id of the winning server which can be used to match on its policy rules (filtering out other policies) or to use the goto table command to jump to a designated policy table of the server.
 
 
-\section{Dealing with multiple updates}\label{sec:todo}
+\section{Discussion and Extensions}\label{sec:extension}
+
+\subsection{Dealing with multiple updates}
 
 TBD - adding the notion of versions and cleanup/GC. probably no good way to solve infinite versions... maybe check literature on shared memory and multiple writes.
 
@@ -364,8 +273,9 @@ ideas: the power of in-band
 
 ideas: the missing link for STN, but also others
 
+{
 \bibliographystyle{abbrv}
 \bibliography{references}  % main.bib is the name of the Bibliography in this case
-
+}
 
 \end{document}
