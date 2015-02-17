@@ -210,7 +210,7 @@ we conclude our work in
 Section~\ref{sec:conclusion}.
 
 
-\section{Fundamental Idea}\label{sec:background}
+\section{The Underlying Theory}\label{sec:background}
 
 idea: multi-write consensus, a not well-known result!
 
@@ -221,7 +221,7 @@ Note that a snapshot could replace the two reading phases.
 
 
 
-\section{One-Touch Policy Update}\label{sec:realization}
+\section{Basic One-Touch Mechanism}\label{sec:realization}
 
 SDN switch configuration space as shared memory
 
@@ -244,7 +244,7 @@ However, reading each memory location is not enough, as the scheme requires to m
 Our compact validation use additional temp variable, $temp_winner$, to hold the current best consensus candidate. Each of the n validating tables checks different "column" in the matrix and update $temp_winner$ to keep track of the winner so far (after examining a prefix sub set of the columns). The entry t in table k $(0<=k<n)$  matches the case where current winner=t and location $(t,k)$ in the matrix (packet header) equals 1 and location (k,k) is non-zero. After all validating tables are processed, $temp_winner$ stores the id of the winning server which can be used to match on its policy rules (filtering out other policies) or to use the goto table command to jump to a designated policy table of the server.
 
 
-\section{Discussion and Extensions}\label{sec:extension}
+\section{The Practical Implementation}\label{sec:extension}
 
 \subsection{Dealing with multiple updates}
 
