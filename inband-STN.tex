@@ -1,4 +1,7 @@
-\documentclass[11pt,pdftex,letter]{article}
+%\documentclass[11pt,pdftex,letter]{article}
+\documentclass[conference]{sigcomm-alternate}
+
+
 %\documentclass[11pt]{llncs}
 %\documentclass[11pt,pdftex]{article}
 %\documentclass{sig-alternate-10pt}
@@ -215,6 +218,9 @@
 
 \title{Solving Consensus with OpenFlow}
 
+\title{Efficient Coordination of Distributed SDN Controllers:\\The Case for Multi-Write Consensus}
+
+\title{Consistent Coordination of Distributed SDN Controllers:\\Leveraging the Consensus Power of OpenFlow}
 
 
 \author{Liron, Stefan, Petr}
@@ -246,7 +252,13 @@
 
 
 \begin{abstract}
-We solve consensus with OpenFlow, using multi-write
+idea: reliable and scalable SDN needs distributed control; consistent network updates
+is a key challenge, especially if distributed;
+
+idea: this paper shows that Openflow can be leveraged to provide strong consensus
+abstractions! the case for the long-forgotten multi-write
+
+idea: we show how to synchronize controllers, single update but also multiple and efficient
 \end{abstract}
 
 %\vspace{1cm}
@@ -276,6 +288,30 @@ We solve consensus with OpenFlow, using multi-write
 
 \section{Introduction}\label{sec:intro}
 
+idea: reliable and scalable SDN needs distributed control; consistent network updates
+is a key challenge, especially if distributed;
+
+
+\subsection{Our Contributions}
+
+idea: this paper shows that Openflow can be leveraged to provide strong consensus
+abstractions! the case for the long-forgotten multi-write
+
+idea: we show how to synchronize controllers, single update but also multiple and efficient
+
+\subsection{Organization}
+
+The remainder of this paper is organized as follows.
+
+\section{Background}
+
+idea: multi-write consensus, a not well-known result!
+
+In order to solve consensus we suggest to use the atomic multiple entries update capability (which is discussed in OpenFlow standard). A shared memory system that supports atomic write to (enough) multiple locations is known to allow the implementation of consensus objects. For example consider the following implementation utilizing $n^2$ memory locations, $M_{i,j}$, where $i,j\in[n]$, and the suggested values $\{v_i\}_{i\in [n]}$. All locations are initialized to zero.
+
+In order to participate, a server i, writes its suggested value $V_i$ and atomically rewrites row i ($M_{i,*}$) with value "1" and column i ($M_{*,i}$) with value "2". After the atomic write, a server $i$ first reads the diagonal ($M_{j,j}$ for $j\in [n]$), and consider all observed servers as candidate set S.  Then server i reads all candidates intersections (locations $M_{j,k}$ where $j,k\in S$. And computes the winner server id w that was overwritten by all other candidates, i.e. such that $M_{w,k}=2$ for all $k\in S {w}$. The consensus value is $v_w$.
+Note that a snapshot could replace the two reading phases.
+
 
 \section{SDN switch configuration space as shared memory}\label{sec:todo}
 
@@ -285,10 +321,6 @@ We show that assuming minimalistic control protocol, SDN switch configuration sp
 
 Our first observation is that a match-action configuration which is accessed by multiple controllers can be considered as shared memory. Note however that standard memory map and index/offset to a word, while Flow Table entries are not indexed. To overcome this we can use the match part of an entry as the index and the action part as the word value.
 
-In order to solve consensus we suggest to use the atomic multiple entries update capability (which is discussed in OpenFlow standard). A shared memory system that supports atomic write to (enough) multiple locations is known to allow the implementation of consensus objects. For example consider the following implementation utilizing $n^2$ memory locations, $M_{i,j}$, where $i,j\in[n]$, and the suggested values $\{v_i\}_{i\in [n]}$. All locations are initialized to zero.
-
-In order to participate, a server i, writes its suggested value $V_i$ and atomically rewrites row i ($M_{i,*}$) with value "1" and column i ($M_{*,i}$) with value "2". After the atomic write, a server $i$ first reads the diagonal ($M_{j,j}$ for $j\in [n]$), and consider all observed servers as candidate set S.  Then server i reads all candidates intersections (locations $M_{j,k}$ where $j,k\in S$. And computes the winner server id w that was overwritten by all other candidates, i.e. such that $M_{w,k}=2$ for all $k\in S {w}$. The consensus value is $v_w$.
-Note that a snapshot could replace the two reading phases.
 
 Going back to the policy update problem, the consensus scheme allow all servers to decide on next policy by using consensus value as policy identifier, and writing the policy in advance. However this scheme doesn't actually apply the policy on incoming packets and it remains to configure the switch according to the next policy once it is decided. Making this scheme fail safe (handling failure of winning server) can be ensured by allowing any server to reconfigure the switch.
 
@@ -320,6 +352,17 @@ TBD - much less resources. easily solving the infinite versions issue.
 TBD - should be simple given two previous sections
 
 
+\section{Related Work}\label{sec:relwork}
+
+ideas: distributed control planes
+
+ideas: known consensus results and impossibilities
+
+ideas: the power of in-band
+
+\section{Conclusion}\label{sec:conclusion}
+
+ideas: the missing link for STN, but also others
 
 \bibliographystyle{abbrv}
 \bibliography{references}  % main.bib is the name of the Bibliography in this case
