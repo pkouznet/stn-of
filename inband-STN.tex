@@ -27,6 +27,23 @@
 %\usepackage{framed}
 \usepackage{framed,color}
 \definecolor{shadecolor}{rgb}{0.9,0.9,0.9}
+
+%\usepackage{algorithm}
+%\usepackage[noend]{algorithmic}
+
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+\usepackage{algorithm}
+\algrenewcommand\algorithmicreturn{\State \textbf{return}}
+\algdef{SE}[DOWHILE]{Do}{doWhile}{\algorithmicdo}[1]{\algorithmicwhile\ #1}%
+
+\algdef{SE}[TRANSACT]{StartTransaction}{EndTransaction}{\algorithmicaaa}[1]{\algorithmicwhile\ #1}%
+
+\algblock[<block>]{<start>}{<end>}
+\algblockdefx[Transaction]{startTransaction}{endTransaction} %
+[0]{ \textbf{start transaction}} %
+[1][res]{ $#1\gets$  \textbf{commit transaction}}
+
 %
 %\usepackage{comment}
 
@@ -223,16 +240,22 @@ Note that a snapshot could replace the two reading phases.
 
 \section{Basic One-Touch Mechanism}\label{sec:realization}
 
-SDN switch configuration space as shared memory
-
-
 We address the problem of committing consistent policies to SDN switch concurrently by multiple controllers.
 We show that assuming minimalistic control protocol, SDN switch configuration space can be used to implement a consensus object thereby allowing controllers to agree on each next policy update.
 
-Our first observation is that a match-action configuration which is accessed by multiple controllers can be considered as shared memory. Note however that standard memory map and index/offset to a word, while Flow Table entries are not indexed. To overcome this we can use the match part of an entry as the index and the action part as the word value.
+\subsection{SDN switch configuration space as shared memory}
+
+
+
+
+
+Our first observation is that a match-action configuration which is accessed by multiple controllers can be considered as shared memory. Note however that standard memory map and index/offset to a word, while Flow Table entries are not necessarily indexed. However, we assume that each flow entry has some property that allows the operator to specifically reference and update it, for example OpenFlow entry's cookie. In cases where this property value can't be determined by the operator, we can use other variable entry properties to store the index, for example we can represent memory value $v$ in offset $i$ by an match-action entry whose match is $in\_port = i$ and action is "forward port $x$".
+%To overcome this we can use the match part of an entry as the index and the action part as the word value.
 
 
 Going back to the policy update problem, the consensus scheme allow all servers to decide on next policy by using consensus value as policy identifier, and writing the policy in advance. However this scheme doesn't actually apply the policy on incoming packets and it remains to configure the switch according to the next policy once it is decided. Making this scheme fail safe (handling failure of winning server) can be ensured by allowing any server to reconfigure the switch.
+
+\subsection{ One-Touch}
 
 In some scenarios it may be desirable to shorten the policy update time by avoiding the consensus reading and policy configuration step. We define this as the one touch policy update, namely we require each server to contact the switch only once in order to (try and) update the policy, in other words participating in reaching consensus and applying it with one atomic write. Solving this problem also has significance in understanding the strength of the SDN switch computation model.
 
@@ -252,9 +275,45 @@ TBD - adding the notion of versions and cleanup/GC. probably no good way to solv
 
 
 \section{Improving the scheme with advanced OpenFlow features}\label{sec:todo}
+Till now we considered a model that allows multiple updates to match-action entries. Here we extends the model with actions create-entry and delete-entry that may failed and abort the whole transaction depending on the existence on non-existence of specific entries prior to the action.
+%TBD - much less resources. easily solving the infinite versions issue.
 
-TBD - much less resources. easily solving the infinite versions issue.
+Next we show how such actions can be used to implement consensus with much less resources. We use entry id as a property used to reference specific entry.
 
+\begin{algorithm}[t]
+    \caption{Advanced Update Algorithm}
+    \label{alg:template}
+    \begin{algorithmic}[1]    
+    \Require update requests $U$
+    \Ensure installed policy is consistent with previous one
+    \If {first time}
+		%\Do 
+		\Repeat 
+			\State $my\_cur\_id\gets$ unused entry id 
+    		\State $res \gets $ create entry with id $my\_cur\_id$
+    	\Until{$res=False$}
+    	%\doWhile{$res=False$}
+    \EndIf
+ 		%\Do 
+ 		\Repeat 
+ 			\State $cur\_id\gets$ read current entry id 
+ 			\State $cur\_policy\gets$ read current policy
+ 			\State $my\_next\_id\gets$ unused entry id 
+ 			\State $new\_policy\gets$ apply update requests on $cur\_policy$
+ 			\startTransaction
+	 			\State delete entry with id $1<<(\log n) + cur\_id$
+	 			\State create entry with id $1<<(\log n) + my\_cur\_id$
+	 			\State add $new\_policy$ rules conditioned on $metadata=my\_cur\_id$
+	 			\State update policy selector to $my\_cur\_id$
+ 			\endTransaction
+     		\State $res \gets $ commit transaction 
+     	\Until{$res=False$}
+     	%\doWhile{$res=False$}
+%   \vspace{3mm}
+
+    \end{algorithmic}
+\end{algorithm}
+    
 
 \section{Solving just concurrent policy update without consensus}\label{sec:todo}
 
