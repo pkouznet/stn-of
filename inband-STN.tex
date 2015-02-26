@@ -83,11 +83,13 @@
 
 \title{One-Shot Coordination of Distributed SDN Controllers:\\The Case for Multi-Write Consensus}
 
-\title{One-Shot Coordination of Distributed SDN Controllers:\\On the Consensus Power of OpenFlow}
+%\title{One-Shot Coordination of Distributed SDN Controllers:\\On the Consensus Power of OpenFlow}
+
+\title{Coordinating Distributed SDN Controllers:\\On the Consensus Power of OpenFlow}
 
 
 \author{
-Liron Schiff\thanks{Supported by the European Research Council (ERC) Starting Grant no. 259085 and by the Israel Science Foundation Grant no.~1386/11.} $^1$, 
+Liron Schiff\thanks{Supported by the European Research Council (ERC) Starting Grant no. 259085 and by the Israel Science Foundation Grant no.~1386/11.} $^1$,
 Stefan Schmid$^2$, Petr Kuznetsov$^3$ \\
 \small $^1$ Tel Aviv University, Israel; $^2$ TU Berlin \& T-Labs, Germany; $^3$ ParisTech, France
 }
@@ -118,24 +120,22 @@ Stefan Schmid$^2$, Petr Kuznetsov$^3$ \\
 
 
 \begin{abstract}
-The control plane of future Software-Defined Networks (SDNs)
-is likely to be \emph{distributed}: a redundant control plane
+The control plane of modern Software-Defined Networks (SDNs)
+is \emph{distributed}: a redundant control plane
 can ensure a high availability, and a spatially distributed
 control plane allows to handle time-critical dataplane
-events close to their origin. Moreover, future SDNs may also
-allow multiple administrators or participatory users to update
-policies concurrently, e.g., by offering transactional interfaces. 
-However, not much is known today about how to implement 
-a consistent distributed control plane which supports concurrent
-policy installations. 
-
-In this paper, we propose to coordinate distributed controllers
-directly on the Openflow switches: exploiting classic results
-on multi-writer consensus, we show how to use Openflow 
-to synchronize controllers and install policies in a consistent
-manner, \emph{in one shot}. Our approach is attractive as it
-does not require complicated helping mechanisms in case of controller
-failures. 
+events close to their origins. Moreover, an SDN may 
+be managed by multiple administrators simultaneously. 
+However, not much is known today about how to implement
+such a distributed control plane. 
+In this paper, we show that powerful coordination objects
+can be implemented using today's Openflow switches.
+In particular, we describe the implementation of test\&set primitives 
+as well as multi-writer consensus objects which can be used
+to implement atomic transactions with all-or-nothing semantics.
+Interestingly, our approach allows controllers to detect and
+resolve very general notions of conflicts, not only, e.g., conflicts
+due to overlapping flow spaces but also conflicts based on network load.
 \end{abstract}
 
 %\vspace{1cm}
@@ -174,19 +174,19 @@ in terms of traffic engineering, definition of flows, as well as in-band network
 by relying on a simple match-action paradigm which allows us to define
 forwarding rules based not only on Layer-2, but also Layer-3 and Layer-4 (and possibly beyond)
 header fields.
- 
+
 While the logically centralized network perspective has the potential to simplify
 the network management---many network tasks are inherently non-local---and introduces
 many flexibilities,
 managing and operating an SDN in a more adaptive but consistent manner is non-trivial, even with SDN.
 A particularly interesting problem regards the consistent installation of new policies
-or routes.~\cite{todo,todo,todo} While implementing consistent network updates 
+or routes.~\cite{network-update,roger-hotnets,correct} While implementing consistent network updates
 is challenging already from the perspective of a single controller, there exists a wide consensus
 that the logically centralized SDN control planes will likely be \emph{actually distributed} in the future.
 
 The reason for implementing SDN control planes in a distributed manner are manyfold.
 First, in order to provide a high availability as well as a minimal degree of
-fault-tolerance, controllers should be redundant~\cite{onix,stn,todo}: a failure
+fault-tolerance, controllers should be redundant~\cite{onix,stn,onos}: a failure
 of one controller can be masked by other controllers. Second, it has also been proposed
 to distribute controllers \emph{spatially}, in order to handle latency-sensitive and
 communication intensive control plane events close to their origin.~\cite{devoflow,kandoo,jukka,disco}
@@ -196,24 +196,32 @@ concurrently.~\cite{participatory,stn}
 
 However, today, we do not have a good understanding of how to realize
 such distributed control planes. The problem is essentially a distributed
-computing one: Multiple controllers may simultaneously try to
-install conflicting policies, and a consensus must be reached which one of
-the two is actually installed. Moreover, controllers may also fail,
-and a mechanism must be provided to complete an update in this scenario.
+systems one: Multiple controllers may simultaneously try to
+install conflicting updates, e.g., rules (of the same priority) defined over non-disjoint
+flow space, or load-balancing policies which, if combined, actually \emph{increase} the load~\cite{log-cent}. 
+Moreover, controllers may also fail,
+before their update has been completed. 
 
 \subsection{Our Contributions}
 
-In this paper, we propose an approach to solve these problems.
-In particular, we promote a very direct approach to coordinate controllers,
-using the Openflow bundle feature to make an atomic consensus and update:
-using one message, a single controller will be able to install its policy,
-\emph{in one shot}. Our approach relies on a classic result in 
-distributed computing, namely multi-writer consensus. Interestingly,
-this result is not well-known even in the distributed computing community,
-and we believe that the SDN paradigm offers a very practical
-application for it. We believe that our approach nicely complements
+In this paper, we show that powerful synchronization primitives
+can be implemented in Openflow, allowing controllers to implement
+non-trivial atomic transactions, and detect and
+automatically resolve conflicts. In particular, we show how to implement
+the classic distributed computing primitive
+\emph{test\&set}, supporting the conditional installation of new rules,
+and we show how to use the bundle feature to implement
+multi-writer objects, an efficient means to compute consensus;
+interestingly, our implementation can also be used to compute a consensus
+and install the winner's rule \emph{atomically}, using one message.
+Moreover, our approach allows to detect and resolve very general notions of conflicts:
+conflicts may be defined, for example, for rules of the same priority over
+defined over non-independent flow spaces, but may also depend, e.g., on 
+network load (based on counters).
+We believe that our approach nicely complements
 existing, more theoretical literature on distributed control planes; for example,
-it shows how to realize STN~\cite{stn}.
+it also shows how to realize the atomic read-modify-write primitive postulated in
+STN~\cite{stn}.
 
 \subsection{Organization}
 
@@ -283,22 +291,22 @@ Next we show how such actions can be used to implement consensus with much less 
 \begin{algorithm}[t]
     \caption{Advanced Update Algorithm}
     \label{alg:template}
-    \begin{algorithmic}[1]    
+    \begin{algorithmic}[1]
     \Require update requests $U$
     \Ensure installed policy is consistent with previous one
     \If {first time}
-		%\Do 
-		\Repeat 
-			\State $my\_cur\_id\gets$ unused entry id 
+		%\Do
+		\Repeat
+			\State $my\_cur\_id\gets$ unused entry id
     		\State $res \gets $ create entry with id $my\_cur\_id$
     	\Until{$res=False$}
     	%\doWhile{$res=False$}
     \EndIf
- 		%\Do 
- 		\Repeat 
- 			\State $cur\_id\gets$ read current entry id 
+ 		%\Do
+ 		\Repeat
+ 			\State $cur\_id\gets$ read current entry id
  			\State $cur\_policy\gets$ read current policy
- 			\State $my\_next\_id\gets$ unused entry id 
+ 			\State $my\_next\_id\gets$ unused entry id
  			\State $new\_policy\gets$ apply update requests on $cur\_policy$
  			\startTransaction
 	 			\State delete entry with id $1<<(\log n) + cur\_id$
@@ -306,14 +314,14 @@ Next we show how such actions can be used to implement consensus with much less 
 	 			\State add $new\_policy$ rules conditioned on $metadata=my\_cur\_id$
 	 			\State update policy selector to $my\_cur\_id$
  			\endTransaction
-     		\State $res \gets $ commit transaction 
+     		\State $res \gets $ commit transaction
      	\Until{$res=False$}
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
 
     \end{algorithmic}
 \end{algorithm}
-    
+
 
 \section{Solving just concurrent policy update without consensus}\label{sec:todo}
 
@@ -322,15 +330,91 @@ TBD - should be simple given two previous sections
 
 \section{Related Work}\label{sec:relwork}
 
-ideas: distributed control planes
+There exists a wide consensus that SDN control planes need to be distributed.~\cite{onos,onix,elasticon} 
+Onix~\cite{onix} is one of the earliest proposals, and introduced the 
+the notion of Network Information Base (NIB), abstracting network state
+distribution from control logic, but 
+requiring mechanisms for the detection and resolution of conflicts. 
+Also spatially distributed control planes to improve scalability and
+latency have been studied intensively
+in the literature~\cite{kandoo,ctrl-place,hotsdn13loc}
+proposes an elastic distributed controller architecture. 
 
-ideas: known consensus results and impossibilities
+Operating and updating SDNs consistently is already non-trivial
+from the perspective of a single controller. Reitblatt et al.~~\cite{network-update} 
+introduced the notion of
+per-packet consistency and proposed a 2-phase update protocol based on tagging.
+%, and described the \emph{two-phase update} technique, also used in our algorithms.
+Mahajan and Wattenhofer~\cite{roger-hotnets} considered weaker transient
+consistency guarantees, and proposed more efficient network update algorithms
+accordingly. Ludwig et al.~~\cite{hotnets14update} studied algorithms for secure
+network updates where packets are forced to traverse certain waypoints or
+middleboxes. Ghorbani et al.~~\cite{correct-virt} recently argued for the design
+of network update algorithms that provide even stronger consistency guarantees.
 
-ideas: the power of in-band
+To the best of our knowledge, the only paper explicitly addressing the consistent
+network update problem from a distributed controller perspective is STN~\cite{stn}:
+STN provides a transactional interface offering all-or-nothing semantics and serializability
+(the ``holy grail'' of safety properties), 
+allowing
+controllers to install policies in a conflict-free manner; if some controllers fail,
+other controllers can take over. STN~\cite{stn} is based on 
+atomic
+read-modify-write primitives, but while this primitive is postulated, no implementation is
+described. In this paper, we provide this missing link, and also show that other useful and
+much more powerful synchronization primitives can be implemented. 
+
+Our work is also closely related to the recent work on providing more high-level
+abstractions and programming languages for SDNs, such as Frenetic~\cite{frenetic}, 
+also enabling policy composition~\cite{pyretic}.  
+
+In terms of distributed computing: TODO PETR: maybe modify a bit the text below
+and also write more about multi-writer consensus etc.?
+
+\noindent\textbf{Distributed Computing.}
+There is a long tradition of defining correctness of a concurrent system via
+an equivalence to a sequential one~\cite{Pap79-serial,Lam79,HW90}.  The notion
+of sequentially composable histories is reminiscent of
+linearizability~\cite{HW90}, where a history of operations concurrently
+applied by a collection of processes is equivalent to a history in which the
+operations are in a sequential order, respecting their real-time precedence.
+In contrast, our sequentially composable histories impose requirements not
+only on high-level invocations and responses, but also on the way the traffic
+is processed. We require that the committed policies constitute a
+conflict-free sequential history, but, additionally,  we expect that each
+\emph{path} witnesses only a prefix of this history, consisting of all
+requests that were committed before the path was initiated.
+%
+The transactional interface exported by the CPC abstraction is inspired by the
+work on speculative concurrency control using software transactional memory
+(STM)~\cite{stm-st95}.
+%, thus the  term \emph{software transactional networking}.
+Our interface is however intended to model realistic network
+management operations, which makes it simpler than recent
+dynamic STM models~\cite{dstm}.
+%In particular, the sets of rules to be installed by a policy update do not depend on the state of the
+%network.
+
+Extending the interface to dynamic policies that adapt their behavior based on
+the current network state sounds like a promising research direction.  On the
+other hand, our criterion of sequential composability is more complex than
+traditional STM correctness properties in that it imposes restrictions not only
+on the high-level interface exported to the control plane, but also on the
+paths taken by the data-plane packets.
+Also, we assumed that controllers are subject to failures, which is usually not
+assumed by STM implementations.
+
 
 \section{Conclusion}\label{sec:conclusion}
 
-ideas: the missing link for STN, but also others
+This paper showed that powerful synchronization primitives
+from distributed computing can be implemented in Openflow. 
+Our work complements existing research on the design of
+distributed control planes, and also provides some missing links,
+e.g., for the transactional approach taken by STN. 
+We also hope that our work can nourish the ongoing discussion of
+what additional in-band features may be useful for future
+versions of Openflow.
 
 {
 \bibliographystyle{abbrv}
