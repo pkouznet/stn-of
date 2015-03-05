@@ -1,0 +1,162 @@
+\def\noopsort#1{} \def\No{\kern-.25em\lower.2ex\hbox{\char'27}}
+  \def\no#1{\relax} \def\http#1{{\\{\small\tt
+  http://www-litp.ibp.fr:80/{$\sim$}#1}}}
+\begin{thebibliography}{10}
+
+\bibitem{multi-objects}
+Y.~Afek, M.~Merritt, and G.~Taubenfeld.
+\newblock The power of multi-objects (extended abstract).
+\newblock In {\em Proceedings of the Fifteenth Annual ACM Symposium on
+  Principles of Distributed Computing}, PODC '96, pages 213--222, 1996.
+
+\bibitem{onos}
+P.~Berde, M.~Gerola, J.~Hart, Y.~Higuchi, M.~Kobayashi, T.~Koide, B.~Lantz,
+  B.~O'Connor, P.~Radoslavov, W.~Snow, and G.~Parulkar.
+\newblock Onos: Towards an open, distributed sdn os.
+\newblock In {\em Proc. ACM HotSDN}, pages 1--6, 2014.
+
+\bibitem{stn}
+M.~Canini, P.~Kuznetsov, D.~Levin, and S.~Schmid.
+\newblock Software transactional networking: Concurrent and consistent policy
+  composition.
+\newblock In {\em Proc. ACM SIGCOMM Workshop on Hot Topics in Software Defined
+  Networking (HotSDN)}, August 2013.
+
+\bibitem{cpc}
+M.~Canini, P.~Kuznetsov, D.~Levin, and S.~Schmid.
+\newblock A distributed sdn control plane for consistent network updates.
+\newblock In {\em Proc. 34th IEEE Conference on Computer Communications
+  (INFOCOM)}, 2015.
+
+\bibitem{devoflow}
+A.~R. Curtis, J.~C. Mogul, J.~Tourrilhes, P.~Yalagandula, P.~Sharma, and
+  S.~Banerjee.
+\newblock Devoflow: Scaling flow management for high-performance networks.
+\newblock In {\em Proc. SIGCOMM}, pages 254--265, 2011.
+
+\bibitem{elasticon}
+A.~Dixit, F.~Hao, S.~Mukherjee, T.~Lakshman, and R.~Kompella.
+\newblock {Towards an Elastic Distributed SDN Controller}.
+\newblock In {\em HotSDN}, 2013.
+
+\bibitem{participatory}
+A.~D. Ferguson, A.~Guha, C.~Liang, R.~Fonseca, and S.~Krishnamurthy.
+\newblock {Participatory Networking: An API for Application Control of SDNs}.
+\newblock In {\em SIGCOMM}, 2013.
+
+\bibitem{frenetic}
+N.~Foster, R.~Harrison, M.~J. Freedman, C.~Monsanto, J.~Rexford, A.~Story, and
+  D.~Walker.
+\newblock {Frenetic: A Network Programming Language}.
+\newblock In {\em ACM ICFP}, 2011.
+
+\bibitem{correct}
+S.~Ghorbani and B.~Godfrey.
+\newblock Towards correct network virtualization.
+\newblock In {\em Proc. ACM HotSDN}, pages 109--114, 2014.
+
+\bibitem{correct-virt}
+S.~Ghorbani and B.~Godfrey.
+\newblock {Towards Correct Network Virtualization}.
+\newblock In {\em HotSDN}, 2014.
+
+\bibitem{cap-theorem}
+S.~Gilbert and N.~Lynch.
+\newblock Brewer's conjecture and the feasibility of consistent, available,
+  partition-tolerant web services.
+\newblock {\em SIGACT News}, 33(2):51--59, June 2002.
+
+\bibitem{kandoo}
+S.~Hassas~Yeganeh and Y.~Ganjali.
+\newblock {Kandoo: A Framework for Efficient and Scalable Offloading of Control
+  Applications}.
+\newblock In {\em HotSDN}, 2012.
+
+\bibitem{ctrl-place}
+B.~Heller, R.~Sherwood, and N.~McKeown.
+\newblock {The Controller Placement Problem}.
+\newblock In {\em HotSDN}, 2012.
+
+\bibitem{dstm}
+M.~Herlihy, V.~Luchangco, M.~Moir, and W.~N. Scherer, III.
+\newblock {Software Transactional Memory for Dynamic-sized Data Structures}.
+\newblock In {\em PODC}, 2003.
+
+\bibitem{HW90}
+M.~Herlihy and J.~M. Wing.
+\newblock {Linearizability: A Correctness Condition for Concurrent Objects}.
+\newblock {\em ACM Trans. Program. Lang. Syst.}, 12(3):463--492, 1990.
+
+\bibitem{onix}
+T.~Koponen, M.~Casado, N.~Gude, J.~Stribling, L.~Poutievski, M.~Zhu,
+  R.~Ramanathan, Y.~Iwata, H.~Inoue, T.~Hama, and S.~Shenker.
+\newblock {Onix: A Distributed Control Platform for Large-scale Production
+  Networks}.
+\newblock In {\em OSDI}, 2010.
+
+\bibitem{Lam79}
+L.~Lamport.
+\newblock {How to Make a Multiprocessor Computer that Correctly Executes
+  Multiprocess Programs}.
+\newblock {\em IEEE Trans. Comput.}, 28(9), 1979.
+
+\bibitem{log-cent}
+D.~Levin, A.~Wundsam, B.~Heller, N.~Handigol, and A.~Feldmann.
+\newblock {Logically Centralized? State Distribution Trade-offs in Software
+  Defined Networks}.
+\newblock In {\em HotSDN}, 2012.
+
+\bibitem{hotnets14update}
+A.~Ludwig, M.~Rost, D.~Foucard, and S.~Schmid.
+\newblock {Good Network Updates for Bad Packets: Waypoint Enforcement Beyond
+  Destination-Based Routing Policies}.
+\newblock In {\em HotNets}, 2014.
+
+\bibitem{roger-hotnets}
+R.~Mahajan and R.~Wattenhofer.
+\newblock {On Consistent Updates in Software Defined Networks}.
+\newblock In {\em HotNets}, 2013.
+
+\bibitem{pyretic}
+C.~Monsanto, J.~Reich, N.~Foster, J.~Rexford, and D.~Walker.
+\newblock {Composing Software Defined Networks}.
+\newblock In {\em NSDI}, 2013.
+
+\bibitem{of-spec}
+{OpenFlow Website}.
+\newblock Specifications.
+\newblock In {\em \url{http://www.openflow.org/}}, 2013.
+
+\bibitem{Pap79-serial}
+C.~H. Papadimitriou.
+\newblock {The Serializability of Concurrent Database Updates}.
+\newblock {\em J. ACM}, 26, 1979.
+
+\bibitem{disco}
+K.~Phemius, M.~Bouet, and J.~Leguay.
+\newblock Disco: Distributed multi-domain sdn controllers.
+\newblock In {\em Proc. IEEE Network Operations and Management Symposium
+  (NOMS)}, 2014.
+
+\bibitem{network-update}
+M.~Reitblatt, N.~Foster, J.~Rexford, C.~Schlesinger, and D.~Walker.
+\newblock {Abstractions for Network Update}.
+\newblock In {\em SIGCOMM}, 2012.
+
+\bibitem{jukka}
+S.~Schmid and J.~Suomela.
+\newblock Exploiting locality in distributed sdn control.
+\newblock In {\em Proc. ACM SIGCOMM Workshop on Hot Topics in Software Defined
+  Networking (HotSDN)}, August 2013.
+
+\bibitem{hotsdn13loc}
+S.~Schmid and J.~Suomela.
+\newblock {Exploiting Locality in Distributed SDN Control}.
+\newblock In {\em HotSDN}, 2013.
+
+\bibitem{stm-st95}
+N.~Shavit and D.~Touitou.
+\newblock Software transactional memory.
+\newblock {\em Distributed Computing}, 1997.
+
+\end{thebibliography}

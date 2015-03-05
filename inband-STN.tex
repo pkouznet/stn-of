@@ -24,6 +24,8 @@
 %\usepackage[caption=true,font=footnotesize]{subfig}
 %\usepackage{xspace} 	% Guesses whether a space is needed when invoked
 \usepackage{cite}
+\usepackage{url}
+
 %\usepackage{framed}
 \usepackage{framed,color}
 \definecolor{shadecolor}{rgb}{0.9,0.9,0.9}
@@ -71,27 +73,23 @@
 \begin{document}
 \sloppy
 
-%\title{Distributed Network Programming}
-%\title{The Distributed SDN Update Problem:\\Towards Software Transactional Networks}
+%\title{Solving Consensus with OpenFlow}
 
-%\title{On Consistent Updates in Software Defined Networks under Unreliable Control}
-%\title{The Case for Reliable Software Transactional Networking}
-
-%\title{A Distributed SDN Control Plane for Concurrent Policy Updates}
-
-\title{Solving Consensus with OpenFlow}
-
-\title{One-Shot Coordination of Distributed SDN Controllers:\\The Case for Multi-Write Consensus}
+%\title{One-Shot Coordination of Distributed SDN Controllers:\\The Case for Multi-Write Consensus}
 
 %\title{One-Shot Coordination of Distributed SDN Controllers:\\On the Consensus Power of OpenFlow}
 
-\title{Coordinating Distributed SDN Controllers:\\On the Consensus Power of OpenFlow}
+%\title{Coordinating Distributed SDN Controllers:\\On the Consensus Power of OpenFlow}
+
+\title{On the Synchronization Power of OpenFlow}
+
 
 
 \author{
 Liron Schiff\thanks{Supported by the European Research Council (ERC) Starting Grant no. 259085 and by the Israel Science Foundation Grant no.~1386/11.} $^1$,
 Stefan Schmid$^2$, Petr Kuznetsov$^3$ \\
-\small $^1$ Tel Aviv University, Israel; $^2$ TU Berlin \& T-Labs, Germany; $^3$ ParisTech, France
+\small $^1$ Tel Aviv University, Israel; $^2$ TU Berlin \& T-Labs,
+Germany; $^3$ T\'el\'ecom ParisTech, France
 }
 
 %\institute{}
@@ -120,22 +118,40 @@ Stefan Schmid$^2$, Petr Kuznetsov$^3$ \\
 
 
 \begin{abstract}
-The control plane of modern Software-Defined Networks (SDNs)
-is \emph{distributed}: a redundant control plane
-can ensure a high availability, and a spatially distributed
-control plane allows to handle time-critical dataplane
-events close to their origins. Moreover, an SDN may 
-be managed by multiple administrators simultaneously. 
-However, not much is known today about how to implement
-such a distributed control plane. 
-In this paper, we show that powerful coordination objects
-can be implemented using today's Openflow switches.
-In particular, we describe the implementation of test\&set primitives 
-as well as multi-writer consensus objects which can be used
-to implement atomic transactions with all-or-nothing semantics.
-Interestingly, our approach allows controllers to detect and
-resolve very general notions of conflicts, not only, e.g., conflicts
-due to overlapping flow spaces but also conflicts based on network load.
+Control planes of modern Software-Defined Networks (SDNs)
+are typically \emph{distributed systems}: to achieve availability,
+load balancing and responsiveness, control modules are installed on
+multiple machines.   
+%a redundant control plane
+%can ensure a high availability, and a spatially distributed
+%control plane allows to handle time-critical dataplane
+%events close to their origins. 
+%[[PK this is a contraversial point, not important for us 
+%Moreover, an SDN may be managed by multiple administrators simultaneously. 
+%]]
+Unfortunately, these goals are hard to combine with consistent network
+manipulation and certain synchronization challenges among the
+distributed controllers must be addressed. 
+%[[PK sounds contradicting to the fact that such systems already exist
+%However, not much is known today about how to implement
+%such a distributed control plane. 
+%]]
+In this paper, we show that powerful synchronization mechanisms
+can be implemented \emph{in band}, simply using today's Openflow switches.
+We show that standard OpenFlow features allow for providing simple
+but general-purpose transactions with all-or-nothing semantics. 
+We then show that these transactions can be used to reach consensus
+among software controllers and, even more surprizingly, to resolve
+\emph{on-the-fly} conflicts between concurrent policy updates in an
+effectively atomic way, without affecting the ongoing traffic.  
+%[[PK
+%In particular, we describe the implementation of test\&set primitives 
+%as well as multi-writer consensus objects which can be used
+%to implement atomic transactions with all-or-nothing semantics.
+%Interestingly, our approach allows controllers to detect and
+%resolve very general notions of conflicts, not only, e.g., conflicts
+%due to overlapping flow spaces but also conflicts based on network load.
+%]]
 \end{abstract}
 
 %\vspace{1cm}
@@ -166,25 +182,40 @@ due to overlapping flow spaces but also conflicts based on network load.
 \section{Introduction}\label{sec:intro}
 
 By consolidating and outsourcing the control over the dataplane switches to a logically
-centralized controller,
-Software-defined networks (SDNs) simplify the network management and facilitate faster
-innovations, as the (software) control plane is decoupled and can evolve independently.
-Moreover, Openflow, the standard SDN protocol today, introduces many generalizations,
-in terms of traffic engineering, definition of flows, as well as in-band network functionalities,
-by relying on a simple match-action paradigm which allows us to define
-forwarding rules based not only on Layer-2, but also Layer-3 and Layer-4 (and possibly beyond)
-header fields.
+centralized controller, the concept Software-Defined Networking (SDN)
+simplifies network management and facilitates faster innovations, 
+as the (software) control plane is decoupled from the (hardware) data
+plane and can evolve independently.
+%[[PK do not see why it should be here
+%Moreover, Openflow, the standard SDN protocol today, introduces many generalizations,
+%in terms of traffic engineering, definition of flows, as well as in-band network functionalities,
+%by relying on a simple match-action paradigm which allows us to define
+%forwarding rules based not only on Layer-2, but also Layer-3 and Layer-4 (and possibly beyond)
+%header fields.
+%]]
+%
+The distinct network control plane has the potential to simplify
+network management
+%[[PK did not get
+%---many network tasks are inherently non-local---
+%]]
+and opens new opportunities for innovation,
+%[[PK we rather  talk about implementing it? 
+%managing and operating an SDN in 
+but implementing it 
+%]]
+%[[PK adaptive to what?
+%a more adaptive but 
+%]]
+in a scalable and  consistent manner is highly non-trivial.
+%[[PK did not get ``even''
+%, even with SDN.
+%]]
 
-While the logically centralized network perspective has the potential to simplify
-the network management---many network tasks are inherently non-local---and introduces
-many flexibilities,
-managing and operating an SDN in a more adaptive but consistent manner is non-trivial, even with SDN.
-A particularly interesting problem regards the consistent installation of new policies
-or routes.~\cite{network-update,roger-hotnets,correct} While implementing consistent network updates
-is challenging already from the perspective of a single controller, there exists a wide consensus
-that the logically centralized SDN control planes will likely be \emph{actually distributed} in the future.
-
-The reason for implementing SDN control planes in a distributed manner are manyfold.
+Indeed, there is a wide consensus that to achieve availability,
+responsiveness, and balancing of network management tasks, 
+the \emph{logically} centralized SDN
+control plane must be physically \emph{distributed}.
 First, in order to provide a high availability as well as a minimal degree of
 fault-tolerance, controllers should be redundant~\cite{onix,stn,onos}: a failure
 of one controller can be masked by other controllers. Second, it has also been proposed
@@ -192,40 +223,120 @@ to distribute controllers \emph{spatially}, in order to handle latency-sensitive
 communication intensive control plane events close to their origin.~\cite{devoflow,kandoo,jukka,disco}
 Third, larger SDNs are likely to be operated by multiple administrators or may even offer
 participatory interfaces where different users can install and trigger policy changes
-concurrently.~\cite{participatory,stn}
+concurrently~\cite{participatory,stn}.
+All this, however, comes with the need for a \emph{synchronization}
+between distributed controllers, assuming that we want them to
+manipulate the network \emph{consistently}~\cite{cpc}.
+And this task is highly nontrivial~\cite{cap-theorem}.
 
-However, today, we do not have a good understanding of how to realize
-such distributed control planes. The problem is essentially a distributed
-systems one: Multiple controllers may simultaneously try to
-install conflicting updates, e.g., rules (of the same priority) defined over non-disjoint
-flow space, or load-balancing policies which, if combined, actually \emph{increase} the load~\cite{log-cent}. 
-Moreover, controllers may also fail,
-before their update has been completed. 
+%[[PK not sure I see why talking about it here
+%[[
+%A particularly interesting problem regards the consistent installation of new policies
+%or routes~\cite{network-update,roger-hotnets,correct,stn}. While implementing consistent network updates
+%is challenging already from the perspective of a single controller, there exists a wide consensus
+%that the logically centralized SDN control planes will likely be \emph{actually distributed} in the future.
+%]]
 
-\subsection{Our Contributions}
+Today, unfortunately, we do not have a good understanding yet of how to realize
+such distributed control planes. The problem is essentially a
+distributed-systems 
+one: Multiple controllers may simultaneously try to
+install conflicting updates and we want to resolve these conflicts
+\emph{consistently} (no undesired behavior is observed on the data
+plane) and \emph{efficiently} (no undesired delays are imposed on the
+control application).
 
-In this paper, we show that powerful synchronization primitives
-can be implemented in Openflow, allowing controllers to implement
-non-trivial atomic transactions, and detect and
-automatically resolve conflicts. In particular, we show how to implement
-the classic distributed computing primitive
-\emph{test\&set}, supporting the conditional installation of new rules,
-and we show how to use the bundle feature to implement
-multi-writer objects, an efficient means to compute consensus;
-interestingly, our implementation can also be used to compute a consensus
-and install the winner's rule \emph{atomically}, using one message.
-Moreover, our approach allows to detect and resolve very general notions of conflicts:
-conflicts may be defined, for example, for rules of the same priority over
-defined over non-independent flow spaces, but may also depend, e.g., on 
-network load (based on counters).
-We believe that our approach nicely complements
-existing, more theoretical literature on distributed control planes; for example,
-it also shows how to realize the atomic read-modify-write primitive postulated in
-STN~\cite{stn}.
+Consider, for example, the particularly interesting problem of
+consistent installation of new forwarding policies, stipulating routes
+that packets of different header spaces should follow across the
+network~\cite{network-update,roger-hotnets,correct,stn}.
+Installing conflicting forwarding rules, e.g., rules of the same priority defined over non-disjoint
+flow spaces may lead to pathological network behavior (loops,
+bleckholes, etc.).
+Similarly, installing diverging load-balancing policies may, when combined, \emph{increase} the load~\cite{log-cent}. 
+To render things more difficult, controllers may also fail, even before their updates have been completed. 
 
-\subsection{Organization}
+%\subsection{In band synchronization?}
+%
+In this paper, we look closely at the most popular specification
+language for SDN control-data plane exchange -
+OpenFlow~\cite{of-spec}. 
+At a high level, the specification represents the exchange in the form
+of \emph{control messages}, containing commands for installing or
+modifying \emph{rules} that, in turn, constitute the \emph{flow table} of
+a data-plane switch used in processing the ongoing data-plane traffic. 
 
-The remainder of this paper is organized as follows.
+We observe that the standard provides the option of \emph{bundling}
+these messages in one, so that either all of the control messages are
+processed or none of them is. In particular, if, for some reason, the
+configuration request contained in one of the bundled messages cannot
+be processed, all the other requests  are rejected and an error
+message is sent to the controller that issued them.       
+Interestingly, this bundled processing can be, when properly configured, done in a
+\emph{packet-atomic} way, so that each packet is processed according
+to the switch configuration either \emph{before} or \emph{after} the
+request was processed. 
+     
+Intuitively, if we treat the flow table at the switch as a \emph{shared memory}
+that can be concurrently read and modified by multiple controllers, 
+the bundling features can be seen as a \emph{multi-write} or, more
+widely, \emph{multi-modify} operation that modifies
+multiple memory location in one atomic step.
+This ability is reminiscent of the hypothetical multi-write
+shared-memory model which is known to enable solutions for important
+synchronization problems, such as consensus, impossible to solve
+otherwise~\cite{multi-objects}. 
+Indeed, we describe an algorithm that solves consensus among any
+number of controllers using a single OpenFlow switch that accepts
+bundle control messages. 
+   
+Even more, we observe that the standard also assumes \emph{conditional} application of
+certain types of control messages. A specific $\textsf{OFPFF}\_\textsf{CHECK}\_\textsf{OVERLAP}$ flag
+set in the control message containing a new forwarding rule ensures
+that the rule is applied if and only if it does not \emph{conflict}
+with any other rule currently in the flow table.  
+This in-band conflict detection mechanism, combined with bundling,
+allows us to implement specific types of \emph{transactions} that may
+atomically install multiple rules if certain compatibility conditions
+are met. 
+
+We then discuss how these synchronization mechanisms can be used to
+achieve consistent network management. 
+We first show that they can be used to replace the read-modify-write
+primitives voluntarily assumed in the recent implementation of a
+recent proposal for a consistent composition system for forwarding policies~\cite{cpc}.  
+We then use these transactions directly to implement a lightweight
+forwarding policy composition system that requires no additional
+synchronization on the control plane.     
+We then explore how more general classes of policies can be composed
+\emph{on-the-switch}. 
+
+
+
+ 
+
+% we show that powerful synchronization primitives
+%can be implemented in Openflow, allowing controllers to implement
+%non-trivial atomic transactions, and detect and
+%automatically resolve conflicts. In particular, we show how to implement
+%the classic distributed computing primitive
+%\emph{test\&set}, supporting the conditional installation of new rules,
+%and we show how to use the bundle feature to implement
+%multi-writer objects, an efficient means to compute consensus;
+%interestingly, our implementation can also be used to compute a consensus
+%and install the winner's rule \emph{atomically}, using one message.
+%Moreover, our approach allows to detect and resolve very general notions of conflicts:
+%conflicts may be defined, for example, for rules of the same priority over
+%defined over non-independent flow spaces, but may also depend, e.g., on 
+%network load (based on counters).
+%We believe that our approach nicely complements
+%existing, more theoretical literature on distributed control planes; for example,
+%it also shows how to realize the atomic read-modify-write primitive postulated in
+%STN~\cite{stn}.
+
+%\paragraph{Organization.}
+%
+The rest of the paper is organized as follows.
 In Section~\ref{sec:background}, we provide the theoretical
 background on our approach. Section~\ref{sec:realization}
 then discusses the basic implementation of this approach in Openflow.
