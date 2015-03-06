@@ -1,0 +1,131 @@
+This is BibTeX, Version 0.99d (TeX Live 2013)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: inband-STN.aux
+The style file: abbrv.bst
+Database file #1: references.bib
+Repeated entry---line 13901 of file references.bib
+ : @inproceedings{frenetic
+ :                        ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 13915 of file references.bib
+ : @inproceedings{roger-hotnets
+ :                             ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 13943 of file references.bib
+ : @inproceedings{log-cent
+ :                        ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 13973 of file references.bib
+ : @inproceedings{ctrl-place
+ :                          ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 14001 of file references.bib
+ : @inproceedings{dstm
+ :                    ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 14031 of file references.bib
+ : @inproceedings{kandoo
+ :                      ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 14811 of file references.bib
+ : @inproceedings{network-update
+ :                              ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 15077 of file references.bib
+ : @inproceedings{pyretic
+ :                       ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 15339 of file references.bib
+ : @inproceedings{onos
+ :                    ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 15357 of file references.bib
+ : @inproceedings{onix
+ :                    ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 15491 of file references.bib
+ : @inproceedings{kandoo
+ :                      ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 15553 of file references.bib
+ : @inproceedings{hotnets14update
+ :                               ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 15885 of file references.bib
+ : @inproceedings{hotsdn13loc
+ :                           ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 17083 of file references.bib
+ : @inproceedings{stn
+ :                   ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 20287 of file references.bib
+ : @article{HW90
+ :              ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 20663 of file references.bib
+ : @inproceedings{of-spec
+ :                       ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 21653 of file references.bib
+ : @article{Lam79
+ :               ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 26823 of file references.bib
+ : @article{Pap79-serial
+ :                      ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 27177 of file references.bib
+ : @article{stm-st95
+ :                  ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 27681 of file references.bib
+ : @inproceedings{onix
+ :                    ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 27793 of file references.bib
+ : @inproceedings{pyretic
+ :                       ,
+I'm skipping whatever remains of this entry
+You've used 28 entries,
+            2118 wiz_defined-function locations,
+            824 strings with 11244 characters,
+and the built_in function-call counts, 9850 in all, are:
+= -- 852
+> -- 611
+< -- 4
++ -- 242
+- -- 212
+* -- 655
+:= -- 1650
+add.period$ -- 84
+call.type$ -- 28
+change.case$ -- 190
+chr.to.int$ -- 0
+cite$ -- 28
+duplicate$ -- 406
+empty$ -- 795
+format.name$ -- 212
+if$ -- 2050
+int.to.chr$ -- 0
+int.to.str$ -- 28
+missing$ -- 28
+newline$ -- 144
+num.names$ -- 56
+pop$ -- 268
+preamble$ -- 2
+purify$ -- 162
+quote$ -- 0
+skip$ -- 252
+stack$ -- 0
+substring$ -- 298
+swap$ -- 83
+text.length$ -- 4
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 112
+warning$ -- 0
+while$ -- 72
+width$ -- 30
+write$ -- 292
+(There were 21 error messages)
