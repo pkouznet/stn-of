@@ -291,7 +291,7 @@ number of controllers using a single OpenFlow switch that accepts
 bundle control messages. 
    
 Even more, we observe that the standard also assumes \emph{conditional} application of
-certain types of control messages. A specific $\textsf{OFPFF}\_\textsf{CHECK}\_\textsf{OVERLAP}$ flag
+certain types of control messages. A specific $\textsf{OFPFF\_CHECK\_OVERLAP}$ flag
 set in the control message containing a new forwarding rule ensures
 that the rule is applied if and only if it does not \emph{conflict}
 with any other rule currently in the flow table.  
@@ -311,6 +311,11 @@ synchronization on the control plane.
 We then explore how more general classes of policies can be composed
 \emph{on-the-switch}. 
 
+Our results highlight the surprising synchronization power hidden in the
+OpenFlow standard. The synchronization mechanisms we describe in this
+paper turn out to be crucial for ensuring consistency of network
+management on the control plane while preserving consistency of the
+traffic processed on the data plane. 
 
 
  
@@ -337,13 +342,81 @@ We then explore how more general classes of policies can be composed
 %\paragraph{Organization.}
 %
 The rest of the paper is organized as follows.
-In Section~\ref{sec:background}, we provide the theoretical
-background on our approach. Section~\ref{sec:realization}
-then discusses the basic implementation of this approach in Openflow.
-Section~\ref{sec:extensions} discusses practical issues and extensions.
-After reviewing related literature in Section~\ref{sec:relwork},
-we conclude our work in
-Section~\ref{sec:conclusion}.
+In Section~\ref{sec:model}, we overview the basics of the  OpenFlow
+protocol and recall the bundle and \textsf{ofpff\_check\_overlap} features. 
+In Section~\ref{sec:sync}, we specify the implementations of our OpenFlow-based
+sycnhronization mechanisms. 
+In Section~\ref{sec:application}, we discuss a few policy composition
+algorithms that benefit from these mechanisms. 
+In Section~\ref{sec:conclusion}, we discuss open questions and related work.
+
+%we provide the theoretical
+%background on our approach. Section~\ref{sec:realization}
+%then discusses the basic implementation of this approach in Openflow.
+%Section~\ref{sec:extensions} discusses practical issues and extensions.
+%After reviewing related literature in Section~\ref{sec:relwork},
+%we conclude our work in
+%Section~\ref{sec:conclusion}.
+
+\section{SDN primer and OpenFlow features}\label{sec:model}
+
+Define the protocol (from Reclaiming the Brain"?) and discuss bundling
+and check-overlap. 
+
+\section{Transactions in OpenFlow}\label{sec:sync}
+
+Multi-write and read-modify transactions.
+
+\subsection{Dealing with multiple updates}
+
+TBD - adding the notion of versions and cleanup/GC. probably no good way to solve infinite versions... maybe check literature on shared memory and multiple writes.
+
+
+\subsection{Improving the scheme with check-overlap}\label{sec:todo}
+Till now we considered a model that allows multiple updates to match-action entries. Here we extends the model with actions create-entry and delete-entry that may failed and abort the whole transaction depending on the existence on non-existence of specific entries prior to the action.
+%TBD - much less resources. easily solving the infinite versions issue.
+
+Next we show how such actions can be used to implement consensus with much less resources. We use entry id as a property used to reference specific entry.
+
+\begin{algorithm}[t]
+    \caption{Advanced Update Algorithm}
+    \label{alg:template}
+    \begin{algorithmic}[1]
+    \Require update requests $U$
+    \Ensure installed policy is consistent with previous one
+    \If {first time}
+		%\Do
+		\Repeat
+			\State $my\_cur\_id\gets$ unused entry id
+    		\State $res \gets $ create entry with id $my\_cur\_id$
+    	\Until{$res=False$}
+    	%\doWhile{$res=False$}
+    \EndIf
+ 		%\Do
+ 		\Repeat
+ 			\State $cur\_id\gets$ read current entry id
+ 			\State $cur\_policy\gets$ read current policy
+ 			\State $my\_next\_id\gets$ unused entry id
+ 			\State $new\_policy\gets$ apply update requests on $cur\_policy$
+ 			\startTransaction
+	 			\State delete entry with id $1<<(\log n) + cur\_id$
+	 			\State create entry with id $1<<(\log n) + my\_cur\_id$
+	 			\State add $new\_policy$ rules conditioned on $metadata=my\_cur\_id$
+	 			\State update policy selector to $my\_cur\_id$
+ 			\endTransaction
+     		\State $res \gets $ commit transaction
+     	\Until{$res=False$}
+     	%\doWhile{$res=False$}
+%   \vspace{3mm}
+
+    \end{algorithmic}
+\end{algorithm}
+
+
+
+
+\section{Applications and ramifications}\label{sec:application}
+
 
 
 \section{The Underlying Theory}\label{sec:background}
@@ -388,55 +461,6 @@ Our compact validation use additional temp variable, $temp_winner$, to hold the 
 
 \section{The Practical Implementation}\label{sec:extension}
 
-\subsection{Dealing with multiple updates}
-
-TBD - adding the notion of versions and cleanup/GC. probably no good way to solve infinite versions... maybe check literature on shared memory and multiple writes.
-
-
-\section{Improving the scheme with advanced OpenFlow features}\label{sec:todo}
-Till now we considered a model that allows multiple updates to match-action entries. Here we extends the model with actions create-entry and delete-entry that may failed and abort the whole transaction depending on the existence on non-existence of specific entries prior to the action.
-%TBD - much less resources. easily solving the infinite versions issue.
-
-Next we show how such actions can be used to implement consensus with much less resources. We use entry id as a property used to reference specific entry.
-
-\begin{algorithm}[t]
-    \caption{Advanced Update Algorithm}
-    \label{alg:template}
-    \begin{algorithmic}[1]
-    \Require update requests $U$
-    \Ensure installed policy is consistent with previous one
-    \If {first time}
-		%\Do
-		\Repeat
-			\State $my\_cur\_id\gets$ unused entry id
-    		\State $res \gets $ create entry with id $my\_cur\_id$
-    	\Until{$res=False$}
-    	%\doWhile{$res=False$}
-    \EndIf
- 		%\Do
- 		\Repeat
- 			\State $cur\_id\gets$ read current entry id
- 			\State $cur\_policy\gets$ read current policy
- 			\State $my\_next\_id\gets$ unused entry id
- 			\State $new\_policy\gets$ apply update requests on $cur\_policy$
- 			\startTransaction
-	 			\State delete entry with id $1<<(\log n) + cur\_id$
-	 			\State create entry with id $1<<(\log n) + my\_cur\_id$
-	 			\State add $new\_policy$ rules conditioned on $metadata=my\_cur\_id$
-	 			\State update policy selector to $my\_cur\_id$
- 			\endTransaction
-     		\State $res \gets $ commit transaction
-     	\Until{$res=False$}
-     	%\doWhile{$res=False$}
-%   \vspace{3mm}
-
-    \end{algorithmic}
-\end{algorithm}
-
-
-\section{Solving just concurrent policy update without consensus}\label{sec:todo}
-
-TBD - should be simple given two previous sections
 
 
 \section{Related Work}\label{sec:relwork}

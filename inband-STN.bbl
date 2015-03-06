@@ -24,7 +24,8 @@ M.~Canini, P.~Kuznetsov, D.~Levin, and S.~Schmid.
 
 \bibitem{cpc}
 M.~Canini, P.~Kuznetsov, D.~Levin, and S.~Schmid.
-\newblock A distributed sdn control plane for consistent network updates.
+\newblock A distributed and robust sdn control plane for transactional network
+  updates.
 \newblock In {\em Proc. 34th IEEE Conference on Computer Communications
   (INFOCOM)}, 2015.
 
