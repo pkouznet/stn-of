@@ -292,33 +292,114 @@ Next we show how such actions can be used to implement consensus with much less 
     \caption{Advanced Update Algorithm}
     \label{alg:template}
     \begin{algorithmic}[1]
-    \Require update requests $U$
+    \Require update requirements $U$, two entries containers CUR and NEXT.
+    \Ensure installed policy is consistent with previous one
+    \Repeat
+			\State $my\_id\gets$ unused id (in both CUR and NEXT)
+    		\State $res \gets $ NEXT.Add($my\_id$, True)
+    \Until{$res=True$}
+ 		%\Do
+ 		\Repeat
+ 			\State $pid\gets$ read current policy id (only one in CUR)
+ 			\State NEXT.Add($pid$)
+ 			\If {$pid\notin CUR$}
+ 				\State {\bf continue} (restart loop)
+ 			\EndIf
+ 			\State $cur\_policy\gets$ read current policy
+ 			\State $new\_policy\gets apply\_update(cur\_policy,U)$
+ 			\startTransaction
+	 			\State CUR.Delete($b_pid$)
+	 			\State CUR.Add($my\_id$)
+				\State NEXT.Delete($my\_id$, True)
+	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
+	 			%\State update policy selector to $my\_a$
+ 			\endTransaction
+     		%\State $res \gets $ commit transaction
+     	\Until{$res=True$}
+     	%\doWhile{$res=False$}
+%   \vspace{3mm}
+			\Return 
+
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+    \caption{Container Add abstraction}
+    \label{alg:template}
+    \begin{algorithmic}[1]
+    \Require Container id $C$, entry id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
+%    \Ensure 
+    		\State $value \gets C.i$
+    		\State $mask \gets all-ones$
+    		\State $cookie \gets C.i.caller$
+    		\If {$b\_unique$}
+    			\State $flag \gets 0$
+    		\Else
+    		    \State $flag \gets CHECK\_OVERLAP$
+    		\EndIf
+    					\State $cmd\gets FlowMod(match=(value,mask), operation = ADD, cookie, flag) $
+			\Return cmd
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+    \caption{Container Delete abstraction}
+    \label{alg:template}
+    \begin{algorithmic}[1]
+    \Require Container id $C$, entry id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
+%    \Ensure 
+    		\State $value \gets C.i$
+    		\State $mask \gets all-ones$
+    		\State $cookie \gets C.i.caller$
+    		\If {$b\_unique$}
+    			\State $cmd\gets FlowMod(match=(value,mask), operation=DELETE) $
+    		\Else
+    		    \State $cmd\gets FlowMod(match=(value,mask), operation=DELETE_STRICT, cookie) $
+    		\EndIf
+			
+			\Return cmd
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+    \caption{Advanced Update Algorithm2}
+    \label{alg:template}
+    \begin{algorithmic}[1]
+    \Require update requirements $U$, two entries containers CUR and NEXT.
     \Ensure installed policy is consistent with previous one
     \If {first time}
 		%\Do
 		\Repeat
-			\State $my\_cur\_id\gets$ unused entry id
-    		\State $res \gets $ create entry with id $my\_cur\_id$
-    	\Until{$res=False$}
+			\State $my\_id\gets$ unused id (in both CUR and NEXT)
+    		\State $res \gets $ NEXT.Add($my\_id$, True)
+    	\Until{$res=True$}
     	%\doWhile{$res=False$}
     \EndIf
  		%\Do
  		\Repeat
- 			\State $cur\_id\gets$ read current entry id
+ 			\State $pid\gets$ read current policy id (only one in CUR)
+ 			\State NEXT.Add($pid$)
+ 			\If {$pid\notin CUR$}
+ 				\State {\bf continue} (restart loop)
+ 			\EndIf
  			\State $cur\_policy\gets$ read current policy
- 			\State $my\_next\_id\gets$ unused entry id
- 			\State $new\_policy\gets$ apply update requests on $cur\_policy$
+ 			\State $next\_id\gets$  unused id (in both CUR and NEXT)
+ 			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTransaction
-	 			\State delete entry with id $1<<(\log n) + cur\_id$
-	 			\State create entry with id $1<<(\log n) + my\_cur\_id$
-	 			\State add $new\_policy$ rules conditioned on $metadata=my\_cur\_id$
-	 			\State update policy selector to $my\_cur\_id$
+	 			\State CUR.Delete($b_pid$)
+	 			\State CUR.Add($my\_id$)
+				\State NEXT.Delete($my\_id$, True)
+				\State NEXT.Add($next\_id$, True)
+	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
+	 			%\State update policy selector to $my\_a$
  			\endTransaction
-     		\State $res \gets $ commit transaction
-     	\Until{$res=False$}
+     		%\State $res \gets $ commit transaction
+     	\Until{$res=True$}
+     	\State $my\_id\gets next\_id$
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
 
+			\Return
     \end{algorithmic}
 \end{algorithm}
 
