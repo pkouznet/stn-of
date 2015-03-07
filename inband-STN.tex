@@ -41,6 +41,7 @@
 
 \algdef{SE}[TRANSACT]{StartTransaction}{EndTransaction}{\algorithmicaaa}[1]{\algorithmicwhile\ #1}%
 
+\newcommand{\hide}[1]{}
 \algblock[<block>]{<start>}{<end>}
 \algblockdefx[Transaction]{startTransaction}{endTransaction} %
 [0]{ \textbf{start transaction}} %
@@ -452,9 +453,10 @@ Next we show how such actions can be used to implement consensus with much less 
  			\State $cur\_policy\gets$ read current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTransaction
-	 			\State CUR.Delete($b_pid$)
+	 			\State CUR.Delete($pid$)
 	 			\State CUR.Add($my\_id$)
 				\State NEXT.Delete($my\_id$, True)
+				\State NEXT.Delete($pid$)
 	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTransaction
@@ -476,12 +478,13 @@ Next we show how such actions can be used to implement consensus with much less 
     		\State $value \gets C.i$
     		\State $mask \gets all-ones$
     		\State $cookie \gets C.i.caller$
+    		\State $action \gets C.i.caller$
     		\If {$b\_unique$}
     			\State $flag \gets 0$
     		\Else
     		    \State $flag \gets CHECK\_OVERLAP$
     		\EndIf
-    					\State $cmd\gets FlowMod(match=(value,mask), operation = ADD, cookie, flag) $
+    					\State $cmd\gets FlowMod(match=(value,mask), operation = ADD, cookie, flag, action) $
 			\Return cmd
     \end{algorithmic}
 \end{algorithm}
@@ -505,6 +508,7 @@ Next we show how such actions can be used to implement consensus with much less 
     \end{algorithmic}
 \end{algorithm}
 
+\hide{
 \begin{algorithm}[t]
     \caption{Advanced Update Algorithm2}
     \label{alg:template}
@@ -534,6 +538,7 @@ Next we show how such actions can be used to implement consensus with much less 
 	 			\State CUR.Add($my\_id$)
 				\State NEXT.Delete($my\_id$, True)
 				\State NEXT.Add($next\_id$, True)
+				\State NEXT.Delete($pid$)
 	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTransaction
@@ -546,7 +551,7 @@ Next we show how such actions can be used to implement consensus with much less 
 			\Return
     \end{algorithmic}
 \end{algorithm}
-
+}
 
 
 \section{Applications and ramifications}\label{sec:application}
