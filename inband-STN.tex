@@ -437,25 +437,25 @@ Next we show how such actions can be used to implement consensus with much less 
     \caption{Advanced Update Algorithm}
     \label{alg:template}
     \begin{algorithmic}[1]
-    \Require update requirements $U$, two entries containers CUR and NEXT.
+    \Require update requirements $U$, multi-set (with optional add validation) NEXT, set (with full validation) CUR.
     \Ensure installed policy is consistent with previous one
-    \Repeat
-			\State $my\_id\gets$ unused id (in both CUR and NEXT)
-    		\State $res \gets $ NEXT.Add($my\_id$, True)
-    \Until{$res=True$}
  		%\Do
  		\Repeat
- 			\State $pid\gets$ read current policy id (only one in CUR)
+ 			\State read switch configuration
+ 			\State $my\_id\gets$ unused id (in both CUR and NEXT)
+ 			\State $pid\gets$ current policy id (only id in CUR)
  			\State NEXT.Add($pid$)
+ 			\State read switch configuration
  			\If {$pid\notin CUR$}
  				\State {\bf continue} (restart loop)
  			\EndIf
- 			\State $cur\_policy\gets$ read current policy
+ 			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTransaction
-	 			\State CUR.Delete($pid$)
-	 			\State CUR.Add($my\_id$)
-				\State NEXT.Delete($my\_id$, True)
+ 				\State NEXT.Add($my\_id$, True)
+ 				\State NEXT.Delete($my\_id$, True)
+	 			\State DeleteGroup($pid$)
+	 			\State AddGroup($my\_id$)
 				\State NEXT.Delete($pid$)
 	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
@@ -470,15 +470,15 @@ Next we show how such actions can be used to implement consensus with much less 
 \end{algorithm}
 
 \begin{algorithm}[t]
-    \caption{Container Add abstraction}
+    \caption{multi-set Add abstraction}
     \label{alg:template}
     \begin{algorithmic}[1]
-    \Require Container id $C$, entry id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
+    \Require id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$ (defaults to self).
 %    \Ensure
-    		\State $value \gets C.i$
+    		\State $value \gets i$
     		\State $mask \gets all-ones$
-    		\State $cookie \gets C.i.caller$
-    		\State $action \gets C.i.caller$
+    		\State $cookie \gets i.caller$
+    		\State $action \gets i.caller$
     		\If {$b\_unique$}
     			\State $flag \gets 0$
     		\Else
@@ -490,10 +490,10 @@ Next we show how such actions can be used to implement consensus with much less 
 \end{algorithm}
 
 \begin{algorithm}[t]
-    \caption{Container Delete abstraction}
+    \caption{multi-set Delete abstraction}
     \label{alg:template}
     \begin{algorithmic}[1]
-    \Require Container id $C$, entry id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
+    \Require id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
 %    \Ensure
     		\State $value \gets C.i$
     		\State $mask \gets all-ones$
@@ -501,58 +501,91 @@ Next we show how such actions can be used to implement consensus with much less 
     		\If {$b\_unique$}
     			\State $cmd\gets FlowMod(match=(value,mask), operation=DELETE) $
     		\Else
-    		    \State $cmd\gets FlowMod(match=(value,mask), operation=DELETE_STRICT, cookie) $
+    		    \State $cmd\gets FlowMod(match=(value,mask), operation=DELETE\_STRICT, cookie) $
     		\EndIf
 			
 			\Return cmd
     \end{algorithmic}
 \end{algorithm}
 
-\hide{
+
 \begin{algorithm}[t]
-    \caption{Advanced Update Algorithm2}
+    \caption{set Add abstraction}
     \label{alg:template}
     \begin{algorithmic}[1]
-    \Require update requirements $U$, two entries containers CUR and NEXT.
+    \Require  id $i$.
+%    \Ensure
+    		\State $command \gets OFPGC\_ADD$
+    		\State $type \gets OFPGT\_INDIRECT$
+    		\State $group_id \gets i$
+    		\State $buckets \gets [dummy\_backet]$
+    		\State $cmd\gets GroupMod(command, type, group_id, buckets) $
+			\Return cmd
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+    \caption{set Delete abstraction}
+    \label{alg:template}
+    \begin{algorithmic}[1]
+    \Require id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
+%    \Ensure
+    		\State $command \gets OFPGC\_DELETE$
+    		\State $group_id \gets i$
+    		\State $cmd\gets GroupMod(command, group\_id) $
+			\Return cmd
+    \end{algorithmic}
+\end{algorithm}
+
+
+\begin{algorithm}[t]
+    \caption{Update Algorithm with only a set}
+    \label{alg:template}
+    \begin{algorithmic}[1]
+    \Require update requirements $U$, a set CUR.
     \Ensure installed policy is consistent with previous one
-    \If {first time}
-		%\Do
-		\Repeat
-			\State $my\_id\gets$ unused id (in both CUR and NEXT)
-    		\State $res \gets $ NEXT.Add($my\_id$, True)
-    	\Until{$res=True$}
-    	%\doWhile{$res=False$}
-    \EndIf
  		%\Do
  		\Repeat
- 			\State $pid\gets$ read current policy id (only one in CUR)
- 			\State NEXT.Add($pid$)
- 			\If {$pid\notin CUR$}
- 				\State {\bf continue} (restart loop)
- 			\EndIf
- 			\State $cur\_policy\gets$ read current policy
- 			\State $next\_id\gets$  unused id (in both CUR and NEXT)
+ 			\State read switch configuration
+ 			\State $pid\gets$ current policy id (only id in CUR)
+ 			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTransaction
-	 			\State CUR.Delete($b_pid$)
-	 			\State CUR.Add($my\_id$)
-				\State NEXT.Delete($my\_id$, True)
-				\State NEXT.Add($next\_id$, True)
-				\State NEXT.Delete($pid$)
+	 			\State CUR.Delete($pid$)
+	 			\State CUR.Add($pid+1$)
 	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTransaction
      		%\State $res \gets $ commit transaction
      	\Until{$res=True$}
-     	\State $my\_id\gets next\_id$
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
-
 			\Return
+
     \end{algorithmic}
 \end{algorithm}
-}
 
+\begin{algorithm}[t]
+    \caption{Update Algorithm with pipeline-array}
+    \label{alg:template}
+    \begin{algorithmic}[1]
+    \Require update requirements $U$, array $ARR$.
+    \Ensure installed policy is consistent with previous one
+			\Return
+
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+    \caption{Update Composition Algorithm without bundle}
+    \label{alg:template}
+    \begin{algorithmic}[1]
+    \Require update requirements $U$, array $ARR$.
+    \Ensure installed policy is consistent with previous one
+			\Return
+
+    \end{algorithmic}
+\end{algorithm}
 
 \section{Applications and ramifications}\label{sec:application}
 
