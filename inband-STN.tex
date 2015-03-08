@@ -432,6 +432,13 @@ Till now we considered a model that allows multiple updates to match-action entr
 
 Next we show how such actions can be used to implement consensus with much less resources. We use entry id as a property used to reference specific entry.
 
+We use FlowMod command as abstraction to adding/deleting a number to a multi-set. The match part of the added flow entry represents the added number. In order to verify that the added number is unique we set the flag CHECK\_OVERLAP. Similarly, we use GroupMod command as abstraction to adding/deleting a number to a set. The group id of the added group represents the added number. 
+
+In order to perform an update we use a set called CUR which is used to store the current policy id, and a multi-set called NEXT which is used to manage suggestions for next policy id. We start by reading the current switch configuration and selecting an unused id for our proposed policy. Next we try to prevent someone of using the current id with different policy in the future (durig our current update).
+
+We compute our new suggested policy by applying the updates request on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by any one else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy. 
+
+If one of the actions in the transaction fails we try again. There is no progress guaranty for each controller but there is one for the whole system - at least one of the controller will succeed in fulfilling its update requirements.
 
 \begin{algorithm}[t]
     \caption{Advanced Update Algorithm}
