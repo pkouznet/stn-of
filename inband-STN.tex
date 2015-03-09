@@ -42,6 +42,9 @@
 \algdef{SE}[TRANSACT]{StartTransaction}{EndTransaction}{\algorithmicaaa}[1]{\algorithmicwhile\ #1}%
 
 \newcommand{\hide}[1]{}
+\newcommand{\concat}[0]{\frown}
+\newcommand{\append}[0]{\frown}
+
 \algblock[<block>]{<start>}{<end>}
 \algblockdefx[Transaction]{startTransaction}{endTransaction} %
 [0]{ \textbf{start transaction}} %
@@ -458,8 +461,8 @@ obtain a unique \emph{id}. FIXME: to be continued...
  			\startTransaction
  				\State $Next$\emph{.add}($my\_id$, True)
  				\State $Next$\emph{.delete}($my\_id$, True)
-	 			\State DeleteGroup($pid$)
-	 			\State AddGroup($my\_id$)
+	 			\State CUR\emph{.delete}($pid$)
+	 			\State CUR\emph{.add}($my\_id$)
 				\State $Next$\emph{.delete}($pid$)
 	 			\State \textbf{add} $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
@@ -474,15 +477,15 @@ obtain a unique \emph{id}. FIXME: to be continued...
 \end{algorithm}
 
 \begin{algorithm}[t]
-    \caption{\textbf{\emph{Multi-Add()}}}
+    \caption{\textbf{\emph{MultiSet-Add()}}}
     \label{alg:multi-add}
     \begin{algorithmic}[1]
     \Require id $i$, unique constrain (defaults to \texttt{false}) $b\_unique$, caller id $caller$ (defaults to \emph{self}).
 %    \Ensure
-    		\State $value \gets i$
-    		\State $mask \gets all-1$
-    		\State $cookie \gets i.caller$
-    		\State $action \gets i.caller$
+    		\State $value \gets i\concat i$
+    		\State $mask \gets caller\concat all-1$
+    		\State $cookie \gets i\concat caller$
+    		\State $action \gets i\concat caller$
     		\If {$b\_unique$}
     			\State $flag \gets 0$
     		\Else
@@ -494,7 +497,7 @@ obtain a unique \emph{id}. FIXME: to be continued...
 \end{algorithm}
 
 \begin{algorithm}[t]
-    \caption{\textbf{\emph{Multi-Remove()}}}
+    \caption{\textbf{\emph{MultiSet-Remove()}}}
     \label{alg:template}
     \begin{algorithmic}[1]
     \Require id $i$, unique constrain (defaults to \texttt{false}) $b\_unique$, caller id $caller$.
@@ -514,7 +517,7 @@ obtain a unique \emph{id}. FIXME: to be continued...
 
 
 \begin{algorithm}[t]
-    \caption{\textbf{\emph{Add()}}}
+    \caption{\textbf{\emph{Set-Add()}}}
     \label{alg:template}
     \begin{algorithmic}[1]
     \Require  id $i$.
@@ -529,7 +532,7 @@ obtain a unique \emph{id}. FIXME: to be continued...
 \end{algorithm}
 
 \begin{algorithm}[t]
-    \caption{\textbf{\emph{Remove()}}}
+    \caption{\textbf{\emph{Set-Remove()}}}
     \label{alg:template}
     \begin{algorithmic}[1]
     \Require id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
