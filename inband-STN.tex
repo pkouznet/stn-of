@@ -74,17 +74,19 @@
 \begin{document}
 \sloppy
 
-%\title{Solving Consensus with OpenFlow}
+%\title{Solving Consensus with Openflow}
 
 %\title{One-Shot Coordination of Distributed SDN Controllers:\\The Case for Multi-Write Consensus}
 
-%\title{One-Shot Coordination of Distributed SDN Controllers:\\On the Consensus Power of OpenFlow}
+%\title{One-Shot Coordination of Distributed SDN Controllers:\\On the Consensus Power of Openflow}
 
-%\title{Coordinating Distributed SDN Controllers:\\On the Consensus Power of OpenFlow}
+%\title{Coordinating Distributed SDN Controllers:\\On the Consensus Power of Openflow}
 
-%\title{On the Synchronization Power of OpenFlow}
+%\title{On the Synchronization Power of Openflow}
 
-\title{Coordinating Distributed SDN Controllers\\{\Large On the Synchronization Power of OpenFlow}}
+%\title{Synchronizing Distributed SDN Controllers\\{\Large The Openflow Container}}
+
+\title{Synchronizing Distributed Openflow Controllers\\{\Large Toward More Powerful In-Band Synchronization Objects}}
 
 
 \author{
@@ -122,7 +124,7 @@ Germany; $^3$ T\'el\'ecom ParisTech, France
 \begin{abstract}
 Control planes of modern Software-Defined Networks (SDNs)
 are \emph{distributed systems}: to ensure availability and fault-tolerance,
-to improve load-balancing, and to reduce overheads, 
+to improve load-balancing, and to reduce overheads,
 control modules are physically distributed.
 %a redundant control plane
 %can ensure a high availability, and a spatially distributed
@@ -133,19 +135,22 @@ control modules are physically distributed.
 %]]
 However, a distributed control plane also introduces
 new challenges, and in order to guarantee a consistent network operation,
-the actions of different controllers may need to be synchronized and coordinated.
+the actions of different controllers may need to be synchronized.
 %[[PK sounds contradicting to the fact that such systems already exist
 %However, not much is known today about how to implement
 %such a distributed control plane.
 %]]
-In this paper, we show that powerful synchronization mechanisms
-can be implemented \emph{in band}, simply using today's Openflow switches.
-We show how to leverage standard OpenFlow features for providing simple
-but general-purpose transactions with all-or-nothing semantics.
-We then show that these transactions can be used to reach consensus
-among software controllers and, what is more, to resolve
-general conflicts between concurrent policy updates in an
-effectively atomic way and \emph{on-the-fly}, without affecting the ongoing traffic.
+In this paper, we introduce a novel synchronization object which
+we call \emph{container}.
+The container can be implemented \emph{in-band}, using the standard Openflow
+protocol
+which support atomic multi-writes but only limited reads (namely
+testing the presence of rules). We describe how to
+leverage the container object to
+implement powerful consensus objects, transactions with all-or-nothing
+ semantics, or atomically resolve
+general conflicts between concurrent policy updates
+\emph{on-the-fly}, without affecting the ongoing traffic.
 %[[PK
 %In particular, we describe the implementation of test\&set primitives
 %as well as multi-writer consensus objects which can be used
@@ -184,18 +189,18 @@ effectively atomic way and \emph{on-the-fly}, without affecting the ongoing traf
 \section{Introduction}\label{sec:intro}
 
 By consolidating and outsourcing the control over the dataplane switches to a logically
-centralized controller, the concept Software-Defined Networking (SDN)
-simplifies network management and facilitates faster innovations,
-as the (software) control plane is decoupled from the (hardware) data
-plane and can evolve independently.
+centralized controller, Software-Defined Networks (SDNs)
+simplify network management and facilitate faster innovations:
+the (software) control plane can evolve independently from the
+(hardware) data plane.
 Moreover, Openflow, the standard SDN protocol today, introduces many generalizations,
 in terms of traffic engineering, definition of flows, as well as in-band network functionalities,
 by relying on a simple match-action paradigm which allows us to define
-forwarding rules based not only on Layer-2, but also Layer-3 and Layer-4 (and possibly beyond)
+forwarding rules based not only on Layer-2, but also Layer-3 and Layer-4 (and possibly beyond).
 
 While the logically centralized perspective offered by SDN is attractive,
 there is a wide consensus that
-the control plane should be physically \emph{distributed}. 
+the control plane should be physically \emph{distributed}.
 First, in order to provide a high availability as well as a minimal degree of
 fault-tolerance, controllers should be redundant~\cite{onix,stn,onos}: a failure
 of one controller can be masked by other controllers. Second, it has also been proposed
@@ -204,8 +209,8 @@ communication intensive control plane events close to their origin.~\cite{devofl
 Third, larger SDNs are likely to be operated by multiple administrators or may even offer
 participatory interfaces where different users can install and trigger policy changes
 concurrently~\cite{participatory,stn}.
-All this, however, comes with the need for \emph{synchronization}
-and \emph{coordination} among the distributed controllers:
+All this, however, comes with the need for \emph{synchronizing}
+the distributed controllers:
 the network should be manipulated \emph{consistently}~\cite{cpc}.
 This task is nontrivial~\cite{cap-theorem}.
 
@@ -229,56 +234,46 @@ control application).
 Consider, for example, the practical problem of
 consistent installation of new forwarding policies, stipulating routes
 that packets of different header spaces should follow across the
-network~\cite{network-update,roger-hotnets,correct,stn}.
+network.~\cite{network-update,roger-hotnets,correct,stn}
 Installing conflicting forwarding rules, e.g., rules of the same priority defined over non-disjoint
 flow spaces may lead to pathological network behavior (loops,
 blackholes, etc.).
-Similarly, installing diverging load-balancing policies may, 
+Similarly, installing diverging load-balancing policies may,
 when combined, \emph{increase} the load~\cite{log-cent}.
-To render things more difficult, controllers may also fail, 
+To render things more difficult, controllers may also fail,
 even before their updates have been completed.
 
-%\textbf{} 
+%\textbf{}
 \paragraph{Our Contributions}
-In this paper, we show that 
-OpenFlow~\cite{of-spec}---the standard SDN protocol today---can
-be used to provide strong controller synchronization and coordination 
-primitives \emph{in-band}.
-In particular, we show how to exploit the \emph{bundling}
-feature and the $\textsf{OFPFF\_CHECK\_OVERLAP}$ flag,
-to implement a \emph{shared memory} abstraction of the switch
-and its flow tables: 
-This shared memory 
-allows us to implement
-\emph{transactions} which may
-atomically install multiple rules if certain compatibility conditions
-are met, and which also facilitate \emph{packet-atomic} rule updates. 
-These transactions can be \emph{multi-write} or even \emph{multi-modify}:
-while not supporting
-read operations, the transaction can be conditioned on the presence of
-certain rules.
-This ability is reminiscent of the hypothetical multi-write
+In this paper, we show that
+Openflow~\cite{of-spec}---the standard SDN protocol today---can
+be used to implement powerful, high-level
+synchronization
+objects \emph{in-band}.
+In particular, we introduce a novel synchronization object
+called \emph{container}. A container can be seen as
+a variant of the classic \texttt{test\&set} object
+(known from distributed computing over shared memory),
+which is tailored to Openflow: while Openflow supports
+atomic multi-write functionality (using bundling),
+read functionality is limited to testing the presence of
+rules as well as flow space overlaps.
+
+The container object is reminiscent of the hypothetical multi-write
 shared-memory model which is known to enable solutions for important
 synchronization problems, such as consensus, impossible to solve
 otherwise~\cite{multi-objects}.
-Indeed, we describe an algorithm that solves consensus among any
-number of controllers using a single OpenFlow switch that accepts
-bundle control messages. 
-
-Our results highlight the synchronization power hidden in the
-OpenFlow standard. The synchronization mechanisms we describe in this
-paper turn out to be crucial for ensuring consistency of network
+Indeed, we show how to exploit the container object to implement
+consensus among controllers.
+More generally, the container object turns out to be
+crucial for ensuring consistency of network
 management on the control plane while preserving consistency of the
-traffic processed on the data plane.
-As a case study, we also show how to replace the read-modify-write
+traffic processed on the data plane, and we show how to implement
+\emph{packet-atomic} rule updates and more complex
+\emph{atomic transactions}.
+We also show how to replace the read-modify-write
 primitives voluntarily assumed in the recent implementation of a
 consistent composition system for forwarding policies~\cite{cpc}.
-We also show how to use these transactions directly to implement a lightweight
-forwarding policy composition system that requires no additional
-synchronization on the control plane.
-Finally, we explore how more general classes of policies can be composed
-\emph{on-the-switch}.
-
 
 % we show that powerful synchronization primitives
 %can be implemented in Openflow, allowing controllers to implement
@@ -301,13 +296,14 @@ Finally, we explore how more general classes of policies can be composed
 
 \paragraph{Organization}
 The rest of the paper is organized as follows.
-In Section~\ref{sec:model}, we overview the basics of the  OpenFlow
-protocol and recall the bundle and \textsf{ofpff\_check\_overlap} features.
-In Section~\ref{sec:sync}, we specify the implementations of our OpenFlow-based
-sycnhronization mechanisms.
-In Section~\ref{sec:application}, we discuss a few policy composition
-algorithms that benefit from these mechanisms.
-In Section~\ref{sec:conclusion}, we discuss open questions and related work.
+In Section~\ref{sec:background}, we review the basics of the  Openflow
+protocol and discuss the features which are relevant for our work.
+We introduce our vision and the container consensus object in Section~\ref{sec:vision},
+and present its implementation in Section~\ref{sec:container}.
+We then discuss applications (Section~\ref{sec:apps}) as
+well as extensions (Section~\ref{sec:discussion}).
+After reviewing related literature in Section~\ref{sec:relwork}, we conclude
+our contribution in Section~\ref{sec:conclusion}.
 
 %we provide the theoretical
 %background on our approach. Section~\ref{sec:realization}
@@ -317,28 +313,22 @@ In Section~\ref{sec:conclusion}, we discuss open questions and related work.
 %we conclude our work in
 %Section~\ref{sec:conclusion}.
 
-\section{OpenFlow Background}\label{sec:model}
+\section{Openflow Background}\label{sec:background}
 
-The synchronization and coordination mechanisms presented in this paper
-are based on Openflow~\cite{of-spec}, the standard SDN protocol today. In this section, 
-we provide the necessary background. 
+The synchronization mechanisms presented in this paper
+are based on Openflow~\cite{of-spec}, the standard SDN protocol today. In this section,
+we provide the necessary background.
 
-
-es a small partial deployment of SDN and
-out-sources the control over a set of Openflow switches to a logically centralized software controller.
-Openflow, the standard SDN protocol today, is based on a match-action paradigm: the controller
-can install simple rules on the Openflow switches.
-
-In a nutshell, 
-OpenFlow
-is based on a match-action concept: OpenFlow switches store
+In a nutshell,
+Openflow
+is based on a match-action concept: Openflow switches store
 rules (installed by the controller) consisting of a match and an
 action part. A packet matched by a certain rule will be subject
-to the associated action (to be immediately applied now or later). 
+to the associated action (to be immediately applied now or later).
 For example, an action can define a port to which the
 matched packet should be forwarded, or add or change a tag
 (a certain part in the packet header).
-Each OpenFlow switch stores one or multiple flow tables,
+Each Openflow switch stores one or multiple flow tables,
 each of which contains a set of rules (flow entries). Flow
 tables form a pipeline, and flow entries are ordered according
 to priorities: A packet arriving at a switch is first checked by
@@ -359,11 +349,9 @@ inserted or removed from a packet via push and pop actions.
 In general, a packet can be matched against any of its header
 fields, and fields can be wildcarded and sometimes bitmasked.
 (For instance, the meta-data field is maskable.) If no rule
-matches, the packet is dropped. 
+matches, the packet is dropped.
 
-\textbf{TODO LIRON: what else is missing? describe cookies?}
-
-The Openflow standard (as of \textbf{TODO}) offers two interesting
+The Openflow standard (as of \textbf{TODO}) offers three interesting
 features which we will exploit to implement the transactional memory abstraction:
 
 \begin{enumerate}
@@ -388,87 +376,96 @@ This in-band conflict detection mechanism, combined with bundling,
 allows us to implement specific types of \emph{transactions} that may
 atomically install multiple rules if certain compatibility conditions
 are met.
+
+\item \textbf{Cookies:} Cookies allow to name and retrieve individual
+flow rules. Our synchronization mechanism will implement controller-specific cookies.
 \end{enumerate}
 
-\section{Vision and Problem Statement}\label{sec:vision}
+\section{The Container Object}\label{sec:vision}
 
-This paper shows how to implement a transactional memory abstraction using
-standard Openflow switches. The shared memory abstraction of the 
-flow table at the switch allows multiple controllers to atomically and 
-concurrently read and modify state,
-using the bundling feature to implement \emph{multi-write} or, more
-widely, \emph{multi-modify} transactions. .
-This ability allows us to solve consensus among any
-number of controllers, using a single OpenFlow switch that accepts
-bundle control messages.
+The container synchronization object introduced in this paper
+is essentially a transactional memory abstraction which can be implemented
+in standard Openflow switches.
+Before presenting the technical details in the next section,
+we give a brief overview.
 
-These synchronization mechanisms can be used to
+The postulated container object can store an arbitrary number of \emph{items}.
+As we will see, these items correspond to flow entries on the Openflow switch.
+The same item may even exist multiple times in the container (i.e., the container
+is a multi-set).
+The container
+provides two main functions:
+\begin{enumerate}
+\item \textbf{\emph{Conditional Multi-Add($S$):}} A set $S$ of items $s\in S$
+is (atomically) added to the container, if and only if no element $s\in S$
+already existed in the container. If such an element already existed,
+the operation does not take effect (i.e., the transaction is aborted).
+
+\item \textbf{\emph{Conditional Multi-Remove($S$):}} A set $S$ of items $s\in S$
+is (atomically) removed from the container, if and only if each element $s\in S$
+already existed in the container. If one or more elements did not exist,
+the operation does not take effect (i.e., the transaction is aborted).
+\end{enumerate}
+
+The container object allows controllers to atomically and
+concurrently read and modify state. This
+allows us, for example, to solve consensus among any
+number of controllers.
+More generally, the container object
+allows us to
 achieve consistent network management.
-We first show that they can be used to replace the read-modify-write
-primitives voluntarily assumed in the recent implementation of a
-recent proposal for a consistent composition system for forwarding policies~\cite{cpc}.
-We then use these transactions directly to implement a lightweight
-forwarding policy composition system that requires no additional
-synchronization on the control plane.
-We then explore how more general classes of policies can be composed
-\emph{on-the-switch}.
 
-TODO: write vision and contribution in full detail, as an overview
+\section{Openflow Implementation}\label{sec:container}
 
+We now describe how to implement the container object
+in Openflow. For our implementation, we will make
+use of three main Openflow features: \emph{bundling},
+\emph{conditional application}, and \emph{cookies}.
+We will describe later how to implement some of these features
+in older Openflow versions where they are not supported. \textbf{TODO}
 
-\section{Transactions in OpenFlow}\label{sec:sync}
+A container contains items: they represent the flow table entries (i.e., a match-action rules, plus e.g., counters belonging to the rule).
+Items can be added and removed atomically and in bundles (e.g., to update the switch with
+a new policy). Recall that we want to add items only if they do not exist
+yet; otherwise the transaction should abort without taking effect.
+And similarly for removes: transactions should not take effect if the corresponding
+update contains rules which currently do not exist at the switch.
 
-Multi-write and read-modify transactions.
-
-\subsection{Dealing with multiple updates}
-
-TBD - adding the notion of versions and cleanup/GC. probably no good way to solve infinite versions... maybe check literature on shared memory and multiple writes.
-
-
-\subsection{Improving the scheme with check-overlap}\label{sec:todo}
-
-Till now we considered a model that allows multiple updates to match-action entries. Here we extends the model with actions create-entry and delete-entry that may failed and abort the whole transaction depending on the existence on non-existence of specific entries prior to the action.
-%TBD - much less resources. easily solving the infinite versions issue.
-
-Next we show how such actions can be used to implement consensus with much less resources. We use entry id as a property used to reference specific entry.
-
-We use FlowMod command as abstraction to adding/deleting a number to a multi-set. The match part of the added flow entry represents the added number. In order to verify that the added number is unique we set the flag CHECK\_OVERLAP. Similarly, we use GroupMod command as abstraction to adding/deleting a number to a set. The group id of the added group represents the added number. 
-
-In order to perform an update we use a set called CUR which is used to store the current policy id, and a multi-set called NEXT which is used to manage suggestions for next policy id. We start by reading the current switch configuration and selecting an unused id for our proposed policy. Next we try to prevent someone of using the current id with different policy in the future (durig our current update).
-
-We compute our new suggested policy by applying the updates request on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by any one else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy. 
-
-If one of the actions in the transaction fails we try again. There is no progress guaranty for each controller but there is one for the whole system - at least one of the controller will succeed in fulfilling its update requirements.
+Algorithm~\ref{alg:update} lies at the heart of our mechanism.
+It takes a set of rules $U$ (not yet a policy),
+a multi-set $Next$ and a set (with full validation) $Cur$.
+The algorithm proceeds as follows: first, we seek to
+obtain a unique \emph{id}. FIXME: to be continued...
 
 \begin{algorithm}[t]
     \caption{Advanced Update Algorithm}
-    \label{alg:template}
+    \label{alg:update}
     \begin{algorithmic}[1]
-    \Require update requirements $U$, multi-set (with optional add validation) NEXT, set (with full validation) CUR.
+    \Require update requirements $U$, multi-set (with optional add validation) $Next$, set (with full validation) $Cur$.
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
- 			\State read switch configuration
- 			\State $my\_id\gets$ unused id (in both CUR and NEXT)
- 			\State $pid\gets$ current policy id (only id in CUR)
- 			\State NEXT.Add($pid$)
- 			\State read switch configuration
- 			\If {$pid\notin CUR$}
- 				\State {\bf continue} (restart loop)
+ 			\State \textbf{read} switch configuration
+ 			\State $my\_id\gets$ unused \emph{id} (in both $Cur$ and $Next$)
+ 			\State $pid\gets$ current policy id (only id in $Cur$)
+ 			\State $Next$\emph{.add}($pid$)
+ 			\State \textbf{read} switch configuration
+ 			\If {$pid\notin Cur$}
+ 				\State {\bf continue} (\textbf{restart} loop)
  			\EndIf
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTransaction
- 				\State NEXT.Add($my\_id$, True)
- 				\State NEXT.Delete($my\_id$, True)
+ 				\State $Next$\emph{.add}($my\_id$, True)
+ 				\State $Next$\emph{.delete}($my\_id$, True)
 	 			\State DeleteGroup($pid$)
 	 			\State AddGroup($my\_id$)
-				\State NEXT.Delete($pid$)
-	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
+				\State $Next$\emph{.delete}($pid$)
+	 			\State \textbf{add} $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTransaction
      		%\State $res \gets $ commit transaction
-     	\Until{$res=True$}
+     	\Until{$res=\texttt{true}$}
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
 			\Return
@@ -477,13 +474,13 @@ If one of the actions in the transaction fails we try again. There is no progres
 \end{algorithm}
 
 \begin{algorithm}[t]
-    \caption{multi-set Add abstraction}
-    \label{alg:template}
+    \caption{\textbf{\emph{Multi-Add()}}}
+    \label{alg:multi-add}
     \begin{algorithmic}[1]
-    \Require id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$ (defaults to self).
+    \Require id $i$, unique constrain (defaults to \texttt{false}) $b\_unique$, caller id $caller$ (defaults to \emph{self}).
 %    \Ensure
     		\State $value \gets i$
-    		\State $mask \gets all-ones$
+    		\State $mask \gets all-1$
     		\State $cookie \gets i.caller$
     		\State $action \gets i.caller$
     		\If {$b\_unique$}
@@ -491,33 +488,33 @@ If one of the actions in the transaction fails we try again. There is no progres
     		\Else
     		    \State $flag \gets CHECK\_OVERLAP$
     		\EndIf
-    					\State $cmd\gets FlowMod(match=(value,mask), operation = ADD, cookie, flag, action) $
-			\Return cmd
+    					\State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation = ADD, cookie, flag, action) $
+			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
 
 \begin{algorithm}[t]
-    \caption{multi-set Delete abstraction}
+    \caption{\textbf{\emph{Multi-Remove()}}}
     \label{alg:template}
     \begin{algorithmic}[1]
-    \Require id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
+    \Require id $i$, unique constrain (defaults to \texttt{false}) $b\_unique$, caller id $caller$.
 %    \Ensure
     		\State $value \gets C.i$
-    		\State $mask \gets all-ones$
+    		\State $mask \gets all-1$
     		\State $cookie \gets C.i.caller$
     		\If {$b\_unique$}
-    			\State $cmd\gets FlowMod(match=(value,mask), operation=DELETE) $
+    			\State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation=DELETE) $
     		\Else
-    		    \State $cmd\gets FlowMod(match=(value,mask), operation=DELETE\_STRICT, cookie) $
+    		    \State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation=DELETE\_STRICT, cookie) $
     		\EndIf
 			
-			\Return cmd
+			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
 
 
 \begin{algorithm}[t]
-    \caption{set Add abstraction}
+    \caption{\textbf{\emph{Add()}}}
     \label{alg:template}
     \begin{algorithmic}[1]
     \Require  id $i$.
@@ -527,12 +524,12 @@ If one of the actions in the transaction fails we try again. There is no progres
     		\State $group_id \gets i$
     		\State $buckets \gets [dummy\_backet]$
     		\State $cmd\gets GroupMod(command, type, group_id, buckets) $
-			\Return cmd
+			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
 
 \begin{algorithm}[t]
-    \caption{set Delete abstraction}
+    \caption{\textbf{\emph{Remove()}}}
     \label{alg:template}
     \begin{algorithmic}[1]
     \Require id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
@@ -540,7 +537,7 @@ If one of the actions in the transaction fails we try again. There is no progres
     		\State $command \gets OFPGC\_DELETE$
     		\State $group_id \gets i$
     		\State $cmd\gets GroupMod(command, group\_id) $
-			\Return cmd
+			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
 
@@ -549,22 +546,22 @@ If one of the actions in the transaction fails we try again. There is no progres
     \caption{Update Algorithm with only a set}
     \label{alg:template}
     \begin{algorithmic}[1]
-    \Require update requirements $U$, a set CUR.
+    \Require update requirements $U$, a set $Cur$.
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
- 			\State read switch configuration
- 			\State $pid\gets$ current policy id (only id in CUR)
+ 			\State \textbf{read} switch configuration
+ 			\State $pid\gets$ current policy id (only id in $Cur$)
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTransaction
-	 			\State CUR.Delete($pid$)
-	 			\State CUR.Add($pid+1$)
+	 			\State $Cur$\emph{.delete}($pid$)
+	 			\State $Cur$\emph{.add}($pid+1$)
 	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTransaction
      		%\State $res \gets $ commit transaction
-     	\Until{$res=True$}
+     	\Until{$res=\texttt{true}$}
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
 			\Return
@@ -594,6 +591,56 @@ If one of the actions in the transaction fails we try again. There is no progres
     \end{algorithmic}
 \end{algorithm}
 
+LIRON TEXT: We use FlowMod command as abstraction to adding/deleting a number to a multi-set. The match part of the added flow entry represents the added number. In order to verify that the added number is unique we set the flag CHECK\_OVERLAP. Similarly, we use GroupMod command as an abstraction to adding/deleting a number to a set. The group id of the added group represents the added number.
+
+In order to perform an update we use a set called CUR which is used to store the current policy id, and a multi-set called NEXT which is used to manage suggestions for next policy id. We start by reading the current switch configuration and selecting an unused id for our proposed policy. Next we try to prevent someone of using the current id with different policy in the future (during our current update).
+
+We compute our new suggested policy by applying the update requests on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by anyone else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy.
+
+If one of the actions in the transaction fails we try again. There is no progress guaranty for each controller but there is one for the whole system - at least one of the controller will succeed in fulfilling its update requirements.
+
+
+\section{Applications}\label{sec:apps}
+
+FIXME: STN, consensus, ...
+
+\paragraph{Consensus} FIXME: desribe how to implement consensus
+
+\paragraph{One-Shot Update} FIXME: desribe how to implement one-shot update
+
+\paragraph{STN} FIXME: desribe how to implement STN
+
+\section{Discussion and Extensions}\label{sec:discussion}
+
+FIXME: we could however even do stronger stuff: collision is only exact, not using masks: do not use the ternary nature
+
+\paragraph{Beyond Container Objects}
+FIXME: we can even do more general things!
+
+\paragraph{Older Openflow Versions} FIXME: describe matrix approach
+
+\section{In-Band Composition}\label{sec:compo}
+
+FIXME: shall we?
+
+\begin{comment}
+
+\section{Transactions in Openflow}\label{sec:sync}
+
+Multi-write and read-modify transactions.
+
+\subsection{Dealing with multiple updates}
+
+TBD - adding the notion of versions and cleanup/GC. probably no good way to solve infinite versions... maybe check literature on shared memory and multiple writes.
+
+
+\subsection{Improving the scheme with check-overlap}\label{sec:todo}
+
+Till now we considered a model that allows multiple updates to match-action entries. Here we extends the model with actions create-entry and delete-entry that may failed and abort the whole transaction depending on the existence on non-existence of specific entries prior to the action.
+%TBD - much less resources. easily solving the infinite versions issue.
+
+Next we show how such actions can be used to implement consensus with much less resources. We use entry id as a property used to reference specific entry.
+
 \section{Applications and ramifications}\label{sec:application}
 
 
@@ -602,7 +649,7 @@ If one of the actions in the transaction fails we try again. There is no progres
 
 idea: multi-write consensus, a not well-known result!
 
-In order to solve consensus we suggest to use the atomic multiple entries update capability (which is discussed in OpenFlow standard). A shared memory system that supports atomic write to (enough) multiple locations is known to allow the implementation of consensus objects. For example consider the following implementation utilizing $n^2$ memory locations, $M_{i,j}$, where $i,j\in[n]$, and the suggested values $\{v_i\}_{i\in [n]}$. All locations are initialized to zero.
+In order to solve consensus we suggest to use the atomic multiple entries update capability (which is discussed in Openflow standard). A shared memory system that supports atomic write to (enough) multiple locations is known to allow the implementation of consensus objects. For example consider the following implementation utilizing $n^2$ memory locations, $M_{i,j}$, where $i,j\in[n]$, and the suggested values $\{v_i\}_{i\in [n]}$. All locations are initialized to zero.
 
 In order to participate, a server i, writes its suggested value $V_i$ and atomically rewrites row i ($M_{i,*}$) with value "1" and column i ($M_{*,i}$) with value "2". After the atomic write, a server $i$ first reads the diagonal ($M_{j,j}$ for $j\in [n]$), and consider all observed servers as candidate set S.  Then server i reads all candidates intersections (locations $M_{j,k}$ where $j,k\in S$. And computes the winner server id w that was overwritten by all other candidates, i.e. such that $M_{w,k}=2$ for all $k\in S {w}$. The consensus value is $v_w$.
 Note that a snapshot could replace the two reading phases.
@@ -620,7 +667,7 @@ We show that assuming minimalistic control protocol, SDN switch configuration sp
 
 
 
-Our first observation is that a match-action configuration which is accessed by multiple controllers can be considered as shared memory. Note however that standard memory map and index/offset to a word, while Flow Table entries are not necessarily indexed. However, we assume that each flow entry has some property that allows the operator to specifically reference and update it, for example OpenFlow entry's cookie. In cases where this property value can't be determined by the operator, we can use other variable entry properties to store the index, for example we can represent memory value $v$ in offset $i$ by an match-action entry whose match is $in\_port = i$ and action is "forward port $x$".
+Our first observation is that a match-action configuration which is accessed by multiple controllers can be considered as shared memory. Note however that standard memory map and index/offset to a word, while Flow Table entries are not necessarily indexed. However, we assume that each flow entry has some property that allows the operator to specifically reference and update it, for example Openflow entry's cookie. In cases where this property value can't be determined by the operator, we can use other variable entry properties to store the index, for example we can represent memory value $v$ in offset $i$ by an match-action entry whose match is $in\_port = i$ and action is "forward port $x$".
 %To overcome this we can use the match part of an entry as the index and the action part as the word value.
 
 
@@ -631,7 +678,7 @@ Going back to the policy update problem, the consensus scheme allow all servers 
 In some scenarios it may be desirable to shorten the policy update time by avoiding the consensus reading and policy configuration step. We define this as the one touch policy update, namely we require each server to contact the switch only once in order to (try and) update the policy, in other words participating in reaching consensus and applying it with one atomic write. Solving this problem also has significance in understanding the strength of the SDN switch computation model.
 
 The main idea of our solution is to adjust the previous policy update scheme in a way that performs consensus validation phase during every packet processing thereby requiring the servers only to make the first phase of the consensus - atomically writing the matrix.
-In order to allow the packets to validate the consensus we make the following observation: while servers can be abstracted as memory writers, the packets processed by the switch are the readers. OpenFlow standard define an atomic write transaction as being atomic in relation to the processed packets thereby making packet processing a multiple read transaction but one read location per table is allowed. This means that if each memory location used in the consensus scheme will be stored in different table then each packet will be able to read all of them.
+In order to allow the packets to validate the consensus we make the following observation: while servers can be abstracted as memory writers, the packets processed by the switch are the readers. Openflow standard define an atomic write transaction as being atomic in relation to the processed packets thereby making packet processing a multiple read transaction but one read location per table is allowed. This means that if each memory location used in the consensus scheme will be stored in different table then each packet will be able to read all of them.
 
 However, reading each memory location is not enough, as the scheme requires to make a validation that involves multiple values. We utilize the metadata field in order to store all read values, in more details, each memory value $M_{i,j}$ is stored in offset i+j*n in the metadata field. Once all values are in the metadata field, we can detect the consensus winner by trying different matches on the metadata. Although we can have one match entry per possible matrix state, this solution requires exponential number of entries. A better way which we describe next requires only $O(n^2)$ entries utilizing n tables.
 
@@ -640,7 +687,7 @@ Our compact validation use additional temp variable, $temp_winner$, to hold the 
 
 \section{The Practical Implementation}\label{sec:extension}
 
-
+\end{comment}
 
 \section{Related Work}\label{sec:relwork}
 
@@ -680,7 +727,9 @@ much more powerful synchronization primitives can be implemented.
 
 Our work is also closely related to the recent work on providing more high-level
 abstractions and programming languages for SDNs, such as Frenetic~\cite{frenetic},
-also enabling policy composition~\cite{pyretic}.
+also enabling policy composition~\cite{pyretic}. Our work complements these works
+on programming abstractoins
+by initiating the discussion of concurrency objects and abstractions.
 
 In terms of distributed computing: TODO PETR: maybe modify a bit the text below
 and also write more about multi-writer consensus etc.?
@@ -721,18 +770,68 @@ assumed by STM implementations.
 
 \section{Conclusion}\label{sec:conclusion}
 
-This paper showed that powerful synchronization primitives
+This paper showed that powerful synchronization object
 from distributed computing can be implemented in Openflow.
 Our work complements existing research on the design of
 distributed control planes, and also provides some missing links,
 e.g., for the transactional approach taken by STN.
-We also hope that our work can nourish the ongoing discussion of
-what additional in-band features may be useful for future
-versions of Openflow.
+We also hope that our work can nourish the discussion of
+which synchronization objects we can and want to implement
+in an SDN. While much progress has been made over the
+last years in the development of more intuitive programming
+languages for SDNs (e.g., Frenetic, Pyretic, Merlin), the
+question of which synchronization abstractions to provide
+has received much less attention.
+
 
 {
 \bibliographystyle{abbrv}
 \bibliography{references}  % main.bib is the name of the Bibliography in this case
 }
+
+\begin{appendix}
+
+\section{Backup Stuff}
+
+using the bundling feature to implement \emph{multi-write} or, more
+widely, \emph{multi-modify} transactions. .
+, using a single Openflow switch that accepts
+bundle control messages.
+
+We first show that they can be used to replace the read-modify-write
+primitives voluntarily assumed in the recent implementation of a
+recent proposal for a consistent composition system for forwarding policies~\cite{cpc}.
+We then use these transactions directly to implement a lightweight
+forwarding policy composition system that requires no additional
+synchronization on the control plane.
+We then explore how more general classes of policies can be composed
+\emph{on-the-switch}.
+
+TODO: write vision and contribution in full detail, as an overview
+
+
+using the bundling feature to implement \emph{multi-write} or, more
+widely, \emph{multi-modify} transactions. .
+, using a single Openflow switch that accepts
+bundle control messages.
+
+We first show that they can be used to replace the read-modify-write
+primitives voluntarily assumed in the recent implementation of a
+recent proposal for a consistent composition system for forwarding policies~\cite{cpc}.
+We then use these transactions directly to implement a lightweight
+forwarding policy composition system that requires no additional
+synchronization on the control plane.
+We then explore how more general classes of policies can be composed
+\emph{on-the-switch}.
+
+TODO: write vision and contribution in full detail, as an overview
+
+we can do more than container:
+
+we introduce container: it's not compare+set, ... its something new!
+new object, is stronger than compare and set because bundle!
+
+
+\end{appendix}
 
 \end{document}
