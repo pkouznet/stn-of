@@ -140,16 +140,16 @@ the actions of different controllers may need to be synchronized.
 %However, not much is known today about how to implement
 %such a distributed control plane.
 %]]
-In this paper, we introduce a novel synchronization object which 
+In this paper, we introduce a novel synchronization object which
 we call \emph{container}.
-The container can be implemented \emph{in-band}, using the standard Openflow 
-protocol 
-which support atomic multi-writes but only limited reads (namely 
-testing the presence of rules). We describe how to  
-leverage the container object to 
+The container can be implemented \emph{in-band}, using the standard Openflow
+protocol
+which support atomic multi-writes but only limited reads (namely
+testing the presence of rules). We describe how to
+leverage the container object to
 implement powerful consensus objects, transactions with all-or-nothing
  semantics, or atomically resolve
-general conflicts between concurrent policy updates 
+general conflicts between concurrent policy updates
 \emph{on-the-fly}, without affecting the ongoing traffic.
 %[[PK
 %In particular, we describe the implementation of test\&set primitives
@@ -191,7 +191,7 @@ general conflicts between concurrent policy updates
 By consolidating and outsourcing the control over the dataplane switches to a logically
 centralized controller, Software-Defined Networks (SDNs)
 simplify network management and facilitate faster innovations:
-the (software) control plane can evolve independently from the 
+the (software) control plane can evolve independently from the
 (hardware) data plane.
 Moreover, Openflow, the standard SDN protocol today, introduces many generalizations,
 in terms of traffic engineering, definition of flows, as well as in-band network functionalities,
@@ -247,15 +247,15 @@ even before their updates have been completed.
 \paragraph{Our Contributions}
 In this paper, we show that
 Openflow~\cite{of-spec}---the standard SDN protocol today---can
-be used to implement powerful, high-level 
+be used to implement powerful, high-level
 synchronization
 objects \emph{in-band}.
-In particular, we introduce a novel synchronization object 
+In particular, we introduce a novel synchronization object
 called \emph{container}. A container can be seen as
 a variant of the classic \texttt{test\&set} object
 (known from distributed computing over shared memory),
-which is tailored to Openflow: while Openflow supports 
-atomic multi-write functionality (using bundling), 
+which is tailored to Openflow: while Openflow supports
+atomic multi-write functionality (using bundling),
 read functionality is limited to testing the presence of
 rules as well as flow space overlaps.
 
@@ -263,9 +263,9 @@ The container object is reminiscent of the hypothetical multi-write
 shared-memory model which is known to enable solutions for important
 synchronization problems, such as consensus, impossible to solve
 otherwise~\cite{multi-objects}.
-Indeed, we show how to exploit the container object to implement 
-consensus among controllers. 
-More generally, the container object turns out to be 
+Indeed, we show how to exploit the container object to implement
+consensus among controllers.
+More generally, the container object turns out to be
 crucial for ensuring consistency of network
 management on the control plane while preserving consistency of the
 traffic processed on the data plane, and we show how to implement
@@ -378,14 +378,14 @@ atomically install multiple rules if certain compatibility conditions
 are met.
 
 \item \textbf{Cookies:} Cookies allow to name and retrieve individual
-flow rules. Our synchronization mechanism will implement controller-specific cookies. 
+flow rules. Our synchronization mechanism will implement controller-specific cookies.
 \end{enumerate}
 
 \section{The Container Object}\label{sec:vision}
 
 The container synchronization object introduced in this paper
 is essentially a transactional memory abstraction which can be implemented
-in standard Openflow switches. 
+in standard Openflow switches.
 Before presenting the technical details in the next section,
 we give a brief overview.
 
@@ -408,7 +408,7 @@ the operation does not take effect (i.e., the transaction is aborted).
 \end{enumerate}
 
 The container object allows controllers to atomically and
-concurrently read and modify state. This  
+concurrently read and modify state. This
 allows us, for example, to solve consensus among any
 number of controllers.
 More generally, the container object
@@ -432,7 +432,7 @@ And similarly for removes: transactions should not take effect if the correspond
 update contains rules which currently do not exist at the switch.
 
 Algorithm~\ref{alg:update} lies at the heart of our mechanism.
-It takes a set of rules $U$ (not yet a policy), 
+It takes a set of rules $U$ (not yet a policy),
 a multi-set $Next$ and a set (with full validation) $Cur$.
 The algorithm proceeds as follows: first, we seek to
 obtain a unique \emph{id}. FIXME: to be continued...
@@ -590,6 +590,15 @@ obtain a unique \emph{id}. FIXME: to be continued...
 
     \end{algorithmic}
 \end{algorithm}
+
+LIRON TEXT: We use FlowMod command as abstraction to adding/deleting a number to a multi-set. The match part of the added flow entry represents the added number. In order to verify that the added number is unique we set the flag CHECK\_OVERLAP. Similarly, we use GroupMod command as an abstraction to adding/deleting a number to a set. The group id of the added group represents the added number.
+
+In order to perform an update we use a set called CUR which is used to store the current policy id, and a multi-set called NEXT which is used to manage suggestions for next policy id. We start by reading the current switch configuration and selecting an unused id for our proposed policy. Next we try to prevent someone of using the current id with different policy in the future (during our current update).
+
+We compute our new suggested policy by applying the update requests on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by anyone else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy.
+
+If one of the actions in the transaction fails we try again. There is no progress guaranty for each controller but there is one for the whole system - at least one of the controller will succeed in fulfilling its update requirements.
+
 
 \section{Applications}\label{sec:apps}
 
@@ -770,9 +779,9 @@ We also hope that our work can nourish the discussion of
 which synchronization objects we can and want to implement
 in an SDN. While much progress has been made over the
 last years in the development of more intuitive programming
-languages for SDNs (e.g., Frenetic, Pyretic, Merlin), the 
+languages for SDNs (e.g., Frenetic, Pyretic, Merlin), the
 question of which synchronization abstractions to provide
-has received much less attention. 
+has received much less attention.
 
 
 {
