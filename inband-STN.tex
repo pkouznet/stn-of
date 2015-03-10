@@ -405,7 +405,7 @@ regular semantics. The multi-set abstractions are used for resolving
 conflicts between concurrent updates of the switch configuration and are themselves 
 implemented as flow-table components.
 
-A multi-set object also exports operations \emph{ms-add} and \emph{ms-delete} with the following
+A multi-set object also exports operations \emph{cond-add} and \emph{cond-delete} with the following
 semantics:
 
 %The container synchronization object introduced in this paper
@@ -444,30 +444,185 @@ composed of $\textit{cond-add}(x)$ followed by $\textit{cond-delete}(x)$.
 A \emph{set} abstraction is a special instance of a multi-set that is
 only modified with \textit{cond-add} and \textit{cond-delete}
 operations (this way the set only contains at most one copy of a given
-item).    
+item).  
+
 
 
 \subsection{Transactions in Openflow}\label{sec:t-impl}
 
-We now describe how to implement the container object
-in Openflow. For our implementation, we will make
-use of three main Openflow features: \emph{bundling},
+We now describe how to implement our transactional synchronization
+abstraction using standard OpenFlow messages.
+We use three Openflow features: \emph{bundling},
 \emph{conditional application}, and \emph{cookies}.
-We will describe later how to implement some of these features
-in older Openflow versions where they are not supported. \textbf{TODO}
+%[[PK let us leave for the moment
+%We will describe later how to implement some of these features
+%in older Openflow versions where they are not
+%supported. \textbf{TODO}
+%]]
 
-A container contains items: they represent the flow table entries (i.e., a match-action rules, plus e.g., counters belonging to the rule).
-Items can be added and removed atomically and in bundles (e.g., to update the switch with
-a new policy). Recall that we want to add items only if they do not exist
-yet; otherwise the transaction should abort without taking effect.
-And similarly for removes: transactions should not take effect if the corresponding
-update contains rules which currently do not exist at the switch.
+Algorithms~\ref{alg:cond-add}-\ref{alg:delere} describe 
+transactional  $\textit{cond-add}(x)$, $\textit{cond-delete}(x)$,
+$\textit{add}(x)$, and $\textit{delete}(x)$. 
+Every operation within a transaction generates a number of  OpenFlow
+messages. Each of the messages is marked as a \emph{bundle} message,
+where the transaction's identifier is used as the bundle id.
+  
+\textbf{TODO: explain how the lines in the pseudocode generate OF msgs.} 
+We use FlowMod command as abstraction to adding/deleting a number to a
+multi-set. The match part of the added flow entry represents the added
+number. In order to verify that the added number is unique we set the
+flag CHECK\_OVERLAP. Similarly, we use GroupMod command as an
+abstraction to adding/deleting a number to a set. The group id of the added group represents the added number.
+
+
+%A container contains items: they represent the flow table entries (i.e., a match-action rules, plus e.g., counters belonging to the rule).
+%Items can be added and removed atomically and in bundles (e.g., to update the switch with
+%a new policy). Recall that we want to add items only if they do not exist
+%yet; otherwise the transaction should abort without taking effect.
+%And similarly for removes: transactions should not take effect if the corresponding
+%update contains rules which currently do not exist at the switch.
+
+\begin{algorithm}[t]
+    \caption{$\textit{cond-add}(x)$}
+    \label{alg:multi-add}
+    \begin{algorithmic}[1]
+    \Require id $i$, unique constrain (defaults to \texttt{false}) $b\_unique$, caller id $caller$ (defaults to \emph{self}).
+%    \Ensure
+    		\State $value \gets i\concat i$
+    		\State $mask \gets caller\concat all-1$
+    		\State $cookie \gets i\concat caller$
+    		\State $action \gets i\concat caller$
+    		\If {$b\_unique$}
+    			\State $flag \gets 0$
+    		\Else
+    		    \State $flag \gets CHECK\_OVERLAP$
+    		\EndIf
+    					\State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation = ADD, cookie, flag, action) $
+			\Return $cmd$
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+    \caption{$\textit{cond-delete}(x)$}
+    \label{alg:template}
+    \begin{algorithmic}[1]
+    \Require id $i$, unique constrain (defaults to \texttt{false}) $b\_unique$, caller id $caller$.
+%    \Ensure
+    		\State $value \gets C.i$
+    		\State $mask \gets all-1$
+    		\State $cookie \gets C.i.caller$
+    		\If {$b\_unique$}
+    			\State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation=DELETE) $
+    		\Else
+    		    \State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation=DELETE\_STRICT, cookie) $
+    		\EndIf
+			
+			\Return $cmd$
+    \end{algorithmic}
+\end{algorithm}
+
+
+\begin{algorithm}[t]
+    \caption{$\textit{add}(x)$}
+    \label{alg:add}
+    \begin{algorithmic}[1]
+    \Require  id $i$.
+%    \Ensure
+    		\State $command \gets OFPGC\_ADD$
+    		\State $type \gets OFPGT\_INDIRECT$
+    		\State $group_id \gets i$
+    		\State $buckets \gets [dummy\_backet]$
+    		\State $cmd\gets GroupMod(command, type, group_id, buckets) $
+			\Return $cmd$
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+    \caption{$\textit{delete}(x)$}
+    \label{alg:delete}
+    \begin{algorithmic}[1]
+    \Require id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
+%    \Ensure
+    		\State $command \gets OFPGC\_DELETE$
+    		\State $group_id \gets i$
+    		\State $cmd\gets GroupMod(command, group\_id) $
+			\Return $cmd$
+    \end{algorithmic}
+\end{algorithm}
+
+
+\section{Applications}\label{sec:apps}
+
+We now sketch a few examples of how our generic transactional synchronization
+abstraction  can be used by a control application.
+
+\subsection{In-band policy composition}
+
+Our first example (Algorithm~\ref{alg:simple-update}) is a simple in-band policy composition protocol that
+allows a set of  controllers to concurrently update switch  \emph{policies} , i.e., sets of
+effective rules in its flow tables, under the
+condition that these rules can be composed with the currently installed
+policy (the composition predicate is encoded in a user-specific
+$\textit{apply\_update}()$ function~\cite{cpc}.  
+
+Every policy is associated with a \emph{policy identifier} 
+In the algorithm, the controller first reads the currently installed
+policy, then computes a new unique policy, checks whether the new
+policy and the current policy can be composed and, if so, replaces the
+current policy with the composition. If, meanwhile, a new
+policy (with a different identifier) has been installed, the update
+fails and takes no effect.  
+
+\textbf{TODO: fill the gaps}
+
+Algorithm~\ref{alg:simple-update} allows policy identifiers to grow
+without bound. In fact, as was observed in~\cite{cpc}, the number of currently
+used policies can be made proportional to the number of concurrent controllers.
+Algorithm~\ref{alg:update} describes such a policy-update procedure.
+ 
+\textbf{TODO: fill the gaps}
+
+
 
 Algorithm~\ref{alg:update} lies at the heart of our mechanism.
 It takes a set of rules $U$ (not yet a policy),
 a multi-set $Next$ and a set (with full validation) $Cur$.
 The algorithm proceeds as follows: first, we seek to
 obtain a unique \emph{id}. FIXME: to be continued...
+
+\textbf{TODO: fix the pseudocode, make the use of afdd/delete
+  operations uniform, make all switch operations transactional}
+
+
+
+\begin{algorithm}[t]
+    \caption{Update Algorithm with only a set}
+    \label{alg:simple-update}
+    \begin{algorithmic}[1]
+    \Require update requirements $U$, a set $Cur$.
+    \Ensure installed policy is consistent with previous one
+ 		%\Do
+ 		\Repeat
+ 			\State \textbf{read} switch configuration
+ 			\State $pid\gets$ current policy id (only id in $Cur$)
+ 			\State $cur\_policy\gets$ current policy
+ 			\State $new\_policy\gets apply\_update(cur\_policy,U)$
+ 			\startTransaction
+	 			\State $Cur$\emph{.delete}($pid$)
+	 			\State $Cur$\emph{.add}($pid+1$)
+	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
+	 			%\State update policy selector to $my\_a$
+ 			\endTransaction
+     		%\State $res \gets $ commit transaction
+     	\Until{$res=\texttt{true}$}
+     	%\doWhile{$res=False$}
+%   \vspace{3mm}
+			\Return
+
+    \end{algorithmic}
+\end{algorithm}
+
+
 
 \begin{algorithm}[t]
     \caption{Advanced Update Algorithm}
@@ -505,101 +660,6 @@ obtain a unique \emph{id}. FIXME: to be continued...
     \end{algorithmic}
 \end{algorithm}
 
-\begin{algorithm}[t]
-    \caption{\textbf{\emph{MultiSet-Add()}}}
-    \label{alg:multi-add}
-    \begin{algorithmic}[1]
-    \Require id $i$, unique constrain (defaults to \texttt{false}) $b\_unique$, caller id $caller$ (defaults to \emph{self}).
-%    \Ensure
-    		\State $value \gets i\concat i$
-    		\State $mask \gets caller\concat all-1$
-    		\State $cookie \gets i\concat caller$
-    		\State $action \gets i\concat caller$
-    		\If {$b\_unique$}
-    			\State $flag \gets 0$
-    		\Else
-    		    \State $flag \gets CHECK\_OVERLAP$
-    		\EndIf
-    					\State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation = ADD, cookie, flag, action) $
-			\Return $cmd$
-    \end{algorithmic}
-\end{algorithm}
-
-\begin{algorithm}[t]
-    \caption{\textbf{\emph{MultiSet-Remove()}}}
-    \label{alg:template}
-    \begin{algorithmic}[1]
-    \Require id $i$, unique constrain (defaults to \texttt{false}) $b\_unique$, caller id $caller$.
-%    \Ensure
-    		\State $value \gets C.i$
-    		\State $mask \gets all-1$
-    		\State $cookie \gets C.i.caller$
-    		\If {$b\_unique$}
-    			\State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation=DELETE) $
-    		\Else
-    		    \State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation=DELETE\_STRICT, cookie) $
-    		\EndIf
-			
-			\Return $cmd$
-    \end{algorithmic}
-\end{algorithm}
-
-
-\begin{algorithm}[t]
-    \caption{\textbf{\emph{Set-Add()}}}
-    \label{alg:template}
-    \begin{algorithmic}[1]
-    \Require  id $i$.
-%    \Ensure
-    		\State $command \gets OFPGC\_ADD$
-    		\State $type \gets OFPGT\_INDIRECT$
-    		\State $group_id \gets i$
-    		\State $buckets \gets [dummy\_backet]$
-    		\State $cmd\gets GroupMod(command, type, group_id, buckets) $
-			\Return $cmd$
-    \end{algorithmic}
-\end{algorithm}
-
-\begin{algorithm}[t]
-    \caption{\textbf{\emph{Set-Remove()}}}
-    \label{alg:template}
-    \begin{algorithmic}[1]
-    \Require id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
-%    \Ensure
-    		\State $command \gets OFPGC\_DELETE$
-    		\State $group_id \gets i$
-    		\State $cmd\gets GroupMod(command, group\_id) $
-			\Return $cmd$
-    \end{algorithmic}
-\end{algorithm}
-
-
-\begin{algorithm}[t]
-    \caption{Update Algorithm with only a set}
-    \label{alg:template}
-    \begin{algorithmic}[1]
-    \Require update requirements $U$, a set $Cur$.
-    \Ensure installed policy is consistent with previous one
- 		%\Do
- 		\Repeat
- 			\State \textbf{read} switch configuration
- 			\State $pid\gets$ current policy id (only id in $Cur$)
- 			\State $cur\_policy\gets$ current policy
- 			\State $new\_policy\gets apply\_update(cur\_policy,U)$
- 			\startTransaction
-	 			\State $Cur$\emph{.delete}($pid$)
-	 			\State $Cur$\emph{.add}($pid+1$)
-	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
-	 			%\State update policy selector to $my\_a$
- 			\endTransaction
-     		%\State $res \gets $ commit transaction
-     	\Until{$res=\texttt{true}$}
-     	%\doWhile{$res=False$}
-%   \vspace{3mm}
-			\Return
-
-    \end{algorithmic}
-\end{algorithm}
 
 \begin{algorithm}[t]
     \caption{Update Algorithm with pipeline-array}
@@ -623,8 +683,7 @@ obtain a unique \emph{id}. FIXME: to be continued...
     \end{algorithmic}
 \end{algorithm}
 
-LIRON TEXT: We use FlowMod command as abstraction to adding/deleting a number to a multi-set. The match part of the added flow entry represents the added number. In order to verify that the added number is unique we set the flag CHECK\_OVERLAP. Similarly, we use GroupMod command as an abstraction to adding/deleting a number to a set. The group id of the added group represents the added number.
-
+LIRON TEXT: 
 In order to perform an update we use a set called CUR which is used to store the current policy id, and a multi-set called NEXT which is used to manage suggestions for next policy id. We start by reading the current switch configuration and selecting an unused id for our proposed policy. Next we try to prevent someone of using the current id with different policy in the future (during our current update).
 
 We compute our new suggested policy by applying the update requests on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by anyone else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy.
@@ -632,7 +691,6 @@ We compute our new suggested policy by applying the update requests on top of cu
 If one of the actions in the transaction fails we try again. There is no progress guaranty for each controller but there is one for the whole system - at least one of the controller will succeed in fulfilling its update requirements.
 
 
-\section{Applications}\label{sec:apps}
 
 FIXME: STN, consensus, ...
 
