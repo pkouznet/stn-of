@@ -384,41 +384,70 @@ are met.
 flow rules. Our synchronization mechanism will implement controller-specific cookies.
 \end{enumerate}
 
-\section{The Container Object}\label{sec:vision}
+%\section{The Container Object}\label{sec:vision}
+\section{Transactional synchronization}\label{sec:trans}
 
-The container synchronization object introduced in this paper
-is essentially a transactional memory abstraction which can be implemented
-in standard Openflow switches.
-Before presenting the technical details in the next section,
-we give a brief overview.
+In this section, we sketch the synchronization abstraction we build on
+top of standard OpenFlow functionality. At a high level, we export a
+transactional interface which allows a controller to perform multiple
+operations on the configuration of an OpenFlow switch as an atomic
+\emph{transaction}, inspired by the concept of transactional
+memory~\cite{stm-st95,tm-book}. A transaction may \emph{commit}, in
+which case it appears as executed sequentially, or \emph{abort}, in
+which none of its operations takes effect.  
 
-The postulated container object can store an arbitrary number of \emph{items}.
-As we will see, these items correspond to flow entries on the Openflow switch.
-The same item may even exist multiple times in the container (i.e., the container
-is a multi-set).
-The container
-provides two main functions:
-\begin{enumerate}
-\item \textbf{\emph{Conditional Multi-Add($S$):}} A set $S$ of items $s\in S$
-is (atomically) added to the container, if and only if no element $s\in S$
-already existed in the container. If such an element already existed,
-the operation does not take effect (i.e., the transaction is aborted).
+\subsection{Interface}\label{sec:t-if}
+We assume that transactions may comprise operations on the flow table
+of an SDN switch, such as reading flow tables or adding new rules. 
+ In addition, we also assume transactional access to  \emph{multi-set}
+abstractions that store \emph{items} and export \emph{add} and \emph{delete} operations with
+regular semantics. The multi-set abstractions are used for resolving
+conflicts between concurrent updates of the switch configuration and are themselves 
+implemented as flow-table components.
 
-\item \textbf{\emph{Conditional Multi-Remove($S$):}} A set $S$ of items $s\in S$
-is (atomically) removed from the container, if and only if each element $s\in S$
-already existed in the container. If one or more elements did not exist,
-the operation does not take effect (i.e., the transaction is aborted).
-\end{enumerate}
+A multi-set object also exports operations \emph{ms-add} and \emph{ms-delete} with the following
+semantics:
 
-The container object allows controllers to atomically and
-concurrently read and modify state. This
-allows us, for example, to solve consensus among any
-number of controllers.
-More generally, the container object
-allows us to
-achieve consistent network management.
+%The container synchronization object introduced in this paper
+%is essentially a transactional memory abstraction which can be implemented
+%in standard Openflow switches.
+%Before presenting the technical details in the next section,%
+%we give a brief overview.
 
-\section{Openflow Implementation}\label{sec:container}
+%The postulated container object can store an arbitrary number of \emph{items}.
+%As we will see, these items correspond to flow entries on the Openflow switch.
+%The same item may even exist multiple times in the container (i.e., the container
+%is a multi-set).
+%The container
+%provides two main functions:
+\begin{itemize}
+\item \textbf{$\textit{cond-add}(x)$:} if $x$ is not in the set, adds 
+  $x$ to the set; otherwise, \emph{fails} and, respectively,
+  aborts the transaction in which the operation is invoked.
+
+\item \textbf{$\textit{cond-delete}(x)$:} if $x$ is in the set, deletes an
+$x$ from the set; otherwise, \emph{fails} and
+  aborts the transaction.
+\end{itemize}  
+
+Formally, we guarantee that in every execution, all committed
+transactions constitute a \emph{legal} sequential
+order~\cite{Pap79-serial}. On the progress side, we ensure that a
+transaction $T$ is only allowed to abort either because another 
+transaction updated a flow table entry read by $T$  
+or if one of $T$'s multi-set operations fails.
+
+Note that
+%, assuming such a transactional memory,  
+a $\emph{contains}(x)$ operation can be implemented as a transaction
+composed of $\textit{cond-add}(x)$ followed by $\textit{cond-delete}(x)$.  
+A \emph{set} abstraction is a special instance of a multi-set that is
+only modified with \textit{cond-add} and \textit{cond-delete}
+operations (this way the set only contains at most one copy of a given
+item).    
+
+
+\subsection{Transactions in Openflow}\label{sec:t-impl}
 
 We now describe how to implement the container object
 in Openflow. For our implementation, we will make
