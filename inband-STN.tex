@@ -647,8 +647,8 @@ obtain a unique \emph{id}. FIXME: to be continued...
  		%\Do
  		\Repeat
  			\State \textbf{read} switch configuration
- 			\State $my\_id\gets$ unused \emph{id} (in both $Cur$ and $Next$)
- 			\State $pid\gets$ current policy id (only id in $Cur$)
+ 			\State $my\_id\gets$ an unused \emph{id} 
+ 			\State $pid\gets$ current policy id 
  			\State $claim(pid)$
  			\State \textbf{read} switch configuration
  			\If {$pid\notin Cur$}
