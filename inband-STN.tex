@@ -87,11 +87,13 @@
 
 %\title{Coordinating Distributed SDN Controllers:\\On the Consensus Power of Openflow}
 
-%\title{On the Synchronization Power of Openflow}
+%[[PK sorry for stubborness :)
+\title{On the Synchronization Power of Openflow Data Plane} 
+%]]
 
 %\title{Synchronizing Distributed SDN Controllers\\{\Large The Openflow Container}}
 
-\title{Synchronizing Distributed Openflow Controllers\\{\Large Toward More Powerful In-Band Synchronization Objects}}
+%\title{Synchronizing Distributed Openflow Controllers\\{\Large Toward More Powerful In-Band Synchronization Objects}}
 
 
 \author{
@@ -145,16 +147,14 @@ the actions of different controllers may need to be synchronized.
 %However, not much is known today about how to implement
 %such a distributed control plane.
 %]]
-In this paper, we introduce a novel synchronization object which
-we call \emph{container}.
-The container can be implemented \emph{in-band}, using the standard Openflow
-protocol
-which support atomic multi-writes but only limited reads (namely
-testing the presence of rules). We describe how to
-leverage the container object to
-implement powerful consensus objects, transactions with all-or-nothing
- semantics, or atomically resolve
-general conflicts between concurrent policy updates
+In this paper, we show that the standard Openflow
+protocol is powerful enough to implement a powerful synchronization
+abstractions exporting \emph{transactional} accesses to the components
+of the data-plane configuration, with \emph{all-or-nothing} semantics. 
+The abstraction can be implemented \emph{in band}, without any
+additional synchronization between the controllers.
+We describe how to leverage the transactional abstraction to
+atomically resolve conflicts between concurrent policy updates
 \emph{on-the-fly}, without affecting the ongoing traffic.
 %[[PK
 %In particular, we describe the implementation of test\&set primitives
@@ -239,10 +239,10 @@ control application).
 Consider, for example, the practical problem of
 consistent installation of new forwarding policies, stipulating routes
 that packets of different header spaces should follow across the
-network.~\cite{network-update,roger-hotnets,correct,stn}
-Installing conflicting forwarding rules, e.g., rules of the same priority defined over non-disjoint
+network~\cite{network-update,roger-hotnets,correct,stn}.
+Installing \emph{conflicting} forwarding rules, e.g., rules of the same priority defined over non-disjoint
 flow spaces may lead to pathological network behavior (loops,
-blackholes, etc.).
+blackholes, etc.)~\cite{cpc}.
 Similarly, installing diverging load-balancing policies may,
 when combined, \emph{increase} the load~\cite{log-cent}.
 To render things more difficult, controllers may also fail,
@@ -253,31 +253,32 @@ even before their updates have been completed.
 In this paper, we show that
 Openflow~\cite{of-spec}---the standard SDN protocol today---can
 be used to implement powerful, high-level
-synchronization
-objects \emph{in-band}.
-In particular, we introduce a novel synchronization object
-called \emph{container}. A container can be seen as
-a variant of the classic \texttt{test\&set} object
-(known from distributed computing over shared memory),
-which is tailored to Openflow: while Openflow supports
-atomic multi-write functionality (using bundling),
-read functionality is limited to testing the presence of
-rules as well as flow space overlaps.
+synchronization objects \emph{in-band}.
+In particular, we define a transactional synchronization abstraction
+that exportes \emph{atomic} (\emph{all-or-nothing} access to multiple
+components of an SDN switch configuration, similarly to the way
+transactional memory~\cite{stm-st95,tm-book} provides atomic access to
+multiple memory locations.
+To implement this synchronization abstraction, we rely on several
+standard OpenFlow features, including \emph{message bundling},
+\emph{check-overlap} flag, and \emph{grouping}~\cite{of-spec}.    
 
-The container object is reminiscent of the hypothetical multi-write
-shared-memory model which is known to enable solutions for important
-synchronization problems, such as consensus, impossible to solve
-otherwise~\cite{multi-objects}.
-Indeed, we show how to exploit the container object to implement
-consensus among controllers.
-More generally, the container object turns out to be
-crucial for ensuring consistency of network
-management on the control plane while preserving consistency of the
+%The container object is reminiscent of the hypothetical multi-write
+%shared-memory model which is known to enable solutions for important
+%synchronization problems, such as consensus, impossible to solve
+%otherwise~\cite{multi-objects}.
+%Indeed, we show how to exploit the container object to implement
+%consensus among controllers.
+We show how the transactional abstraction helps consistency of network
+management on the control plane, while preserving consistency of the
 traffic processed on the data plane, and we show how to implement
-\emph{packet-atomic} rule updates and more complex
-\emph{atomic transactions}.
-We also show how to replace the read-modify-write
-primitives voluntarily assumed in the recent implementation of a
+\emph{packet-atomic} rule updates~\cite{network-update}: even though
+an update .
+% and more complex
+%\emph{atomic transactions}.
+We also sketch how to implement the \emph{read-modify-write} primitives
+and \emph{control-plane} synchronization, assumed voluntarily to exist
+by the recent proposal of a
 consistent composition system for forwarding policies~\cite{cpc}.
 
 % we show that powerful synchronization primitives
@@ -302,13 +303,13 @@ consistent composition system for forwarding policies~\cite{cpc}.
 \paragraph{Organization}
 The rest of the paper is organized as follows.
 In Section~\ref{sec:background}, we review the basics of the  Openflow
-protocol and discuss the features which are relevant for our work.
-We introduce our vision and the container consensus object in Section~\ref{sec:vision},
-and present its implementation in Section~\ref{sec:container}.
+protocol and discuss its features which are relevant for our work.
+In Section~\ref{sec:vision}, we introduce our vision and the container consensus object 
+and present its implementation in OpenFlow.
 We then discuss applications (Section~\ref{sec:apps}) as
 well as extensions (Section~\ref{sec:discussion}).
-After reviewing related literature in Section~\ref{sec:relwork}, we conclude
-our contribution in Section~\ref{sec:conclusion}.
+We review related literature in Section~\ref{sec:relwork}, and conclude
+in Section~\ref{sec:conclusion}.
 
 %we provide the theoretical
 %background on our approach. Section~\ref{sec:realization}
@@ -389,7 +390,7 @@ flow entries and to use masks to delete modify/delete multiple entries. Our sync
 \end{enumerate}
 
 %\section{The Container Object}\label{sec:vision}
-\section{Transactional synchronization}\label{sec:trans}
+\section{Transactional synchronization}\label{sec:vision}
 
 In this section, we sketch the synchronization abstraction we build on
 top of standard OpenFlow functionality. At a high level, we export a
