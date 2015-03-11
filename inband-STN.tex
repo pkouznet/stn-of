@@ -48,9 +48,9 @@
 
 
 \algblock[<block>]{<start>}{<end>}
-\algblockdefx[Transaction]{startTransaction}{endTransaction} %
-[0]{ \textbf{start transaction}} %
-[1][res]{ $#1\gets$  \textbf{commit transaction}}
+\algblockdefx[Bundle]{startBundle}{endBundle} %
+[0]{ \textbf{start bundle}} %
+[1][res]{ $#1\gets$  \textbf{commit bundle}}
 
 %
 %\usepackage{comment}
@@ -472,16 +472,16 @@ i%tem).
 We now describe how to implement our transactional synchronization
 abstraction using standard OpenFlow messages.
 We use three Openflow features: \emph{bundling},
-\emph{conditional application}, and \emph{cookies}.
+\emph{conditional application}, and \emph{groups}.
 %[[PK let us leave for the moment
 %We will describe later how to implement some of these features
 %in older Openflow versions where they are not
 %supported. \textbf{TODO}
 %]]
 
-Algorithms~\ref{alg:cond-add}-\ref{alg:delere} describe 
-transactional  $\textit{cond-add}(x)$, $\textit{cond-delete}(x)$,
-$\textit{add}(x)$, and $\textit{delete}(x)$. 
+Algorithms~\ref{alg:claim}-\ref{alg:cas} describe 
+transactional  $\textit{claim}(x)$, $\textit{unclaim}(x)$,
+$\textit{check}(x)$, and $\textit{CAS}(x)$. 
 Every operation within a transaction generates a number of  OpenFlow
 messages. Each of the messages is marked as a \emph{bundle} message,
 where the transaction's identifier is used as the bundle id.
@@ -503,7 +503,7 @@ abstraction to adding/deleting a number to a set. The group id of the added grou
 
 \begin{algorithm}[t]
     \caption{$\textit{claim}(x)$}
-    \label{alg:multi-add}
+    \label{alg:claim}
     \begin{algorithmic}[1]
     \Require \emph{self} as the calling controller id.
 %    \Ensure
@@ -520,7 +520,7 @@ abstraction to adding/deleting a number to a set. The group id of the added grou
 
 \begin{algorithm}[t]
     \caption{$\textit{check}(x)$}
-    \label{alg:multi-add}
+    \label{alg:check}
     \begin{algorithmic}[1]
     \Require \emph{self} as the calling controller id.
 %    \Ensure
@@ -529,7 +529,7 @@ abstraction to adding/deleting a number to a set. The group id of the added grou
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets x\concat self$
-    		\State $flag \gets CHECK\_OVERLAP$
+    		\State $flag \gets OFPFF\_CHECK\_OVERLAP$
     		\State $cmd1\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
     		\State $cmd2\gets \textsc{FlowMod}(match, op = DELETE) $
 			\Return $cmd1$,$cmd2$
@@ -538,7 +538,7 @@ abstraction to adding/deleting a number to a set. The group id of the added grou
 
 \begin{algorithm}[t]
     \caption{$\textit{unclaim}(x)$}
-    \label{alg:template}
+    \label{alg:unclaim}
     \begin{algorithmic}[1]
     \Require \emph{self} as the calling controller id.
 %    \Ensure
@@ -556,7 +556,7 @@ abstraction to adding/deleting a number to a set. The group id of the added grou
 
 \begin{algorithm}[t]
     \caption{$\textit{compare\&set}(old,new)$}
-    \label{alg:add}
+    \label{alg:cas}
     \begin{algorithmic}[1]
     %\Require  id $i$.
 %    \Ensure
@@ -632,11 +632,11 @@ obtain a unique \emph{id}. FIXME: to be continued...
  			\State $pid\gets$ current policy id 
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
- 			\startTransaction
+ 			\startBundle
 	 			\State $compare\&set(pid,pid+1)$
 	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
- 			\endTransaction
+ 			\endBundle
      		%\State $res \gets $ commit transaction
      	\Until{$res=\texttt{true}$}
      	%\doWhile{$res=False$}
@@ -667,12 +667,12 @@ obtain a unique \emph{id}. FIXME: to be continued...
  			\EndIf
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
- 			\startTransaction
+ 			\startBundle
  				\State $check(my\_id)$
 	 			\State $compare\&set(pid,my\_id)$
 	 			\State \textbf{add} $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
- 			\endTransaction
+ 			\endBundle
 	 		\State $unclaim(pid)$
      		%\State $res \gets $ commit transaction
      	\Until{$res=\texttt{true}$}
@@ -685,18 +685,27 @@ obtain a unique \emph{id}. FIXME: to be continued...
 
 
 \begin{algorithm}[t]
-    \caption{Update Algorithm with pipeline-array}
+    \caption{Policy Composition Algorithm without bundle}
     \label{alg:template}
     \begin{algorithmic}[1]
-    \Require update requirements $U$, array $ARR$.
-    \Ensure installed policy is consistent with previous one
-			\Return
+    \Require policy $P$ (a set of FlowMod entry creation commands), three consecutive flow tables ids (per controller) $T_s,T_0,T_1$, active table index $active\in\{0,1\}$.
+    %\Ensure installed policy is consistent with previous one
+    \State $unactive \gets active + 1 \mod{2}$
+    \For {$cmd \in P$}
+	    \State $cmd.action\gets Reencode(cmd.action)$
+	    \State $cmd.table\_id\gets T_{unactive}$
+	    \State send $cmd$
+    \EndFor
+    \State modify the action of $T_s$ entry to goto $T_{unactive}$
+    \State clear table $T_{active}$
+    \State $active \gets unactive$
+	\Return
 
     \end{algorithmic}
 \end{algorithm}
 
 \begin{algorithm}[t]
-    \caption{Update Composition Algorithm without bundle}
+    \caption{Update Algorithm with pipeline}
     \label{alg:template}
     \begin{algorithmic}[1]
     \Require update requirements $U$, array $ARR$.
