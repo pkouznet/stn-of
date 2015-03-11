@@ -44,6 +44,8 @@
 \newcommand{\hide}[1]{}
 \newcommand{\concat}[0]{\oplus}
 \newcommand{\append}[0]{\frown}
+\newcommand{\Nat}{\mathbb{N}}
+
 
 \algblock[<block>]{<start>}{<end>}
 \algblockdefx[Transaction]{startTransaction}{endTransaction} %
@@ -391,7 +393,8 @@ flow entries and to use masks to delete modify/delete multiple entries. Our sync
 
 In this section, we sketch the synchronization abstraction we build on
 top of standard OpenFlow functionality. At a high level, we export a
-transactional interface which allows a controller to perform multiple
+transactional interface which allows each controller $i\in[N]$ ($N\geq
+2$) to perform multiple
 operations on the configuration of an OpenFlow switch as an atomic
 \emph{transaction}, inspired by the concept of transactional
 memory~\cite{stm-st95,tm-book}. A transaction may \emph{commit}, in
@@ -401,15 +404,14 @@ which none of its operations takes effect.
 \subsection{Interface}\label{sec:t-if}
 We assume that transactions may comprise operations on the flow table
 of an SDN switch, such as reading flow tables or adding new rules. 
- In addition, we also assume transactional access to  \emph{multi-set}
-abstractions that store \emph{items} and export \emph{add} and \emph{delete} operations with
-regular semantics. The multi-set abstractions are used for resolving
-conflicts between concurrent updates of the switch configuration and are themselves 
-implemented as flow-table components.
-
-A multi-set object also exports operations \emph{cond-add} and \emph{cond-delete} with the following
+In addition we, we also assume transactional access to  two objects: a
+\emph{claim-id} object, used for claiming a policy \emph{identifier} in a
+given (bounded or unbounded) set, and a read-write \emph{register}
+object, used for storing the current used policy identifier.
+%
+More precisely, a claim-id object exports operations \emph{claim} and
+\emph{unclaim} and \emph{check} with the following sequential
 semantics:
-
 %The container synchronization object introduced in this paper
 %is essentially a transactional memory abstraction which can be implemented
 %in standard Openflow switches.
@@ -423,30 +425,35 @@ semantics:
 %The container
 %provides two main functions:
 \begin{itemize}
-\item \textbf{$\textit{cond-add}(x)$:} if $x$ is not in the set, adds 
-  $x$ to the set; otherwise, \emph{fails} and, respectively,
-  aborts the transaction in which the operation is invoked.
+\item by performing $\textit{claim}(k)$, $i\in[N]$,
+  $k\in\Nat$, controller $i$ \emph{claims} 
+  identifier $k$;
 
-\item \textbf{$\textit{cond-delete}(x)$:} if $x$ is in the set, deletes an
-$x$ from the set; otherwise, \emph{fails} and
-  aborts the transaction.
+
+\item by performing $\textit{uncheck}(i)$, $i\in[N]$, controller $i$
+  \emph{unchecks} identifier $k$;  
+
+\item $\textit{check}(k)$, $k\in\Nat$, returns $\textit{true}$ if and
+  only if $k$ is not currently claimed by any controller.  
+
 \end{itemize}  
 
 Formally, we guarantee that in every execution, all committed
 transactions constitute a \emph{legal} sequential
-order~\cite{Pap79-serial}. On the progress side, we ensure that a
+order~\cite{Pap79-serial}, i.e., every transaction appears as executed
+sequentially. On the progress side, we ensure that a
 transaction $T$ is only allowed to abort either because another 
 transaction updated a flow table entry read by $T$  
 or if one of $T$'s multi-set operations fails.
 
-Note that
+%Note that
 %, assuming such a transactional memory,  
-a $\emph{contains}(x)$ operation can be implemented as a transaction
-composed of $\textit{cond-add}(x)$ followed by $\textit{cond-delete}(x)$.  
-A \emph{set} abstraction is a special instance of a multi-set that is
-only modified with \textit{cond-add} and \textit{cond-delete}
-operations (this way the set only contains at most one copy of a given
-item).  
+%a $\emph{contains}(x)$ operation can be implemented as a transaction
+%composed of $\textit{cond-add}(x)$ followed by $\textit{cond-delete}(x)$.  
+%A \emph{set} abstraction is a special instance of a multi-set that is
+%only modified with \textit{cond-add} and \textit{cond-delete}
+%operations (this way the set only contains at most one copy of a given
+i%tem).  
 
 
 
