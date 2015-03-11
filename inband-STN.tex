@@ -354,7 +354,7 @@ fields, and fields can be wildcarded and sometimes bitmasked.
 (For instance, the meta-data field is maskable.) If no rule
 matches, the packet is dropped.
 
-The Openflow standard (as of \textbf{TODO}) offers three interesting
+The Openflow standard (as of \textbf{TODO}) offers four interesting
 features which we will exploit to implement the transactional memory abstraction:
 
 \begin{enumerate}
@@ -370,18 +370,20 @@ to the switch configuration either \emph{before} or \emph{after} the
 request was processed.
 
 \item \textbf{Conditional Application:}
-The Openflow standard also supports the \emph{conditional} application of
-certain types of control messages. A specific $\textsf{OFPFF\_CHECK\_OVERLAP}$ flag
-set in the control message containing a new forwarding rule ensures
-that the rule is applied if and only if it does not \emph{conflict}
-with any other rule currently in the flow table.
-This in-band conflict detection mechanism, combined with bundling,
+The Openflow standard also supports the \emph{conditional} creation of
+flow entries. A specific $\textsf{OFPFF\_CHECK\_OVERLAP}$ flag
+set in the flow creation message ensures
+that the flow entry is created if and only if it does not \emph{conflict}
+with any other flow entry currently in the flow table.
+This ?????in-band????? conflict detection mechanism, combined with bundling,
 allows us to implement specific types of \emph{transactions} that may
 atomically install multiple rules if certain compatibility conditions
 are met.
 
 \item \textbf{Cookies:} Cookies allow to name and retrieve individual
-flow rules. Our synchronization mechanism will implement controller-specific cookies.
+flow entries and to use masks to delete modify/delete multiple entries. Our synchronization mechanism will implement controller-specific cookies.
+
+\item \textbf{Groups:} Groups of action buckets can be defined in a special group table. Each group has a unique id and any attempt to create a group with existing id or to delete un existing group fails (and can abort a bundle in process).
 \end{enumerate}
 
 %\section{The Container Object}\label{sec:vision}
