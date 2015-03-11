@@ -485,39 +485,52 @@ abstraction to adding/deleting a number to a set. The group id of the added grou
 %update contains rules which currently do not exist at the switch.
 
 \begin{algorithm}[t]
-    \caption{$\textit{cond-add}(x)$}
+    \caption{$\textit{claim}(x)$}
     \label{alg:multi-add}
     \begin{algorithmic}[1]
-    \Require id $i$, unique constrain (defaults to \texttt{false}) $b\_unique$, caller id $caller$ (defaults to \emph{self}).
+    \Require \emph{self} as the calling controller id.
 %    \Ensure
-    		\State $value \gets i\concat i$
-    		\State $mask \gets caller\concat all-1$
-    		\State $cookie \gets i\concat caller$
-    		\State $action \gets i\concat caller$
-    		\If {$b\_unique$}
-    			\State $flag \gets 0$
-    		\Else
-    		    \State $flag \gets CHECK\_OVERLAP$
-    		\EndIf
-    					\State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation = ADD, cookie, flag, action) $
+    		\State $value \gets x\concat x$
+    		\State $mask \gets self\concat all-1$
+	    	\State $match \gets (value,mask)$
+    		%\State $cookie \gets x\concat self$
+    		\State $action \gets x\concat self$
+    		\State $flag \gets 0$
+    		\State $cmd\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
 			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
 
 \begin{algorithm}[t]
-    \caption{$\textit{cond-delete}(x)$}
+    \caption{$\textit{check}(x)$}
+    \label{alg:multi-add}
+    \begin{algorithmic}[1]
+    \Require \emph{self} as the calling controller id.
+%    \Ensure
+    		\State $value \gets x\concat x$
+    		\State $mask \gets self\concat all-1$
+    		\State $match \gets (value,mask)$
+    		%\State $cookie \gets x\concat self$
+    		\State $action \gets x\concat self$
+    		\State $flag \gets CHECK\_OVERLAP$
+    		\State $cmd1\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
+    		\State $cmd2\gets \textsc{FlowMod}(match, op = DELETE) $
+			\Return $cmd1$,$cmd2$
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+    \caption{$\textit{unclaim}(x)$}
     \label{alg:template}
     \begin{algorithmic}[1]
-    \Require id $i$, unique constrain (defaults to \texttt{false}) $b\_unique$, caller id $caller$.
+    \Require \emph{self} as the calling controller id.
 %    \Ensure
-    		\State $value \gets i\concat i$
-    		\State $mask \gets caller\concat all-1$
-    		\State $cookie \gets i\concat caller$
-    		\If {$b\_unique$}
-    			\State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation=DELETE) $
-    		\Else
-    		    \State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation=DELETE\_STRICT, cookie) $
-    		\EndIf
+    		\State $value \gets x\concat x$
+    		\State $mask \gets self\concat all-1$
+    		%\State $cookie \gets x\concat self$
+    		\State $match \gets (value,mask)$
+    		\State $cmd\gets \textsc{FlowMod}(match, op=DELETE, cookie) $
+    	
 			
 			\Return $cmd$
     \end{algorithmic}
@@ -525,32 +538,25 @@ abstraction to adding/deleting a number to a set. The group id of the added grou
 
 
 \begin{algorithm}[t]
-    \caption{$\textit{add}(x)$}
+    \caption{$\textit{compare\&set}(old,new)$}
     \label{alg:add}
     \begin{algorithmic}[1]
-    \Require  id $i$.
+    %\Require  id $i$.
 %    \Ensure
-    		\State $command \gets OFPGC\_ADD$
+
+    		\State $op \gets OFPGC\_DELETE$
+    		\State $group\_id \gets old$
+    		\State $cmd1\gets GroupMod(op, group\_id) $
+    		
+    		\State $op \gets OFPGC\_ADD$
     		\State $type \gets OFPGT\_INDIRECT$
-    		\State $group\_id \gets i$
+    		\State $group\_id \gets new$
     		\State $buckets \gets [dummy\_backet]$
-    		\State $cmd\gets GroupMod(command, type, group\_id, buckets) $
-			\Return $cmd$
+    		\State $cmd2\gets GroupMod(op, type, group\_id, buckets) $
+			\Return $cmd1,cmd2$
     \end{algorithmic}
 \end{algorithm}
 
-\begin{algorithm}[t]
-    \caption{$\textit{delete}(x)$}
-    \label{alg:delete}
-    \begin{algorithmic}[1]
-    \Require id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
-%    \Ensure
-    		\State $command \gets OFPGC\_DELETE$
-    		\State $group\_id \gets i$
-    		\State $cmd\gets GroupMod(command, group\_id) $
-			\Return $cmd$
-    \end{algorithmic}
-\end{algorithm}
 
 
 \section{Applications}\label{sec:apps}
@@ -598,20 +604,19 @@ obtain a unique \emph{id}. FIXME: to be continued...
 
 
 \begin{algorithm}[t]
-    \caption{Update Algorithm with only a set}
+    \caption{Update Algorithm with only a compare\&set}
     \label{alg:simple-update}
     \begin{algorithmic}[1]
-    \Require update requirements $U$, a set $Cur$.
+    \Require update requirements $U$
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
  			\State \textbf{read} switch configuration
- 			\State $pid\gets$ current policy id (only id in $Cur$)
+ 			\State $pid\gets$ current policy id 
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTransaction
-	 			\State $Cur$\emph{.delete}($pid$)
-	 			\State $Cur$\emph{.add}($pid+1$)
+	 			\State $compare\&set(pid,pid+1)$
 	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTransaction
@@ -630,29 +635,28 @@ obtain a unique \emph{id}. FIXME: to be continued...
     \caption{Advanced Update Algorithm}
     \label{alg:update}
     \begin{algorithmic}[1]
-    \Require update requirements $U$, multi-set (with optional add validation) $Next$, set (with full validation) $Cur$.
+    \Require update requirements $U$
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
  			\State \textbf{read} switch configuration
  			\State $my\_id\gets$ unused \emph{id} (in both $Cur$ and $Next$)
  			\State $pid\gets$ current policy id (only id in $Cur$)
- 			\State $Next$\emph{.add}($pid$)
+ 			\State $claim(pid)$
  			\State \textbf{read} switch configuration
  			\If {$pid\notin Cur$}
+	 			\State $unclaim(pid)$
  				\State {\bf continue} (\textbf{restart} loop)
  			\EndIf
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTransaction
- 				\State $Next$\emph{.add}($my\_id$, True)
- 				\State $Next$\emph{.delete}($my\_id$, True)
-	 			\State CUR\emph{.delete}($pid$)
-	 			\State CUR\emph{.add}($my\_id$)
-				\State $Next$\emph{.delete}($pid$)
+ 				\State $check(my\_id)$
+	 			\State $compare\&set(pid,my\_id)$
 	 			\State \textbf{add} $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTransaction
+	 		\State $unclaim(pid)$
      		%\State $res \gets $ commit transaction
      	\Until{$res=\texttt{true}$}
      	%\doWhile{$res=False$}
