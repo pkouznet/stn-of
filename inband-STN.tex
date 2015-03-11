@@ -42,7 +42,7 @@
 \algdef{SE}[TRANSACT]{StartTransaction}{EndTransaction}{\algorithmicaaa}[1]{\algorithmicwhile\ #1}%
 
 \newcommand{\hide}[1]{}
-\newcommand{\concat}[0]{\frown}
+\newcommand{\concat}[0]{\oplus}
 \newcommand{\append}[0]{\frown}
 
 \algblock[<block>]{<start>}{<end>}
@@ -510,9 +510,9 @@ abstraction to adding/deleting a number to a set. The group id of the added grou
     \begin{algorithmic}[1]
     \Require id $i$, unique constrain (defaults to \texttt{false}) $b\_unique$, caller id $caller$.
 %    \Ensure
-    		\State $value \gets C.i$
-    		\State $mask \gets all-1$
-    		\State $cookie \gets C.i.caller$
+    		\State $value \gets i\concat i$
+    		\State $mask \gets caller\concat all-1$
+    		\State $cookie \gets i\concat caller$
     		\If {$b\_unique$}
     			\State $cmd\gets \textsc{FlowMod}(match=(value,mask), operation=DELETE) $
     		\Else
@@ -532,9 +532,9 @@ abstraction to adding/deleting a number to a set. The group id of the added grou
 %    \Ensure
     		\State $command \gets OFPGC\_ADD$
     		\State $type \gets OFPGT\_INDIRECT$
-    		\State $group_id \gets i$
+    		\State $group\_id \gets i$
     		\State $buckets \gets [dummy\_backet]$
-    		\State $cmd\gets GroupMod(command, type, group_id, buckets) $
+    		\State $cmd\gets GroupMod(command, type, group\_id, buckets) $
 			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
@@ -546,7 +546,7 @@ abstraction to adding/deleting a number to a set. The group id of the added grou
     \Require id $i$, unique constrain (defaults to False) $b\_unique$, caller id $caller$.
 %    \Ensure
     		\State $command \gets OFPGC\_DELETE$
-    		\State $group_id \gets i$
+    		\State $group\_id \gets i$
     		\State $cmd\gets GroupMod(command, group\_id) $
 			\Return $cmd$
     \end{algorithmic}
