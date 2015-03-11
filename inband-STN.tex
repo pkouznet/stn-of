@@ -435,9 +435,18 @@ semantics:
   \emph{unchecks} identifier $k$;  
 
 \item $\textit{check}(k)$, $k\in\Nat$, returns $\textit{true}$ if and
-  only if $k$ is not currently claimed by any controller.  
+  only if $k$ is not currently claimed by any controller; if
+  $\textit{false}$ is returned, we say that the check operation \emph{fails}.
 
 \end{itemize}  
+
+
+We assume that a register can be accessed with a
+\emph{compare-and-set} (CAS) operation that takes two integer parameters
+$\textit{old}$ and $\textit{new}$, reads the register and, if the
+value of it is $\textit{old}$, replaces it with $\textit{new}$ and
+returns $\textit{true}$; otherwise, $\textit{false}$ is returned and
+we say that the CAS operation \emph{fails}.   
 
 Formally, we guarantee that in every execution, all committed
 transactions constitute a \emph{legal} sequential
@@ -445,7 +454,7 @@ order~\cite{Pap79-serial}, i.e., every transaction appears as executed
 sequentially. On the progress side, we ensure that a
 transaction $T$ is only allowed to abort either because another 
 transaction updated a flow table entry read by $T$  
-or if one of $T$'s multi-set operations fails.
+or if one of $T$'s operations fails.
 
 %Note that
 %, assuming such a transactional memory,  
