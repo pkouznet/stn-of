@@ -491,14 +491,14 @@ where the transaction's identifier is used as the bundle id.
 \textbf{TODO: explain how the lines in the pseudocode generate OF msgs.} 
 We use creation and deletion of flow entries (with FlowMod commands) as abstraction to claiming/unclaiming  resource id numbers and also to checking whether a given id is claimed. The match part of the added flow entry represents the added
 number and the mask part of the match varies from one controller to another in order to allow multiple controllers to claim the same number without overriding the same flow entry. 
-As can be seen in \ref{alg:claim}, the match mask is a concatenation of the controller id with all ones, while the value is the id concatenated twice. We can see that for any two numbers $x_1$ and $x_2$ and controller ids $c_1\neq c_2$ the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_1=(x_2\concat x_2, c_2\concat all-1)$ are not equal even if $x_1=x_2$ therefore they can both claim and unclaim without affecting each other.
+As can be seen in Algorithms \ref{alg:claim}-\ref{alg:unclaim}, the match mask is a concatenation of the controller id with all ones, while the value is the id concatenated twice. We can see that for any two numbers $x_1$ and $x_2$ and controller ids $c_1\neq c_2$ the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_1=(x_2\concat x_2, c_2\concat all-1)$ are not equal even if $x_1=x_2$ therefore they can both claim and unclaim without affecting each other.
 
 In order to check if a number is claimed we try to create the corresponding entry while setting the
-flag CHECK\_OVERLAP, thereby inflicting a failure in case an entry with same match value but different action exists. If the check succeeds we delete the entry. Considering $m_1$ and $m_2$ defined above and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap with different actions iff $x_1=x_2$. Therefore if one is used to check the other a contradiction is detected iff $x_1=x_2$ as expected.
-Note that checking for claim must contains a deletion of the added flow entry otherwise a successive check operation might falsely fail. Moreover the two commands (adding and deleting of the flow entries) must be sent as part of the same bundle to support concurrent checks by different controllers.
+flag CHECK\_OVERLAP, thereby inflicting a failure in case an entry with same match value but different action exists. If the check succeeds we delete the entry. Considering $m_1$ and $m_2$ defined above and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap with different actions iff $x_1=x_2$. Therefore if one is used in check after the other used in claims, a conflict is detected iff $x_1=x_2$ as expected.
+Note that checking for claims must contain a deletion of the added flow entry otherwise a successive check operation might mistakenly fail. Moreover the two commands (adding and deleting of the flow entries) must be sent as part of the same bundle to support concurrent checks by different controllers.
 
-Similarly, we use a deletion of group $x$ with creation of group $y$ (with GroupMod commands) as an
-abstraction to performing a $Compare\&Set(x,y)$ operation to a special $16$bit register (we abstract only one register). 
+Similarly, we use a deletion of group $x$ and a creation of group $y$ (with GroupMod commands) as an
+abstraction to performing a $Compare\&Set(x,y)$ operation to a special $16$bit register (we abstract only one register). The $16$ bit limit is resulted by th $16$bit group id size. 
 %The group id of the added group represents the added number. 
 Note that trying to delete a group that doesn't exist (or trying to create a group with id that already exists) fails, thereby preventing adding the new value $y$ if $x$ hasn't existed before. Note that the two action should be performed inside the same bundle in order to ensure the atomic nature ot the abstraction.
 
@@ -732,6 +732,9 @@ If one of the actions in the transaction fails we try again. There is no progres
 
 
 
+
+
+
 FIXME: STN, consensus, ...
 
 \paragraph{Consensus} FIXME: desribe how to implement consensus
@@ -936,6 +939,38 @@ in an SDN.
 }
 
 \begin{appendix}
+
+\section{Implementing $\textit{compare\&set}$ with FlowMod commands}
+\begin{algorithm}[H]
+    \caption{$\textit{compare\&set2}(old,new)$}
+    \label{alg:cas2}
+    \begin{algorithmic}[1]
+    %\Require  id $i$.
+%    \Ensure
+			\State $cmds \gets new\ list()$
+    		\State $value \gets  old$
+    		\State $mask \gets  all-1$
+    		\State $match \gets (value,mask)$
+    		%\State $cookie \gets x\concat self$
+    		\State $action \gets 2$
+    		\State $flag \gets OFPFF\_CHECK\_OVERLAP$
+    		\State $cmd1\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
+    		\State $cmd2\gets \textsc{FlowMod}(match, op = DELETE) $
+    		\State $cmd3\gets \textsc{FlowMod}(cookie = old, op = DELETE) $
+    		\State $cmds.append(cmd1)$
+    		\State $cmds.append(cmd2)$
+    		\State $cmds.append(cmd3)$
+    		\State $range\_matches \gets EncodeRange([0,new-1])\cup EncodeRange([new+1,MAX\_ID])$
+    		\For {$r\_match \in range\_matches $}
+    		    		\State $cookie \gets new$
+    		    		\State $action \gets 1$
+    		    		\State $flag \gets 0$
+    		    		\State $cmd\gets \textsc{FlowMod}(r\_match, ADD, flag, cookie, action) $
+    		    		\State $cmds.append(cmd)$
+    		\EndFor
+			\Return $cmds$
+    \end{algorithmic}
+\end{algorithm}
 
 \section{Backup Stuff}
 
