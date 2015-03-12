@@ -487,11 +487,18 @@ messages. Each of the messages is marked as a \emph{bundle} message,
 where the transaction's identifier is used as the bundle id.
   
 \textbf{TODO: explain how the lines in the pseudocode generate OF msgs.} 
-We use FlowMod command as abstraction to adding/deleting a number to a
-multi-set. The match part of the added flow entry represents the added
-number. In order to verify that the added number is unique we set the
-flag CHECK\_OVERLAP. Similarly, we use GroupMod command as an
-abstraction to adding/deleting a number to a set. The group id of the added group represents the added number.
+We use creation and deletion of flow entries (with FlowMod commands) as abstraction to claiming/unclaiming  resource id numbers and also to checking whether a given id is claimed. The match part of the added flow entry represents the added
+number and the mask part of the match varies from one controller to another in order to allow multiple controllers to claim the same number without overriding the same flow entry. 
+As can be seen in \ref{alg:claim}, the match mask is a concatenation of the controller id with all ones, while the value is the id concatenated twice. We can see that for any two numbers $x_1$ and $x_2$ and controller ids $c_1\neq c_2$ the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_1=(x_2\concat x_2, c_2\concat all-1)$ are not equal even if $x_1=x_2$ therefore they can both claim and unclaim without affecting each other.
+
+In order to check if a number is claimed we try to create the corresponding entry while setting the
+flag CHECK\_OVERLAP, thereby inflicting a failure in case an entry with same match value but different action exists. If the check succeeds we delete the entry. Considering $m_1$ and $m_2$ defined above and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap with different actions iff $x_1=x_2$. Therefore if one is used to check the other a contradiction is detected iff $x_1=x_2$ as expected.
+Note that checking for claim must contains a deletion of the added flow entry otherwise a successive check operation might falsely fail. Moreover the two commands (adding and deleting of the flow entries) must be sent as part of the same bundle to support concurrent checks by different controllers.
+
+Similarly, we use a deletion of group $x$ with creation of group $y$ (with GroupMod commands) as an
+abstraction to performing a $Compare\&Set(x,y)$ operation to a special $16$bit register (we abstract only one register). 
+%The group id of the added group represents the added number. 
+Note that trying to delete a group that doesn't exist (or trying to create a group with id that already exists) fails, thereby preventing adding the new value $y$ if $x$ hasn't existed before. Note that the two action should be performed inside the same bundle in order to ensure the atomic nature ot the abstraction.
 
 
 %A container contains items: they represent the flow table entries (i.e., a match-action rules, plus e.g., counters belonging to the rule).
@@ -581,9 +588,9 @@ abstraction to adding/deleting a number to a set. The group id of the added grou
 We now sketch a few examples of how our generic transactional synchronization
 abstraction  can be used by a control application.
 
-\subsection{In-band policy composition}
+\subsection{Policy updates composition}
 
-Our first example (Algorithm~\ref{alg:simple-update}) is a simple in-band policy composition protocol that
+Our first example (Algorithm~\ref{alg:simple-update}) is a simple policy composition protocol that
 allows a set of  controllers to concurrently update switch  \emph{policies} , i.e., sets of
 effective rules in its flow tables, under the
 condition that these rules can be composed with the currently installed
@@ -592,28 +599,34 @@ $\textit{apply\_update}()$ function~\cite{cpc}.
 
 Every policy is associated with a \emph{policy identifier} 
 In the algorithm, the controller first reads the currently installed
-policy, then computes a new unique policy, checks whether the new
+policy, then choose a new unique policy, checks whether the new
 policy and the current policy can be composed and, if so, replaces the
 current policy with the composition. If, meanwhile, a new
 policy (with a different identifier) has been installed, the update
-fails and takes no effect.  
+fails and takes no effect. 
 
-\textbf{TODO: fill the gaps}
+Algorithm~\ref{alg:simple-update} use increasing numbers as policies ids and use them in order to make sure that the new policy, with id $x$, replaces the (what considered as) current policy, with id $x-1$. Considering the policies ids, we send the policy installation commands as part of a bundle that also tries to perform  $Compare\&Set(x-1,x)$, thereby insuring that the commands are performed iff the current policy is still there and preventing other controllers to replace the new policy with another without observing it.
 
 Algorithm~\ref{alg:simple-update} allows policy identifiers to grow
 without bound. In fact, as was observed in~\cite{cpc}, the number of currently
 used policies can be made proportional to the number of concurrent controllers.
 Algorithm~\ref{alg:update} describes such a policy-update procedure.
  
-\textbf{TODO: fill the gaps}
+ 
+ Algorithm~\ref{alg:update} lies at the heart of our mechanism.
+ It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we seek to
+ obtain a unique \emph{id}. FIXME: to be continued...
+ \textbf{LS: I am not sure if I need to tell every step of the story or maybe it best to explain the main dif from the previous one similarly to what I just wrote next}.
+ 
+Algorithm~\ref{alg:update} claims the current policy id in order to prevent someone of using it with different policy in the future (during the current update) and in the bundle used to update the policy it also checks that the new policy id that it about to use (chosen from a finite set of ids) wasn't claimed by someone else. 
+
+\hide{
+We compute our new suggested policy by applying the update requests on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by anyone else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy.
+
+If one of the actions in the transaction fails we try again. There is no progress guaranty for each controller but there is one for the whole system - at least one of the controller will succeed in fulfilling its update requirements.
+}
 
 
-
-Algorithm~\ref{alg:update} lies at the heart of our mechanism.
-It takes a set of rules $U$ (not yet a policy),
-a multi-set $Next$ and a set (with full validation) $Cur$.
-The algorithm proceeds as follows: first, we seek to
-obtain a unique \emph{id}. FIXME: to be continued...
 
 \textbf{TODO: fix the pseudocode, make the use of afdd/delete
   operations uniform, make all switch operations transactional}
@@ -714,13 +727,6 @@ obtain a unique \emph{id}. FIXME: to be continued...
 
     \end{algorithmic}
 \end{algorithm}
-
-LIRON TEXT: 
-In order to perform an update we use a set called CUR which is used to store the current policy id, and a multi-set called NEXT which is used to manage suggestions for next policy id. We start by reading the current switch configuration and selecting an unused id for our proposed policy. Next we try to prevent someone of using the current id with different policy in the future (during our current update).
-
-We compute our new suggested policy by applying the update requests on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by anyone else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy.
-
-If one of the actions in the transaction fails we try again. There is no progress guaranty for each controller but there is one for the whole system - at least one of the controller will succeed in fulfilling its update requirements.
 
 
 
