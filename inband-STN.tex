@@ -236,7 +236,7 @@ install conflicting updates and we want to resolve these conflicts
 plane) and \emph{efficiently} (no undesired delays are imposed on the
 control application).
 
-Consider, for example, the practical problem of
+Consider, for example, the problem of
 consistent installation of new forwarding policies, stipulating routes
 that packets of different header spaces should follow across the
 network~\cite{network-update,roger-hotnets,correct,stn}.
@@ -824,7 +824,7 @@ in the literature~\cite{kandoo,ctrl-place,hotsdn13loc}
 proposes an elastic distributed controller architecture.
 
 Operating and updating SDNs consistently is already non-trivial
-from the perspective of a single controller. Reitblatt et al.~~\cite{network-update}
+from the perspective of a single controller. Reitblatt et al.~\cite{network-update}
 introduced the notion of
 per-packet consistency and proposed a 2-phase update protocol based on tagging.
 %, and described the \emph{two-phase update} technique, also used in our algorithms.
@@ -835,24 +835,37 @@ network updates where packets are forced to traverse certain waypoints or
 middleboxes. Ghorbani et al.~~\cite{correct-virt} recently argued for the design
 of network update algorithms that provide even stronger consistency guarantees.
 
+
+\textbf{PK: anything about your ``brain'' paper, feel related?}
+
 To the best of our knowledge, the only paper explicitly addressing the consistent
-network update problem from a distributed controller perspective is STN~\cite{stn}:
+network update problem from a distributed-controllers perspective is STN~\cite{stn}:
 STN provides a transactional interface offering all-or-nothing semantics and serializability
-(the ``holy grail'' of safety properties),
-allowing
+(the ``holy grail'' of safety properties), allowing
 controllers to install policies in a conflict-free manner; if some controllers fail,
 other controllers can take over. STN~\cite{stn} is based on
-atomic
-read-modify-write primitives, but while this primitive is postulated, no implementation is
+atomic read-modify-write primitives provided by the switches, but
+while the availability of such primitives is postulated, no implementation is
 described. In this paper, we provide this missing link, and also show that other useful and
-much more powerful synchronization primitives can be implemented.
+more powerful synchronization primitives can be implemented. 
+Also, some STN implementations in~\cite{stn} assume that the control
+plane maintains a certain amount of synchrony that allows controllers
+to solve consensus or implement a replicated state machine.     
+In this paper, we describe an OpenFlow-based consensus protocol that
+can be used for this purpose.  
 
 Our work is also closely related to the recent work on providing more high-level
 abstractions and programming languages for SDNs, such as Frenetic~\cite{frenetic},
 also enabling policy composition~\cite{pyretic}. Our work complements these works
-on programming abstractoins
+on programming abstractions
 by initiating the discussion of concurrency objects and abstractions.
 
+The transactional interface we describe in this paper is inspired by the
+work on speculative concurrency control using software transactional memory
+(STM)~\cite{stm-st95,tm-book}. 
+%[[PK I think this is enough]]
+
+\hide{
 In terms of distributed computing: TODO PETR: maybe modify a bit the text below
 and also write more about multi-writer consensus etc.?
 
@@ -888,22 +901,25 @@ on the high-level interface exported to the control plane, but also on the
 paths taken by the data-plane packets.
 Also, we assumed that controllers are subject to failures, which is usually not
 assumed by STM implementations.
-
+}
 
 \section{Conclusion}\label{sec:conclusion}
 
-This paper showed that powerful synchronization object
-from distributed computing can be implemented in Openflow.
-Our work complements existing research on the design of
-distributed control planes, and also provides some missing links,
-e.g., for the transactional approach taken by STN.
-We also hope that our work can nourish the discussion of
-which synchronization objects we can and want to implement
-in an SDN. While much progress has been made over the
+While much progress has been made over the
 last years in the development of more intuitive programming
 languages for SDNs (e.g., Frenetic, Pyretic, Merlin), the
 question of which synchronization abstractions to provide
 has received much less attention.
+%
+In this paper, we describe transactional abstractions that 
+can be implemented using standard Openflow features.
+%
+Our work complements existing research on the design of
+distributed control planes, and also provides some missing links,
+e.g., for the transactional approach taken by STN~\cite{stn}.
+We also hope that our work can nourish the discussion of
+which synchronization objects we can and want to implement
+in an SDN. 
 
 
 {
