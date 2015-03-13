@@ -52,6 +52,11 @@
 [0]{ \textbf{start bundle}} %
 [1][res]{ $#1\gets$  \textbf{commit bundle}}
 
+\algblockdefx[Bundle]{startTxn}{endTxn} %
+[0]{\textbf{atomic}\{} %
+[1][res]{ \} $\rightarrow #1$}
+
+
 %
 %\usepackage{comment}
 
@@ -378,7 +383,7 @@ flow entries. A specific $\textsf{OFPFF\_CHECK\_OVERLAP}$ flag
 set in the flow creation message ensures
 that the flow entry is created if and only if it does not \emph{conflict}
 with any other flow entry currently in the flow table.
-This ?????in-band????? conflict detection mechanism, combined with bundling,
+This  conflict detection mechanism, combined with bundling,
 allows us to implement specific types of \emph{transactions} that may
 atomically install multiple rules if certain compatibility conditions
 are met.
@@ -403,7 +408,7 @@ which none of its operations takes effect.
 
 \subsection{Interface}\label{sec:t-if}
 We assume that transactions may comprise operations on the flow table
-of an SDN switch, such as reading flow tables or adding new rules. 
+of an SDN switch, such as reading flow table entries or adding new entries. 
 In addition we, we also assume transactional access to  two kinds of objects: a
 \emph{claim-id} object, used for claiming a policy \emph{identifier} in a
 given (bounded or unbounded) set, and a read-write \emph{register}
@@ -449,14 +454,22 @@ returns $\textit{true}$; otherwise, $\textit{false}$ is returned and
 we say that the CAS operation \emph{fails} (which causes an abort if
 the transaction invoking it).   
 
-Formally, we guarantee that in every execution, all committed
+More formally, our transactional abstraction exports the
+$\textbf{atomic}\{\;\ldots\;\}$ construct
+containing a sequence of transactional
+operations and may \emph{commit} and return responses to all its operations
+or \emph{abort} (so that none of its operation takes effect).  
+We guarantee that in every execution, all committed
 transactions constitute a \emph{legal} sequential
 order~\cite{Pap79-serial}, i.e., every transaction appears as executed
 sequentially. On the progress side, we ensure that a
 transaction $T$ is only allowed to abort if either another 
 transaction updated a flow table entry read by $T$  
 or if one of $T$'s operations (\textit{check} or CAS) fails.
-
+We employ the \emph{deferred-update} semantics:  
+no transaction can affect other transactions before it commits.
+In particular, if a controller crashes before committing its
+transactions, no future transaction can be affected.  
 %Note that
 %, assuming such a transactional memory,  
 %a $\emph{contains}(x)$ operation can be implemented as a transaction
@@ -470,19 +483,21 @@ or if one of $T$'s operations (\textit{check} or CAS) fails.
 
 \subsection{Transactions in Openflow}\label{sec:t-impl}
 
-We now describe how to implement our transactional synchronization
-abstraction using standard OpenFlow messages.
-We use three Openflow features: \emph{bundling},
-\emph{conditional application}, and \emph{groups}.
+We now describe how to implement our transactional 
+abstraction using standard OpenFlow features, including
+\emph{bundling}, \emph{conditional application}, and \emph{groups}.
 %[[PK let us leave for the moment
 %We will describe later how to implement some of these features
 %in older Openflow versions where they are not
 %supported. \textbf{TODO}
 %]]
+Algorithms~\ref{alg:claim}-\ref{alg:cas} describe implementations of  
+transactional operations  $\textit{claim}(x)$, $\textit{check}(x)$, $\textit{unclaim}(x)$,
+and $\textit{CAS}(x)$, respectively. 
+Algorithm~\ref{alg:commit} describes the procedure executed by
+a transaction at \emph{commit time}.
 
-Algorithms~\ref{alg:claim}-\ref{alg:cas} describe 
-transactional  $\textit{claim}(x)$, $\textit{unclaim}(x)$,
-$\textit{check}(x)$, and $\textit{CAS}(x)$. 
+We assume that every transaction has a unique identifier. 
 Every operation within a transaction generates a number of  OpenFlow
 messages. Each of the messages can be wrapped 
 is marked as a 
@@ -500,13 +515,23 @@ number and the mask part of the match varies from one controller to another in o
 As can be seen in Algorithms \ref{alg:claim}-\ref{alg:unclaim}, the match mask is a concatenation of the controller id with all ones, while the value is the id concatenated twice. We can see that for any two numbers $x_1$ and $x_2$ and controller ids $c_1\neq c_2$ the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_1=(x_2\concat x_2, c_2\concat all-1)$ are not equal even if $x_1=x_2$ therefore they can both claim and unclaim without affecting each other.
 
 In order to check if a number is claimed we try to create the corresponding entry while setting the
-flag CHECK\_OVERLAP, thereby inflicting a failure in case an entry with same match value but different action exists. If the check succeeds we delete the entry. Considering $m_1$ and $m_2$ defined above and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap with different actions iff $x_1=x_2$. Therefore if one is used in check after the other used in claims, a conflict is detected iff $x_1=x_2$ as expected.
+flag \textsf{CHECK\_OVERLAP}, thereby inflicting a failure in case an entry with same match value but different action exists. If the check succeeds we delete the entry. Considering $m_1$ and $m_2$ defined above and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap with different actions iff $x_1=x_2$. Therefore if one is used in check after the other used in claims, a conflict is detected iff $x_1=x_2$ as expected.
 Note that checking for claims must contain a deletion of the added flow entry otherwise a successive check operation might mistakenly fail. Moreover the two commands (adding and deleting of the flow entries) must be sent as part of the same bundle to support concurrent checks by different controllers.
 
 Similarly, we use a deletion of group $x$ and a creation of group $y$ (with GroupMod commands) as an
-abstraction to performing a $Compare\&Set(x,y)$ operation to a special $16$bit register (we abstract only one register). The $16$ bit limit is resulted by th $16$bit group id size. 
+abstraction to performing a $CAS(x,y)$ operation to a special $16$bit register (we abstract only one register). The $16$ bit limit is resulted by th $16$bit group id size. 
 %The group id of the added group represents the added number. 
 Note that trying to delete a group that doesn't exist (or trying to create a group with id that already exists) fails, thereby preventing adding the new value $y$ if $x$ hasn't existed before. Note that the two action should be performed inside the same bundle in order to ensure the atomic nature ot the abstraction.
+
+To commit the transaction,  the controller sends a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
+\textsf{OFPBCT\_COMMIT\_REQUEST} and waits until a matching control
+message from the switch is received. When the switch receives the
+commit request it tries to atomically process all the buffered messages
+equipped with the corresponding bundle identifier and, if the
+processing is successful for all of them, returns  a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
+\textsf{OFPBCT\_CLOSE\_REPLY}; otherwise it sends a specific error
+message  pointing out the aborted transactional operation.
+
 
 
 %A container contains items: they represent the flow table entries (i.e., a match-action rules, plus e.g., counters belonging to the rule).
@@ -544,7 +569,7 @@ Note that trying to delete a group that doesn't exist (or trying to create a gro
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets x\concat self$
-    		\State $flag \gets OFPFF\_CHECK\_OVERLAP$
+    		\State $flag \gets \textsf{OFPFF\_CHECK\_OVERLAP}$
     		\State $cmd1\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
     		\State $cmd2\gets \textsc{FlowMod}(match, op = DELETE) $
 			\Return $cmd1$,$cmd2$
@@ -570,18 +595,18 @@ Note that trying to delete a group that doesn't exist (or trying to create a gro
 
 
 \begin{algorithm}[t]
-    \caption{$\textit{compare\&set}(old,new)$}
+    \caption{$\textit{CAS}(old,new)$}
     \label{alg:cas}
     \begin{algorithmic}[1]
     %\Require  id $i$.
 %    \Ensure
 
-    		\State $op \gets OFPGC\_DELETE$
+    		\State $op \gets \textsf{OFPGC\_DELETE}$
     		\State $group\_id \gets old$
     		\State $cmd1\gets GroupMod(op, group\_id) $
     		
-    		\State $op \gets OFPGC\_ADD$
-    		\State $type \gets OFPGT\_INDIRECT$
+    		\State $op \gets \textsf{OFPGC\_ADD}$
+    		\State $type \gets \textsf{OFPGT\_INDIRECT}$
     		\State $group\_id \gets new$
     		\State $buckets \gets [dummy\_backet]$
     		\State $cmd2\gets GroupMod(op, type, group\_id, buckets) $
@@ -589,6 +614,15 @@ Note that trying to delete a group that doesn't exist (or trying to create a gro
     \end{algorithmic}
 \end{algorithm}
 
+\begin{algorithm}[t]
+    \caption{$\textit{try-commit}()$}
+    \label{alg:commit}
+    \begin{algorithmic}[1]
+    		\State  \textbf{TODO}: Express sending the
+                  \textsf{OFPFF\_BUNDLE\_CONTROL} message with type \textsf{OFPBCT\_COMMIT\_REQUEST}
+		\Return $cmd$
+    \end{algorithmic}
+\end{algorithm}
 
 
 \section{Applications}\label{sec:apps}
@@ -596,7 +630,7 @@ Note that trying to delete a group that doesn't exist (or trying to create a gro
 We now sketch a few examples of how our generic transactional synchronization
 abstraction  can be used by a control application.
 
-\subsection{Policy updates composition}
+\subsection{Policy updates}
 
 Our first example (Algorithm~\ref{alg:simple-update}) is a simple policy composition protocol that
 allows a set of  controllers to concurrently update switch  \emph{policies} , i.e., sets of
@@ -613,15 +647,28 @@ current policy with the composition. If, meanwhile, a new
 policy (with a different identifier) has been installed, the update
 fails and takes no effect. 
 
-Algorithm~\ref{alg:simple-update} use increasing numbers as policies ids and use them in order to make sure that the new policy, with id $x$, replaces the (what considered as) current policy, with id $x-1$. Considering the policies ids, we send the policy installation commands as part of a bundle that also tries to perform  $Compare\&Set(x-1,x)$, thereby insuring that the commands are performed iff the current policy is still there and preventing other controllers to replace the new policy with another without observing it.
+Algorithm~\ref{alg:simple-update} use increasing numbers as policies
+ids and use them in order to make sure that the new policy, with id
+$x$, replaces the (what considered as) current policy, with id
+$x-1$. Considering the policies ids, we send the policy installation
+commands as part of a bundle that also tries to perform
+$CAS(x-1,x)$, thereby insuring that the commands are
+performed iff the current policy is still there and preventing other
+controllers to replace the new policy with another without observing it.
+
+For brevity, we omit explicitly putting the $\textbf{atomic}\{...\}$ construct
+around each of the transactional operation used in the algorithm.   
+Indeed, since \textit{claim} and \textit{unclaim} operations cannot
+cause the corresponding transaction, we can assume that all
+``singleton'' (consisting of one operation only)  transactions
+containing such operations always commit.    
 
 Algorithm~\ref{alg:simple-update} allows policy identifiers to grow
 without bound. In fact, as was observed in~\cite{cpc}, the number of currently
-used policies can be made proportional to the number of concurrent controllers.
-Algorithm~\ref{alg:update} describes such a policy-update procedure.
+used policies can be made proportional to the number of concurrent
+controllers.
  
  
- Algorithm~\ref{alg:update} lies at the heart of our mechanism.
  It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we seek to
  obtain a unique \emph{id}. FIXME: to be continued...
  \textbf{LS: I am not sure if I need to tell every step of the story or maybe it best to explain the main dif from the previous one similarly to what I just wrote next}.
@@ -642,7 +689,7 @@ If one of the actions in the transaction fails we try again. There is no progres
 
 
 \begin{algorithm}[t]
-    \caption{Update Algorithm with only a compare\&set}
+    \caption{Policy update with only CAS}
     \label{alg:simple-update}
     \begin{algorithmic}[1]
     \Require update requirements $U$
@@ -653,13 +700,13 @@ If one of the actions in the transaction fails we try again. There is no progres
  			\State $pid\gets$ current policy id 
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
- 			\startBundle
-	 			\State $compare\&set(pid,pid+1)$
+ 			\startTxn
+	 			\State $CAS(pid,pid+1)$
 	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
- 			\endBundle
+ 			\endTxn
      		%\State $res \gets $ commit transaction
-     	\Until{$res=\texttt{true}$}
+     	\Until{$res\neq\texttt{abort}$}
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
 			\Return
@@ -670,7 +717,7 @@ If one of the actions in the transaction fails we try again. There is no progres
 
 
 \begin{algorithm}[t]
-    \caption{Advanced Update Algorithm}
+    \caption{Advanced policy update}
     \label{alg:update}
     \begin{algorithmic}[1]
     \Require update requirements $U$
@@ -688,15 +735,15 @@ If one of the actions in the transaction fails we try again. There is no progres
  			\EndIf
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
- 			\startBundle
+ 			\startTxn
  				\State $check(my\_id)$
-	 			\State $compare\&set(pid,my\_id)$
+	 			\State $CAS(pid,my\_id)$
 	 			\State \textbf{add} $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
- 			\endBundle
+ 			\endTxn
 	 		\State $unclaim(pid)$
      		%\State $res \gets $ commit transaction
-     	\Until{$res=\texttt{true}$}
+     	\Until{$res\neq\texttt{abort}$}
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
 			\Return
@@ -706,8 +753,8 @@ If one of the actions in the transaction fails we try again. There is no progres
 
 
 \begin{algorithm}[t]
-    \caption{Policy Composition Algorithm without bundle}
-    \label{alg:template}
+    \caption{Policy composition without bundle}
+    \label{alg:wobundle}
     \begin{algorithmic}[1]
     \Require policy $P$ (a set of FlowMod entry creation commands), three consecutive flow tables ids (per controller) $T_s,T_0,T_1$, active table index $active\in\{0,1\}$.
     %\Ensure installed policy is consistent with previous one
@@ -726,8 +773,8 @@ If one of the actions in the transaction fails we try again. There is no progres
 \end{algorithm}
 
 \begin{algorithm}[t]
-    \caption{Update Algorithm with pipeline}
-    \label{alg:template}
+    \caption{Update with pipeline}
+    \label{alg:pipeline}
     \begin{algorithmic}[1]
     \Require update requirements $U$, array $ARR$.
     \Ensure installed policy is consistent with previous one
@@ -738,16 +785,27 @@ If one of the actions in the transaction fails we try again. There is no progres
 
 
 
+\paragraph{Consensus and replicated state machines} 
+It is straightforward to implement consensus among the controllers
+using just a single register that can be accessed with an atomic CAS
+operation~\cite{Her91}. In our transactional setting, the controllers
+can use CAS to replace the default value of such a register 
+with their consensus input values (e.g., the identifiers of the
+policies that should be applied first). If the corresponding
+singleton transaction commits, the controller consideres itself 
+the \emph{winner} and decides on its input, if
+it aborts (the controller fails in the CAS) it remains to read the register to get the input of the
+winner to decide.    
 
+By using multiple CAS invocations, the controllers can implement any
+generic replicated state machine~\cite{Her91,Lam98}, which will be instrumental in the
+next section. 
 
+%\paragraph{One-Shot Update} FIXME: desribe how to implement one-shot update
 
-FIXME: STN, consensus, ...
+\paragraph{STN} 
 
-\paragraph{Consensus} FIXME: desribe how to implement consensus
-
-\paragraph{One-Shot Update} FIXME: desribe how to implement one-shot update
-
-\paragraph{STN} FIXME: desribe how to implement STN
+\textbf{TODO}
 
 \section{Discussion and Extensions}\label{sec:discussion}
 
@@ -946,12 +1004,12 @@ in an SDN.
 
 \begin{appendix}
 
-\section{Implementing $\textit{compare\&set}$ with FlowMod commands}
+\section{Implementing $\textit{CAS}$ with FlowMod commands}
 
 Here we describe a second implementation of the Compare\&Set abstraction that is based on entirely on flow entry creations and deletions (FlowMod commands). 
 
 \begin{algorithm}[H]
-    \caption{$\textit{compare\&set2}(old,new)$}
+    \caption{$\textit{CAS}(old,new)$}
     \label{alg:cas2}
     \begin{algorithmic}[1]
     %\Require  id $i$.
