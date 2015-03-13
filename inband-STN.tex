@@ -484,8 +484,15 @@ Algorithms~\ref{alg:claim}-\ref{alg:cas} describe
 transactional  $\textit{claim}(x)$, $\textit{unclaim}(x)$,
 $\textit{check}(x)$, and $\textit{CAS}(x)$. 
 Every operation within a transaction generates a number of  OpenFlow
-messages. Each of the messages is marked as a \emph{bundle} message,
-where the transaction's identifier is used as the bundle id.
+messages. Each of the messages can be wrapped 
+is marked as a 
+in a \emph{bundle} message
+%,where the transaction's identifier is used as the bundle id. 
+.
+Each bundle message carries a bundle id, where messages with same bundle id are considered to belong to same bundle and are performed atomically.
+
+%The OpenFlow messages that we use (besides )
+
   
 \textbf{TODO: explain how the lines in the pseudocode generate OF msgs.} 
 We use creation and deletion of flow entries (with FlowMod commands) as abstraction to claiming/unclaiming  resource id numbers and also to checking whether a given id is claimed. The match part of the added flow entry represents the added
@@ -940,6 +947,9 @@ in an SDN.
 \begin{appendix}
 
 \section{Implementing $\textit{compare\&set}$ with FlowMod commands}
+
+Here we describe a second implementation of the Compare\&Set abstraction that is based on entirely on flow entry creations and deletions (FlowMod commands). 
+
 \begin{algorithm}[H]
     \caption{$\textit{compare\&set2}(old,new)$}
     \label{alg:cas2}
