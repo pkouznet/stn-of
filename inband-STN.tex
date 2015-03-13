@@ -514,7 +514,7 @@ flag \textsf{CHECK\_OVERLAP}, thereby inflicting a failure in case an entry with
 Note that checking for claims must contain a deletion of the added flow entry otherwise a successive check operation might mistakenly fail. Moreover the two commands (adding and deleting of the flow entries) must be sent as part of the same bundle to support concurrent checks by different controllers.
 
 Similarly, we use a deletion of group $x$ and a creation of group $y$ (with GroupMod commands) as an
-abstraction to performing a $Compare\&Set(x,y)$ operation to a special $16$bit register (we abstract only one register). The $16$ bit limit is resulted by th $16$bit group id size. 
+abstraction to performing a $CAS(x,y)$ operation to a special $16$bit register (we abstract only one register). The $16$ bit limit is resulted by th $16$bit group id size. 
 %The group id of the added group represents the added number. 
 Note that trying to delete a group that doesn't exist (or trying to create a group with id that already exists) fails, thereby preventing adding the new value $y$ if $x$ hasn't existed before. Note that the two action should be performed inside the same bundle in order to ensure the atomic nature ot the abstraction.
 
@@ -590,7 +590,7 @@ message  pointing out the aborted transactional operation.
 
 
 \begin{algorithm}[t]
-    \caption{$\textit{compare\&set}(old,new)$}
+    \caption{$\textit{CAS}(old,new)$}
     \label{alg:cas}
     \begin{algorithmic}[1]
     %\Require  id $i$.
@@ -625,7 +625,7 @@ message  pointing out the aborted transactional operation.
 We now sketch a few examples of how our generic transactional synchronization
 abstraction  can be used by a control application.
 
-\subsection{Policy updates composition}
+\subsection{Policy updates}
 
 Our first example (Algorithm~\ref{alg:simple-update}) is a simple policy composition protocol that
 allows a set of  controllers to concurrently update switch  \emph{policies} , i.e., sets of
@@ -642,15 +642,28 @@ current policy with the composition. If, meanwhile, a new
 policy (with a different identifier) has been installed, the update
 fails and takes no effect. 
 
-Algorithm~\ref{alg:simple-update} use increasing numbers as policies ids and use them in order to make sure that the new policy, with id $x$, replaces the (what considered as) current policy, with id $x-1$. Considering the policies ids, we send the policy installation commands as part of a bundle that also tries to perform  $Compare\&Set(x-1,x)$, thereby insuring that the commands are performed iff the current policy is still there and preventing other controllers to replace the new policy with another without observing it.
+Algorithm~\ref{alg:simple-update} use increasing numbers as policies
+ids and use them in order to make sure that the new policy, with id
+$x$, replaces the (what considered as) current policy, with id
+$x-1$. Considering the policies ids, we send the policy installation
+commands as part of a bundle that also tries to perform
+$CAS(x-1,x)$, thereby insuring that the commands are
+performed iff the current policy is still there and preventing other
+controllers to replace the new policy with another without observing it.
+
+For brevity, we omit explicitly putting the $\textbf{atomic}\{...\}$ construct
+around each of the transactional operation used in the algorithm.   
+Indeed, since \textit{claim} and \textit{unclaim} operations cannot
+cause the corresponding transaction, we can assume that all
+``singleton'' (consisting of one operation only)  transactions
+containing such operations always commit.    
 
 Algorithm~\ref{alg:simple-update} allows policy identifiers to grow
 without bound. In fact, as was observed in~\cite{cpc}, the number of currently
-used policies can be made proportional to the number of concurrent controllers.
-Algorithm~\ref{alg:update} describes such a policy-update procedure.
- 
- 
- Algorithm~\ref{alg:update} lies at the heart of our mechanism.
+used policies can be made proportional to the number of concurrent
+controllers.
+
+
  It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we seek to
  obtain a unique \emph{id}. FIXME: to be continued...
  \textbf{LS: I am not sure if I need to tell every step of the story or maybe it best to explain the main dif from the previous one similarly to what I just wrote next}.
@@ -671,7 +684,7 @@ If one of the actions in the transaction fails we try again. There is no progres
 
 
 \begin{algorithm}[t]
-    \caption{Policy update with only a compare\&set}
+    \caption{Policy update with only CAS}
     \label{alg:simple-update}
     \begin{algorithmic}[1]
     \Require update requirements $U$
@@ -683,7 +696,7 @@ If one of the actions in the transaction fails we try again. There is no progres
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTxn
-	 			\State $compare\&set(pid,pid+1)$
+	 			\State $CAS(pid,pid+1)$
 	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
@@ -719,7 +732,7 @@ If one of the actions in the transaction fails we try again. There is no progres
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTxn
  				\State $check(my\_id)$
-	 			\State $compare\&set(pid,my\_id)$
+	 			\State $CAS(pid,my\_id)$
 	 			\State \textbf{add} $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
@@ -767,16 +780,27 @@ If one of the actions in the transaction fails we try again. There is no progres
 
 
 
+\paragraph{Consensus and replicated state machines} 
+It is straightforward to implement consensus among the controllers
+using just a single register that can be accessed with an atomic CAS
+operation~\cite{Her91}. In our transactional setting, the controllers
+can use CAS to replace the default value of such a register 
+with their consensus input values (e.g., the identifiers of the
+policies that should be applied first). If the corresponding
+singleton transaction commits, the controller consideres itself 
+the \emph{winner} and decides on its input, if
+it aborts (the controller fails in the CAS) it remains to read the register to get the input of the
+winner to decide.    
 
+By using multiple CAS invocations, the controllers can implement any
+generic replicated state machine~\cite{Her91,Lam98}, which will be instrumental in the
+next section. 
 
+%\paragraph{One-Shot Update} FIXME: desribe how to implement one-shot update
 
-FIXME: STN, consensus, ...
+\paragraph{STN} 
 
-\paragraph{Consensus} FIXME: desribe how to implement consensus
-
-\paragraph{One-Shot Update} FIXME: desribe how to implement one-shot update
-
-\paragraph{STN} FIXME: desribe how to implement STN
+\textbf{TODO}
 
 \section{Discussion and Extensions}\label{sec:discussion}
 
@@ -975,9 +999,9 @@ in an SDN.
 
 \begin{appendix}
 
-\section{Implementing $\textit{compare\&set}$ with FlowMod commands}
+\section{Implementing $\textit{CAS}$ with FlowMod commands}
 \begin{algorithm}[H]
-    \caption{$\textit{compare\&set2}(old,new)$}
+    \caption{$\textit{CAS}(old,new)$}
     \label{alg:cas2}
     \begin{algorithmic}[1]
     %\Require  id $i$.
