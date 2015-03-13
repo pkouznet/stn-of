@@ -393,24 +393,23 @@ flow entries and to use masks to delete modify/delete multiple entries. Our sync
 \section{Transactional synchronization}\label{sec:vision}
 
 In this section, we sketch the synchronization abstraction we build on
-top of standard OpenFlow functionality. At a high level, we export a
+top of the standard OpenFlow functionality. At a high level, we export a
 transactional interface which allows each controller $i\in[N]$ ($N\geq
 2$) to perform multiple
 operations on the configuration of an OpenFlow switch as an atomic
-\emph{transaction}, inspired by the concept of transactional
-memory~\cite{stm-st95,tm-book}. A transaction may \emph{commit}, in
+\emph{transaction}, inspired by the transactional-memory paradigm~\cite{stm-st95,tm-book}. A transaction may \emph{commit}, in
 which case it appears as executed sequentially, or \emph{abort}, in
 which none of its operations takes effect.  
 
 \subsection{Interface}\label{sec:t-if}
 We assume that transactions may comprise operations on the flow table
 of an SDN switch, such as reading flow tables or adding new rules. 
-In addition we, we also assume transactional access to  two objects: a
+In addition we, we also assume transactional access to  two kinds of objects: a
 \emph{claim-id} object, used for claiming a policy \emph{identifier} in a
 given (bounded or unbounded) set, and a read-write \emph{register}
 object, used for storing the current used policy identifier.
 %
-More precisely, a claim-id object exports operations \emph{claim} and
+A claim-id object exports operations \emph{claim},
 \emph{unclaim} and \emph{check} with the following sequential
 semantics:
 %The container synchronization object introduced in this paper
@@ -431,8 +430,8 @@ semantics:
   identifier $k$;
 
 
-\item by performing $\textit{uncheck}(i)$, $i\in[N]$, controller $i$
-  \emph{unchecks} identifier $k$;  
+\item by performing $\textit{unclaim}(i)$, $i\in[N]$, controller $i$
+  \emph{unclaim} identifier $k$;  
 
 \item $\textit{check}(k)$, $k\in\Nat$, returns $\textit{true}$ if and
   only if $k$ is not currently claimed by any controller; if
@@ -442,7 +441,7 @@ semantics:
 \end{itemize}  
 
 
-We assume that a register can be accessed with a
+A register can be accessed with a
 \emph{compare-and-set} (CAS) operation that takes two integer parameters
 $\textit{old}$ and $\textit{new}$, reads the register and, if the
 value of it is $\textit{old}$, replaces it with $\textit{new}$ and
@@ -465,7 +464,7 @@ or if one of $T$'s operations (\textit{check} or CAS) fails.
 %A \emph{set} abstraction is a special instance of a multi-set that is
 %only modified with \textit{cond-add} and \textit{cond-delete}
 %operations (this way the set only contains at most one copy of a given
-i%tem).  
+%item).  
 
 
 
