@@ -714,8 +714,12 @@ message  pointing out the aborted transactional operation.
     \caption{$\textit{try-commit}()$}
     \label{alg:commit}
     \begin{algorithmic}[1]
-    		\State  \textbf{TODO}: Express sending the
-                  \textsf{OFPFF\_BUNDLE\_CONTROL} message with type \textsf{OFPBCT\_COMMIT\_REQUEST}
+    \Require  current bundle id $bid$.
+		    \State $cmd \gets struct ofp_bundle_ctrl_msg$
+    		\State  $cmd.bundle\_id \gets bid$
+    		\State  $cmd.type \gets $ \textsf{OFPBCT\_COMMIT\_REQUEST} 
+    		\State  $cmd.flags \gets $ \textsf{OFPBF\_ATOMIC}
+    		\State send $cmd$
 		\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
