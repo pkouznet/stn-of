@@ -46,10 +46,6 @@
 \newcommand{\append}[0]{\frown}
 \newcommand{\Nat}{\mathbb{N}}
 
-\newcommand{\stefan}[1]{\textit{\textcolor{red}{[stefan]: #1}}} % Comments
-\newcommand{\liron}[1]{\textit{\textcolor{green}{[julius]: #1}}} % Comments
-\newcommand{\petr}[1]{\textit{\textcolor{blue}{[carlos]: #1}}} % Comments
-
 
 \algblock[<block>]{<start>}{<end>}
 \algblockdefx[Bundle]{startBundle}{endBundle} %
@@ -159,20 +155,20 @@ the actions of different controllers may need to be synchronized.
 %]]
 %
 A well-known concept to solve synchronization and consistency problems
-in distributed systems are \emph{transactions}: a transaction defines a sequence
-of operations which are performed in an atomic, serializable manner, providing all-or-nothing semantics.
+in distributed systems are \emph{transactions}: a transaction defines a sequence 
+of operations which is performed in an atomic, serializable manner, providing all-or-nothing semantics. 
 This paper shows that powerful transactions can also be implemented in software-defined networks,
-using the standard Openflow protocol.
+using the standard Openflow protocol. 
 %Indeed, recent Openflow versions already come with useful but primitive
-%features, in particular \emph{bundling} and \emph{rule-overlap checks}.
+%features, in particular \emph{bundling} and \emph{rule-overlap checks}. 
 In particular, we present a
 transactional interface which supports arbitrary atomic
-transactions
-over the switch configuration space: Our transactions
+transactions 
+over the switch configuration space: Our transactions 
 can include complex notions of conflicts (beyond flow overlap checks),
 as well as computations and controller interactions. We discuss different use cases
 for our interface (consistent policy installation, load-balancing, consensus),
-and also describe how to
+and also describe how to 
 perform basic forms of policy compositions in-band.
 \end{abstract}
 
@@ -258,52 +254,47 @@ when combined, \emph{increase} the load~\cite{log-cent}.
 To render things more difficult, controllers may also fail,
 even before their updates have been completed.
 
-The distributed computing literature offers
-a wide range of abstractions
-and techniques to solve synchronization and consistency problems.
-A particularly interesting concept in distributed computing is a \emph{transactional memory}:
-a shared memory which supports atomic transactions, describing a sequence of operations
+The distributed computing literature offers 
+a wide range of abstractions 
+and techniques to solve distributed synchronization and consistency problems. 
+A particularly interesting concept in distributed computing is a \emph{transactional memory}: 
+a shared memory which supports atomic transactions, describing a sequence of operations 
 to be executed with an all-or-nothing semantics. Transactional memories can be used to
- solve many
-classic distributed computing problems, such as consensus.
+ solve many 
+classic distributed computing problems, such as consensus. 
 
 This paper investigates the design of a transactional interface for software-defined
 networks. In particular, we argue that the switch configuration state can be seen
 as a shared memory which is modified concurrently by multiple controllers.
 Being able to provide more complex and atomic sequences of transactions over this configuration
-space can be appealing to resolve synchronization problems.
-
-\paragraph{Our Contributions}
+space can be appealing to resolve synchronization problems. 
+ 
+\paragraph{Our Contributions} 
 This paper introduces a very powerful transactional interface
  for software-defined networks. This interface is implemented
  in-band, and
  using Openflow~\cite{of-spec} (the standard SDN protocol today) features only.
 Indeed, we find that Openflow's \emph{bundle} or \emph{rule overlap check}
-features can serve as synchronization primitives.
+features can serve as synchronization primitives. 
 However, without further mechanisms, their use is limited:
 with a bundle alone it is not possible to react to
 and change switch configuration state in any non-trivial way,
 and with the rule overlap check it is not possible to react to
-update conflicts defined over non-overlapping flow spaces.
+any non-trivial update conflicts. 
 
 In contrast, the transactional interface presented in this paper supports very general atomic
-transactions over the switch configuration space, similar to classic transactional memory~\cite{stm-st95,tm-book}.
-For instance, a transaction allows to modify switch configurations in an interactive
+transactions over the switch configuration space, similar to classic transactional memory~\cite{stm-st95,tm-book}. 
+For instance, a transaction allows to modify switch configurations in an interactive 
 and computational fashion, as well as to define complex notions
-of conflicts.
-Our implementation is based on distributed identifiers and makes use of two
+of conflicts. 
+Our implementation is based on distributed identifiers and makes use of two 
 new synchronization objects for managing these identifiers:
 a \emph{claim-id object}, used for claiming an available identifier in a given
-(bounded or unbounded) set, and a \emph{read-write register object}, used for storing the
+(bounded or unbounded) set, and a \emph{read-write register object}, used for storing the 
 currently used identifier.
-Thus, our paper also provides the missing link for the read-modify-write object
+Thus, our work also provides the missing link for the read-modify-write object
 postulated in~\cite{cpc}.
-
-Finally, we also show that interesting synchronization mechanisms may be included
-in-band even without the bundle feature, and as a case study, show
-how to automatically \emph{compose} updates originating \emph{from different controllers}.
-
-Finally, we hope that our work can contribute to the ongoing discussion of what can be implemented
+Our work also contributes to the ongoing discussion of what can be implemented
 in-band in Openflow~\cite{compute,reclaim}, by taking a first look
 at the relevant problem of distributed
 synchronization.
@@ -331,13 +322,13 @@ synchronization.
 The rest of the paper is organized as follows.
 In Section~\ref{sec:background}, we review the basics of the  Openflow
 protocol and discuss its features which are relevant for our work.
-In Section~\ref{sec:motivation}, we discuss the limitations of interpreting
-the Openflow bundle as a transaction, and motivate our approach.
-We then present our approach in detail in Section~\ref{sec:main}, and discuss use cases in Section~\ref{sec:apps}.
-Section~\ref{sec:compo} describes how to perform in-band composition.
+%In Section~\ref{sec:vision}, we introduce our vision and the container consensus object
+%and present its implementation in OpenFlow.
+%We then discuss applications (Section~\ref{sec:apps}) as
+%well as extensions (Section~\ref{sec:discussion}).
+FIXME
 We review related literature in Section~\ref{sec:relwork}, and conclude
-in Section~\ref{sec:conclusion}. Some technical details are postponed
-to the Appendix.
+in Section~\ref{sec:conclusion}.
 
 %we provide the theoretical
 %background on our approach. Section~\ref{sec:realization}
@@ -347,13 +338,13 @@ to the Appendix.
 %we conclude our work in
 %Section~\ref{sec:conclusion}.
 
-\section{Background}\label{sec:background}
+\section{Background and Motivation}\label{sec:background}
 
 The synchronization mechanisms presented in this paper
 are based on Openflow~\cite{of-spec}, the standard SDN protocol today. In this section,
 we provide the necessary background.
 
-In a nutshell,
+\textbf{Background.} In a nutshell,
 Openflow
 is based on a match-action concept: Openflow switches store
 rules (installed by the controller) consisting of a match and an
@@ -390,14 +381,12 @@ features which we will exploit to implement the transactional memory abstraction
 
 \begin{enumerate}
 \item \textbf{Bundling:}
-A bundle can be seen as a ``mini-transaction'':
-a bundles aggregates multiple control messages
-into one \textsc{FlowMod} message, so that either all of the control messages are
+Control messages are aggregated into one message, so that either all of the control messages are
 processed, or none of them is. In particular, if, for some reason, the
 configuration request contained in one of the bundled messages cannot
 be processed, all the other requests  are rejected and an error
 message is sent to the controller that issued them.
-This bundled processing can be, when properly configured, done in a
+Interestingly, this bundled processing can be, when properly configured, done in a
 \emph{packet-atomic} way, so that each packet is processed according
 to the switch configuration either \emph{before} or \emph{after} the
 request was processed.
@@ -419,28 +408,17 @@ flow entries and to use masks to delete modify/delete multiple entries. Our sync
 \item \textbf{Groups:} Groups of action buckets can be defined in a special group table. Each group has a unique id and any attempt to create a group with existing id or to delete un existing group fails (and can abort a bundle in process).
 \end{enumerate}
 
-\begin{figure*}[t]
-\centering
-\includegraphics[width=0.8\columnwidth]{loadbal.pdf}~~
-\includegraphics[width=0.8\columnwidth]{pic.pdf}\\
-\caption{\emph{Left:} Load-balancing gone wrong. \emph{Right:} Illustration of transactional abstraction which  allows
-controllers to modify switch configurations in complex ways,
-and
-depending on other flow spaces.}\label{fig:illu}
-\end{figure*}
-
-\section{Limitations and Motivation}\label{sec:motivation}
-
-Before presenting our transactional interface and implementation,
-let us first discuss the limitations of the Openflow features discussed above.
-At first sight, the bundle feature seems to provide everything
-we need: it defines a sequence of read and write operations
+\textbf{Limitations.}  While these features are useful primitives, 
+building complex transactions from these features
+is a non-trivial task, as we will show in the following. 
+A bundle can be understood as a transaction:
+ it defines a sequence of read and write operations 
  on the switch state which are executed atomically.
- However, such bundle transactions come with many
+ However, such bundle transactions come with many 
  limitations. A bundle transaction does not allow
  to change the switch state in any non-trivial way,
- as the read and write actions in the bundle do
- not support any conditional modifications or computations which
+ as the read and write actions in the bundle do 
+ not support any conditional modifications or computations which 
  depend on the read results. By leveraging
  the check overlap feature, it is at least possible
  to abort transactions depending on certain conditions
@@ -450,61 +428,33 @@ we need: it defines a sequence of read and write operations
  it can be interesting to define more general
  dependencies, which depend on, from a logical perspective,
  seemingly
- completely independent flow spaces,
+ completely independent flow spaces, 
  which however share the underlying physical network.
-In other words, the bundle feature only allows us to
+In other words, the bundle feature only allows us to 
 define ``one-shot transactions'',
-transactions which do not support any further controller interactions.
+transactions which do not support any further controller interactions. 
 Given
-the limited computational options the Openflow interface of a switch offers,
+the limited computational options the Openflow interface of a switch offers, 
 it is difficult to implement more complex behavior.
 
-\textbf{Example 1.} To give an example, let us consider a controller application in charge
-of \emph{load-balancing}. The objective of the load-balancer
-is to distribute flows equally across links or servers.
-If multiple controllers concurrently and independently
-update forwarding rules, they may unvoluntarily
-unbalance the flow allocation. Note that this
-is true independently of whether the flow spaces
-affected by the respective controllers overlap or not.
-More concretely, assume that two controllers concurrently
-decide to forward traffic $1*$ and $0*$ to the same server.
-Flow space overlap checks cannot be used to detect
-such conflicts.
-FIXME: make this example better
-
-\textbf{Example 2.} To give another example,
-consider the problem of modifying previously
-installed forwarding policies.
-While a bundle allows to conditionally add new rules or remove
-old rules (and, using the flow space overlap
-check, to abort the transaction if potentially conflicting
-rules were already there), it cannot be used
-to modify rules in non-trivial ways.
-In other words, the bundle and overlap check only helps
-for the conditional creation of rules, not their modification.
-
-\stefan{It would be cool if we could make these examples more concrete,
-at least one, and get back to it later again!}
-
 %\section{The Container Object}\label{sec:vision}
-\section{Transactional Synchronization}\label{sec:main}
+\section{Transactional Synchronization}\label{sec:vision}
 
-This section describes how to introduce more powerful transactions.
-Our implementation is based on two new synchronization objects,
-allowing to coordinate controllers using identifiers.
+This section describes how to introduce more powerful transactions. We first present a new synchronization object to 
 
-At a high level, we export a
+In this section, we sketch the synchronization abstraction we build on
+top of the standard OpenFlow functionality. At a high level, we export a
 transactional interface which allows each controller $i\in[N]$ ($N\geq
 2$) to perform multiple
 operations on the configuration of an OpenFlow switch as an atomic
 \emph{transaction}, inspired by the transactional-memory paradigm~\cite{stm-st95,tm-book}. A transaction may \emph{commit}, in
 which case it appears as executed sequentially, or \emph{abort}, in
-which none of its operations takes effect.  
+which none of its operations takes effect.
 
-\subsection{Synchronization Objects}\label{sec:t-if}
-
-We assume transactional access to  two kinds of objects: a
+\subsection{Interface}\label{sec:t-if}
+We assume that transactions may comprise operations on the flow table
+of an SDN switch, such as reading flow table entries or adding new entries.
+In addition we, we also assume transactional access to  two kinds of objects: a
 \emph{claim-id} object, used for claiming a policy \emph{identifier} in a
 given (bounded or unbounded) set, and a read-write \emph{register}
 object, used for storing the current used policy identifier.
@@ -526,19 +476,20 @@ semantics:
 %provides two main functions:
 \begin{itemize}
 \item by performing $\textit{claim}(k)$, $i\in[N]$,
-  $k\in\Nat$, controller $i$ \emph{claims} 
+  $k\in\Nat$, controller $i$ \emph{claims}
   identifier $k$;
 
 
 \item by performing $\textit{unclaim}(i)$, $i\in[N]$, controller $i$
-  \emph{unclaim} identifier $k$;  
+  \emph{unclaim} identifier $k$;
 
 \item $\textit{check}(k)$, $k\in\Nat$, returns $\textit{true}$ if and
   only if $k$ is not currently claimed by any controller; if
   $\textit{false}$ is returned, we say that the check operation
   \emph{fails} (which causes an abort of the transaction invoking it).
 
-\end{itemize}  
+\end{itemize}
+
 
 A register can be accessed with a
 \emph{compare-and-set} (CAS) operation that takes two integer parameters
@@ -546,40 +497,38 @@ $\textit{old}$ and $\textit{new}$, reads the register and, if the
 value of it is $\textit{old}$, replaces it with $\textit{new}$ and
 returns $\textit{true}$; otherwise, $\textit{false}$ is returned and
 we say that the CAS operation \emph{fails} (which causes an abort if
-the transaction invoking it).   
+the transaction invoking it).
 
-\subsection{Interface}\label{sec:t-if}
-
-We assume that transactions may comprise operations on the flow table
-of an SDN switch. Our transactional abstraction exports the
+More formally, our transactional abstraction exports the
 $\textbf{atomic}\{\;\ldots\;\}$ construct
 containing a sequence of transactional
 operations and may \emph{commit} and return responses to all its operations
-or \emph{abort} (so that none of its operation takes effect).  
+or \emph{abort} (so that none of its operation takes effect).
 We guarantee that in every execution, all committed
 transactions constitute a \emph{legal} sequential
 order~\cite{Pap79-serial}, i.e., every transaction appears as executed
 sequentially. On the progress side, we ensure that a
-transaction $T$ is only allowed to abort if either another 
-transaction updated a flow table entry read by $T$  
+transaction $T$ is only allowed to abort if either another
+transaction updated a flow table entry read by $T$
 or if one of $T$'s operations (\textit{check} or CAS) fails.
-We employ the \emph{deferred-update} semantics:  
+We employ the \emph{deferred-update} semantics:
 no transaction can affect other transactions before it commits.
 In particular, if a controller crashes before committing its
-transactions, no future transaction can be affected.  
+transactions, no future transaction can be affected.
 %Note that
-%, assuming such a transactional memory,  
+%, assuming such a transactional memory,
 %a $\emph{contains}(x)$ operation can be implemented as a transaction
-%composed of $\textit{cond-add}(x)$ followed by $\textit{cond-delete}(x)$.  
+%composed of $\textit{cond-add}(x)$ followed by $\textit{cond-delete}(x)$.
 %A \emph{set} abstraction is a special instance of a multi-set that is
 %only modified with \textit{cond-add} and \textit{cond-delete}
 %operations (this way the set only contains at most one copy of a given
-%item).  
+%item).
 
 
-\subsection{Implementation in Openflow}\label{sec:t-impl}
 
-We now describe how to implement our transactional 
+\subsection{Transactions in Openflow}\label{sec:t-impl}
+
+We now describe how to implement our transactional
 abstraction using standard OpenFlow features, including
 \emph{bundling}, \emph{conditional application}, and \emph{groups}.
 %[[PK let us leave for the moment
@@ -587,27 +536,22 @@ abstraction using standard OpenFlow features, including
 %in older Openflow versions where they are not
 %supported. \textbf{TODO}
 %]]
-Algorithms~\ref{alg:claim}-\ref{alg:cas} describe implementations of  
+Algorithms~\ref{alg:claim}-\ref{alg:cas} describe implementations of
 transactional operations  $\textit{claim}(x)$, $\textit{check}(x)$, $\textit{unclaim}(x)$,
-and $\textit{CAS}(x)$, respectively. 
+and $\textit{CAS}(x)$, respectively.
 Algorithm~\ref{alg:commit} describes the procedure executed by
 a transaction at \emph{commit time}.
 
-We assume that every transaction has a unique identifier. 
+We assume that every transaction has a unique identifier.
 Every operation within a transaction generates a number of  OpenFlow
-messages. Each of the messages can be wrapped 
-is marked as a 
-in a \emph{bundle} message
-%,where the transaction's identifier is used as the bundle id. 
-.
-Each bundle message carries a bundle id, where messages with same bundle id are considered to belong to same bundle and are performed atomically.
+messages using \textsc{FlowMod} commands.
+We therefore assume that each of these OpenFlow messages is marked as  a \emph{bundle} message,
+where the transaction's identifier is used as the bundle id.
 
-%The OpenFlow messages that we use (besides )
 
-  
-\textbf{TODO: explain how the lines in the pseudocode generate OF msgs.} 
+\textbf{TODO: explain how the lines in the pseudocode generate OF msgs.}
 We use creation and deletion of flow entries (with FlowMod commands) as abstraction to claiming/unclaiming  resource id numbers and also to checking whether a given id is claimed. The match part of the added flow entry represents the added
-number and the mask part of the match varies from one controller to another in order to allow multiple controllers to claim the same number without overriding the same flow entry. 
+number and the mask part of the match varies from one controller to another in order to allow multiple controllers to claim the same number without overriding the same flow entry.
 As can be seen in Algorithms \ref{alg:claim}-\ref{alg:unclaim}, the match mask is a concatenation of the controller id with all ones, while the value is the id concatenated twice. We can see that for any two numbers $x_1$ and $x_2$ and controller ids $c_1\neq c_2$ the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_1=(x_2\concat x_2, c_2\concat all-1)$ are not equal even if $x_1=x_2$ therefore they can both claim and unclaim without affecting each other.
 
 In order to check if a number is claimed we try to create the corresponding entry while setting the
@@ -615,8 +559,8 @@ flag \textsf{CHECK\_OVERLAP}, thereby inflicting a failure in case an entry with
 Note that checking for claims must contain a deletion of the added flow entry otherwise a successive check operation might mistakenly fail. Moreover the two commands (adding and deleting of the flow entries) must be sent as part of the same bundle to support concurrent checks by different controllers.
 
 Similarly, we use a deletion of group $x$ and a creation of group $y$ (with GroupMod commands) as an
-abstraction to performing a $CAS(x,y)$ operation to a special $16$bit register (we abstract only one register). The $16$ bit limit is resulted by th $16$bit group id size. 
-%The group id of the added group represents the added number. 
+abstraction to performing a $CAS(x,y)$ operation to a special $16$bit register (we abstract only one register). The $16$ bit limit is resulted by th $16$bit group id size.
+%The group id of the added group represents the added number.
 Note that trying to delete a group that doesn't exist (or trying to create a group with id that already exists) fails, thereby preventing adding the new value $y$ if $x$ hasn't existed before. Note that the two action should be performed inside the same bundle in order to ensure the atomic nature ot the abstraction.
 
 To commit the transaction,  the controller sends a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
@@ -723,28 +667,25 @@ message  pointing out the aborted transactional operation.
 
 \section{Discussion of Use-Cases}\label{sec:apps}
 
-More powerful transactions can be useful in many scenarios.
-Let us revisit our examples from earlier: with
-transactions we can easily solve the load-balancing
-and rule modification problem.
-In the following we give two more examples of our approach.
+We now sketch a few examples of how our generic transactional synchronization
+abstraction  can be used by a control application.
 
-\subsection{Policy Updates}
+FIXME: load-balancing, consensus, etc.
 
 Our first example (Algorithm~\ref{alg:simple-update}) is a simple policy composition protocol that
 allows a set of  controllers to concurrently update switch  \emph{policies} , i.e., sets of
 effective rules in its flow tables, under the
 condition that these rules can be composed with the currently installed
 policy (the composition predicate is encoded in a user-specific
-$\textit{apply\_update}()$ function~\cite{cpc}.  
+$\textit{apply\_update}()$ function~\cite{cpc}.
 
-Every policy is associated with a \emph{policy identifier} 
+Every policy is associated with a \emph{policy identifier}
 In the algorithm, the controller first reads the currently installed
 policy, then choose a new unique policy, checks whether the new
 policy and the current policy can be composed and, if so, replaces the
 current policy with the composition. If, meanwhile, a new
 policy (with a different identifier) has been installed, the update
-fails and takes no effect. 
+fails and takes no effect.
 
 Algorithm~\ref{alg:simple-update} use increasing numbers as policies
 ids and use them in order to make sure that the new policy, with id
@@ -756,23 +697,23 @@ performed iff the current policy is still there and preventing other
 controllers to replace the new policy with another without observing it.
 
 For brevity, we omit explicitly putting the $\textbf{atomic}\{...\}$ construct
-around each of the transactional operation used in the algorithm.   
+around each of the transactional operation used in the algorithm.
 Indeed, since \textit{claim} and \textit{unclaim} operations cannot
 cause the corresponding transaction, we can assume that all
 ``singleton'' (consisting of one operation only)  transactions
-containing such operations always commit.    
+containing such operations always commit.
 
 Algorithm~\ref{alg:simple-update} allows policy identifiers to grow
 without bound. In fact, as was observed in~\cite{cpc}, the number of currently
 used policies can be made proportional to the number of concurrent
 controllers.
- 
- 
+
+
  It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we seek to
  obtain a unique \emph{id}. FIXME: to be continued...
  \textbf{LS: I am not sure if I need to tell every step of the story or maybe it best to explain the main dif from the previous one similarly to what I just wrote next}.
- 
-Algorithm~\ref{alg:update} claims the current policy id in order to prevent someone of using it with different policy in the future (during the current update) and in the bundle used to update the policy it also checks that the new policy id that it about to use (chosen from a finite set of ids) wasn't claimed by someone else. 
+
+Algorithm~\ref{alg:update} claims the current policy id in order to prevent someone of using it with different policy in the future (during the current update) and in the bundle used to update the policy it also checks that the new policy id that it about to use (chosen from a finite set of ids) wasn't claimed by someone else.
 
 \hide{
 We compute our new suggested policy by applying the update requests on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by anyone else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy.
@@ -796,7 +737,7 @@ If one of the actions in the transaction fails we try again. There is no progres
  		%\Do
  		\Repeat
  			\State \textbf{read} switch configuration
- 			\State $pid\gets$ current policy id 
+ 			\State $pid\gets$ current policy id
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTxn
@@ -824,8 +765,8 @@ If one of the actions in the transaction fails we try again. There is no progres
  		%\Do
  		\Repeat
  			\State \textbf{read} switch configuration
- 			\State $my\_id\gets$ an unused \emph{id} 
- 			\State $pid\gets$ current policy id 
+ 			\State $my\_id\gets$ an unused \emph{id}
+ 			\State $pid\gets$ current policy id
  			\State $claim(pid)$
  			\State \textbf{read} switch configuration
  			\If {$pid\notin Cur$}
@@ -882,50 +823,40 @@ If one of the actions in the transaction fails we try again. There is no progres
     \end{algorithmic}
 \end{algorithm}
 
-\subsection{Consensus and Replicated State Machines}
 
+
+\paragraph{Consensus and replicated state machines}
 It is straightforward to implement consensus among the controllers
 using just a single register that can be accessed with an atomic CAS
 operation~\cite{Her91}. In our transactional setting, the controllers
-can use CAS to replace the default value of such a register 
+can use CAS to replace the default value of such a register
 with their consensus input values (e.g., the identifiers of the
 policies that should be applied first). If the corresponding
-singleton transaction commits, the controller consideres itself 
+singleton transaction commits, the controller consideres itself
 the \emph{winner} and decides on its input, if
 it aborts (the controller fails in the CAS) it remains to read the register to get the input of the
-winner to decide.    
+winner to decide.
 
 By using multiple CAS invocations, the controllers can implement any
 generic replicated state machine~\cite{Her91,Lam98}, which will be instrumental in the
-next section. 
+next section.
 
 %\paragraph{One-Shot Update} FIXME: desribe how to implement one-shot update
 
-\paragraph{STN} 
+\paragraph{STN}
 
 \textbf{TODO}
+
 
 \section{In-Band Composition}\label{sec:compo}
 
 We conclude our technical contribution by showing that sometimes,
 powerful synchronization mechanisms can be implemented
-in-band \emph{even without bundles}.
-Concretely, we show that sometimes it is even possible
-to automatically compose updates originating from different controllers,
-in-band and just using Openflow.
 
-To illustrate this point, we consider a simple example
-with two controllers concurrently issuing updates to a single
-given switch.
 
-FIXME: Explain, maybe even with an example?
+ This section show how to implement 
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.8\columnwidth]{composition.pdf}\\
-\caption{Composition.}\label{fig:illu}
-\end{figure}
-
+FIXME: shall we?
 
 \begin{comment}
 
@@ -1026,12 +957,12 @@ other controllers can take over. STN~\cite{stn} is based on
 atomic read-modify-write primitives provided by the switches, but
 while the availability of such primitives is postulated, no implementation is
 described. In this paper, we provide this missing link, and also show that other useful and
-more powerful synchronization primitives can be implemented. 
+more powerful synchronization primitives can be implemented.
 Also, some STN implementations in~\cite{stn} assume that the control
 plane maintains a certain amount of synchrony that allows controllers
-to solve consensus or implement a replicated state machine.     
+to solve consensus or implement a replicated state machine.
 In this paper, we describe an OpenFlow-based consensus protocol that
-can be used for this purpose.  
+can be used for this purpose.
 
 Our work is also closely related to the recent work on providing more high-level
 abstractions and programming languages for SDNs, such as Frenetic~\cite{frenetic},
@@ -1041,7 +972,7 @@ by initiating the discussion of concurrency objects and abstractions.
 
 The transactional interface we describe in this paper is inspired by the
 work on speculative concurrency control using software transactional memory
-(STM)~\cite{stm-st95,tm-book}. 
+(STM)~\cite{stm-st95,tm-book}.
 %[[PK I think this is enough]]
 
 Our work also contributes to the ongoing discussion of what can be implemented
@@ -1094,7 +1025,7 @@ languages for SDNs (e.g., Frenetic, Pyretic, Merlin), the
 question of which synchronization abstractions to provide
 has received much less attention.
 %
-In this paper, we describe transactional abstractions that 
+In this paper, we describe transactional abstractions that
 can be implemented using standard Openflow features.
 %
 Our work complements existing research on the design of
@@ -1102,7 +1033,7 @@ distributed control planes, and also provides some missing links,
 e.g., for the transactional approach taken by STN~\cite{stn}.
 We also hope that our work can nourish the discussion of
 which synchronization objects we can and want to implement
-in an SDN. 
+in an SDN.
 
 
 {
@@ -1112,12 +1043,9 @@ in an SDN.
 
 \begin{appendix}
 
-\section{Implementing CAS with FlowMod commands}\label{sec:without-groups}
+\section{Implementing $\textit{CAS}$ with FlowMod commands}
 
 This section describes an implementation without group tables.
-
-
-Here we describe a second implementation of the Compare\&Set abstraction that is based on entirely on flow entry creations and deletions (FlowMod commands). 
 
 \begin{algorithm}[H]
     \caption{$\textit{CAS}(old,new)$}
@@ -1150,7 +1078,6 @@ Here we describe a second implementation of the Compare\&Set abstraction that is
     \end{algorithmic}
 \end{algorithm}
 
-\begin{comment}
 \section{Backup Stuff}
 
 using the bundling feature to implement \emph{multi-write} or, more
@@ -1191,7 +1118,6 @@ we can do more than container:
 we introduce container: it's not compare+set, ... its something new!
 new object, is stronger than compare and set because bundle!
 
-\end{comment}
 
 \end{appendix}
 
