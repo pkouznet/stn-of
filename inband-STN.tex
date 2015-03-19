@@ -45,6 +45,7 @@
 \newcommand{\concat}[0]{\oplus}
 \newcommand{\append}[0]{\frown}
 \newcommand{\Nat}{\mathbb{N}}
+\newcommand{\cas}{CAS}
 
 \newcommand{\stefan}[1]{\textit{\textcolor{red}{[stefan]: #1}}} % Comments
 \newcommand{\liron}[1]{\textit{\textcolor{green}{[julius]: #1}}} % Comments
@@ -1117,11 +1118,14 @@ in an SDN.
 \begin{appendix}
 
 \section{Implementing CAS with FlowMod commands}\label{sec:without-groups}
-
 This section describes an implementation without group tables.
 
-
 Here we describe a second implementation of the Compare\&Set abstraction that is based on entirely on flow entry creations and deletions (FlowMod commands). 
+
+The CHECK\_OVERLAP flag enables us to add an entry if no contradicting entry exists and to fail if such do exists. However, the compare stage of \cas requires us to fail if a certain value doesn't exists, i.e. $\cas(x,y)$ failes iff $x \notin T$, where $T$ is the set of match entries defined in a dedicated flow table.
+...
+...
+
 
 \begin{algorithm}[H]
     \caption{$\textit{CAS}(old,new)$}
