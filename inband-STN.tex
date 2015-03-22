@@ -15,6 +15,7 @@
 \usepackage{amssymb}
 \usepackage{comment}
 \usepackage{amsmath}
+\usepackage{xspace}
 %\usepackage{graphicx}
 %\usepackage{color}
 %\usepackage[pdftex]{graphicx}
@@ -46,9 +47,10 @@
 \newcommand{\concat}[0]{\oplus}
 \newcommand{\append}[0]{\frown}
 \newcommand{\Nat}{\mathbb{N}}
-\newcommand{\cas}{CAS}
-\newcommand{\claimcheck}{check}
-\newcommand{\compare}{compare}
+\newcommand{\cas}{CAS\xspace}
+\newcommand{\claimcheck}{check\xspace}
+\newcommand{\compare}{compare\xspace}
+\newcommand{\memwrite}{write\xspace}
 
 \newcommand{\stefan}[1]{\textit{\textcolor{red}{[stefan]: #1}}} % Comments
 \newcommand{\liron}[1]{\textit{\textcolor{mygreen}{[liron]: #1}}} % Comments
@@ -392,11 +394,12 @@ matches, the packet is dropped.
 \liron{I think that maybe the rest of this section should be explained by the following subsections, providing in depth description of the OpenFlow features.}
 \liron{Another direction is to have a simplified explenation as now and to refference spesific sections of the standard in side our paper.}
 \subsection{The flow entry modification command (FlowMod)}
-
+- Creating an entry with the same match part replaces the existing one.
 
 \subsubsection{The CHECK\_OVERLAP flag}
-
+- creating and entry with overlapping match (same priority) and different instructions fails.
 \subsection{Bundling}
+- failed command aborts the bundle.
 
 \textbf{Useful features for synchronization.} The Openflow standard (as of \textbf{TODO}) offers four interesting
 features which we will exploit to implement the transactional memory abstraction:
@@ -520,7 +523,7 @@ which none of its operations takes effect.
 We assume transactional access to  two kinds of objects: a
 \emph{resource-claimer} object, provides claiming a resource id (e.g. policy \emph{identifier}) in a
 given (bounded or unbounded) set, and a read-write \emph{memory} abstraction
-object, which can be used for storing the current used policy identifier.
+object, which we later use for storing the current used policy identifier.
 %
 \subsubsection{A resource claimer}
 A resource-claimer object implements a weak type of locking, exports operations \emph{claim},
@@ -640,17 +643,18 @@ Messages with same bundle id are considered to belong to same bundle and are per
 %The OpenFlow messages that we use (besides )
 
   
-Our implementation is based on OpenFlow flow entries modification command, the FlowMod message that explained in Section \ref{sec:background}. We use the CHECK\_OVERLAP optional flag to make the transaction execution dependent on switch state.    
+Our implementation is based on OpenFlow flow entries modification command, the FlowMod message that we explain in Section \ref{sec:background}. We use the CHECK\_OVERLAP optional flag to make the transaction execution dependent on switch state.    
 
 We consider the match part of an entry to be a ternary string of bounded length (represented by binary value and mask) which can be applied to any set of supported packet header fields. In our implementation the $64$bit metedata field alone is suffice. Moreover we consider the action part of an entry to be an integer, which in practice can be implemented by a Set-Metadata instruction where the written value is that integer.
  
  As can be seen in Algorithms \ref{alg:claim}-\ref{alg:unclaim}, for the resource-claimer, 
   the match part of the added flow entry represents the claimed id (id concatenated twice).
    In addition the mask part of the match (controller id concatenated with all-ones) varies from one controller to another in order to allow multiple controllers to claim the same number without overriding the same flow entry. 
-    We can see that for any two resource ids $x_1$ and $x_2$ and controller ids $c_1\neq c_2$ the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_1=(x_2\concat x_2, c_2\concat all-1)$ are not equal even if $x_1=x_2$ therefore they can both claim and unclaim without affecting each other.
+    We can see that for any two resource ids $x_1$ and $x_2$ and controller ids $c_1\neq c_2$ the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_2=(x_2\concat x_2, c_2\concat all-1)$ are not equal even if $x_1=x_2$ therefore they can both be used to claim and unclaim without affecting each other.
 
 In order to check if a number is claimed we try to create the corresponding entry while setting the
-flag \textsf{CHECK\_OVERLAP} and using different action, thereby inflicting a failure in case an entry with overlapping match value exists. If the check succeeds we delete the entry. Considering $m_1$ and $m_2$ defined above and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap with different actions iff $x_1=x_2$. Therefore if one is used in check after the other used in claims, a conflict is detected iff $x_1=x_2$, as expected.
+flag \textsf{CHECK\_OVERLAP} and using different action, thereby inflicting a failure in case an entry with overlapping match value exists. If the check succeeds we delete the entry. Considering $m_1$ and $m_2$ defined above and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap with different actions iff $x_1=x_2$. Therefore if one is used in \claimcheck after the other used in claim, a conflict is detected iff $x_1=x_2$, as expected.
+
 Note that checking for claims must contain a deletion of the added flow entry otherwise a successive check operation might mistakenly fail. Moreover the two commands (adding and deleting of the flow entries) must be sent as part of the same bundle to support concurrent checks by different controllers.
 
 
@@ -715,7 +719,8 @@ Note that checking for claims must contain a deletion of the added flow entry ot
 \end{algorithm}
 
 
-We use similar techniques for implementing memory write and abortIfUnequal operations.
+We use similar techniques for implementing memory write and \compare 
+ operations.
  As can be seen in Algorithms \ref{alg:write}-\ref{alg:compare}, 
   the match part of the added flow entry is used as the memory address and the action as the written value. Values written to the same address will replace one another, following the command definition to replace old flow entry with a new one in casae they share the same match parts (as described in Section \ref{sec:background}).
   
@@ -766,8 +771,8 @@ In addition we present in Algorithm \ref{alg:cas} a simple implementation of Com
     %\Require  id $i$.
 %    \Ensure
 
-    		\State $cmd1\gets \textsc{abortIfUnequal}((addr, old) $
-    		\State $cmd2\gets \textsc{Write}((addr, new) $
+    		\State $cmd1\gets \textsc{\compare}((addr, old) $
+    		\State $cmd2\gets \textsc{\memwrite}((addr, new) $
 			\Return $cmd1,cmd2$
     \end{algorithmic}
 \end{algorithm}
@@ -796,7 +801,7 @@ message  pointing out the aborted transactional operation.
     \end{algorithmic}
 \end{algorithm}
 
-
+\hide{
 %\section{The Container Object}\label{sec:vision}
 \section{Transactional Synchronization}\label{sec:main}
 
@@ -1033,7 +1038,7 @@ message  pointing out the aborted transactional operation.
 		\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
-
+}
 
 \section{Discussion of Use-Cases}\label{sec:apps}
 
@@ -1105,7 +1110,7 @@ If one of the actions in the transaction fails we try again. There is no progres
     \caption{Policy update with only CAS}
     \label{alg:simple-update}
     \begin{algorithmic}[1]
-    \Require update requirements $U$
+    \Require update requirements $U$, a predefined (memory) address for  policy id: $pid\_addr$
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
@@ -1114,7 +1119,7 @@ If one of the actions in the transaction fails we try again. There is no progres
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTxn
-	 			\State $CAS(pid,pid+1)$
+	 			\State $CAS(pid\_addr,pid,pid+1)$
 	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
@@ -1133,7 +1138,7 @@ If one of the actions in the transaction fails we try again. There is no progres
     \caption{Advanced policy update}
     \label{alg:update}
     \begin{algorithmic}[1]
-    \Require update requirements $U$
+    \Require update requirements $U$, a predefined (memory) address for  policy id: $pid\_addr$
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
@@ -1149,8 +1154,8 @@ If one of the actions in the transaction fails we try again. There is no progres
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTxn
- 				\State $abortIfClaimed(my\_id)$
-	 			\State $CAS(pid,my\_id)$
+ 				\State $\claimcheck(my\_id)$
+	 			\State $CAS(pid\_addr, pid,my\_id)$
 	 			\State \textbf{add} $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
