@@ -48,7 +48,7 @@
 \newcommand{\cas}{CAS}
 
 \newcommand{\stefan}[1]{\textit{\textcolor{red}{[stefan]: #1}}} % Comments
-\newcommand{\liron}[1]{\textit{\textcolor{green}{[julius]: #1}}} % Comments
+\newcommand{\liron}[1]{\textit{\textcolor{green}{[liron]: #1}}} % Comments
 \newcommand{\petr}[1]{\textit{\textcolor{blue}{[carlos]: #1}}} % Comments
 
 
@@ -489,6 +489,272 @@ for the conditional creation of rules, not their modification.
 at least one, and get back to it later again!}
 
 %\section{The Container Object}\label{sec:vision}
+\section{-NEW- Transactional Synchronization}\label{sec:main}
+
+This section describes how to introduce more powerful transactions.
+Our implementation is based on two new synchronization objects,
+allowing to coordinate controllers using identifiers.
+
+At a high level, we export a
+transactional interface which allows each controller $i\in[N]$ ($N\geq
+2$) to perform multiple
+operations on the configuration of an OpenFlow switch as an atomic
+\emph{transaction}, inspired by the transactional-memory paradigm~\cite{stm-st95,tm-book}. A transaction may \emph{commit}, in
+which case it appears as executed sequentially, or \emph{abort}, in
+which none of its operations takes effect.  
+
+\subsection{Synchronization Objects}\label{sec:t-if}
+
+We assume transactional access to  two kinds of objects: a
+\emph{resource-claimer} object, provides claiming a resource id (e.g. policy \emph{identifier}) in a
+given (bounded or unbounded) set, and a read-write \emph{memory} abstraction
+object, which can be used for storing the current used policy identifier.
+%
+\subsubsection{A resource claimer}
+A resource-claimer object implements a weak type of locking, exports operations \emph{claim},
+\emph{unclaim} and \emph{abortIfClaimed} with the following sequential
+semantics:
+%The container synchronization object introduced in this paper
+%is essentially a transactional memory abstraction which can be implemented
+%in standard Openflow switches.
+%Before presenting the technical details in the next section,%
+%we give a brief overview.
+
+%The postulated container object can store an arbitrary number of \emph{items}.
+%As we will see, these items correspond to flow entries on the Openflow switch.
+%The same item may even exist multiple times in the container (i.e., the container
+%is a multi-set).
+%The container
+%provides two main functions:
+\begin{itemize}
+\item by performing $\textit{claim}(k)$, $i\in[N]$,
+  $k\in\Nat$, controller $i$ \emph{claims} 
+  identifier $k$;
+
+
+\item by performing $\textit{unclaim}(k)$, $i\in[N]$, $k\in\Nat$, controller $i$
+  \emph{unclaim} identifier $k$;  
+
+\item $\textit{abortIfClaimed}(k)$, $k\in\Nat$, 
+abort current transaction if $k$ is currently claimed by any controller.
+%returns $\textit{true}$ if and
+%  only if $k$ is not currently claimed by any controller; if
+%  $\textit{false}$ is returned, we say that the check operation
+%  \emph{fails} (which causes an abort of the transaction invoking it).
+
+\end{itemize}  
+
+\subsubsection{A memory abstraction}
+A memory can be accessed with the following sequential
+semantics:
+
+\begin{itemize}
+\item by performing $\textit{Write}(addr,k)$,
+  $addr,k\in\Nat$, the value at memory offset $addr$ is set to $k$;
+
+\item $\textit{abortIfUnequal}(addr,k)$, $addr,k\in\Nat$, 
+aborts current transaction if the value at memory offset $addr$ is not equal to $k$.
+%returns $\textit{true}$ if and
+%  only if $k$ is not currently claimed by any controller; if
+%  $\textit{false}$ is returned, we say that the check operation
+%  \emph{fails} (which causes an abort of the transaction invoking it).
+
+\end{itemize}  
+
+Note that reading the memory can be done by just reading the switch configuration however such action doesn't affect the execution of the transaction (as $\textit{abortIfUnequal}$ does).
+
+An immediate extension of the memory interface is the \emph{compare-and-set} (CAS) operation that takes two integer parameters
+$\textit{old}$ and $\textit{new}$, reads the register and, if the
+value of it is $\textit{old}$, replaces it with $\textit{new}$ and
+returns $\textit{true}$; otherwise, $\textit{false}$ is returned and
+we say that the CAS operation \emph{fails} (which causes an abort if
+the transaction invoking it).   
+
+\subsection{Interface}\label{sec:t-if}
+
+\liron{this subsection doesn't flow well for me}
+
+We assume that transactions may comprise operations on the flow table
+of an SDN switch. Our transactional abstraction exports the
+$\textbf{atomic}\{\;\ldots\;\}$ construct
+containing a sequence of transactional
+operations and may \emph{commit} and return responses to all its operations
+or \emph{abort} (so that none of its operation takes effect).  
+We guarantee that in every execution, all committed
+transactions constitute a \emph{legal} sequential
+order~\cite{Pap79-serial}, i.e., every transaction appears as executed
+sequentially. On the progress side, we ensure that a
+transaction $T$ is only allowed to abort if either another 
+transaction updated a flow table entry read by $T$  
+or if one of $T$'s operations (\textit{check} or CAS) fails.
+We employ the \emph{deferred-update} semantics:  
+no transaction can affect other transactions before it commits.
+In particular, if a controller crashes before committing its
+transactions, no future transaction can be affected.  
+%Note that
+%, assuming such a transactional memory,  
+%a $\emph{contains}(x)$ operation can be implemented as a transaction
+%composed of $\textit{cond-add}(x)$ followed by $\textit{cond-delete}(x)$.  
+%A \emph{set} abstraction is a special instance of a multi-set that is
+%only modified with \textit{cond-add} and \textit{cond-delete}
+%operations (this way the set only contains at most one copy of a given
+%item).  
+
+
+\subsection{Implementation in Openflow}\label{sec:t-impl}
+
+We now describe how to implement our transactional 
+abstractions using standard OpenFlow features. 
+
+
+%features , including
+%\emph{bundling}, \emph{conditional application}, and \emph{groups}.
+%[[PK let us leave for the moment
+%We will describe later how to implement some of these features
+%in older Openflow versions where they are not
+%supported. \textbf{TODO}
+%]]
+Algorithms~\ref{alg:claim}-\ref{alg:cas} describe implementations of  
+transactional operations  $\textit{claim}(x)$, $\textit{check}(x)$, $\textit{unclaim}(x)$,
+and $\textit{CAS}(x)$, respectively. 
+Algorithm~\ref{alg:commit} describes the procedure executed by
+a transaction at \emph{commit time}.
+
+We describe each operation as a message factory that returns OpenFlow commands that should be sent to the switch as part of the same transaction.
+We assume that every transaction has a unique identifier  used to start a \emph{bundle}. 
+All messages generated during a transaction invocation, are wrapped by bundle messages carrying the bundle's id and followed by bundle commit message.
+Messages with same bundle id are considered to belong to same bundle and are performed atomically.
+
+%The OpenFlow messages that we use (besides )
+
+  
+Our implementation is based on OpenFlow flow entries modification command, the FlowMod message that explained in Section \ref{sec:background}. We use the CHECK\_OVERLAP optional flag to make the transaction execution dependent on switch state.    
+
+We consider the match part of an entry to be a ternary string of bounded length (represented by binary value and mask) which can be applied to any set of supported packet header fields. In our implementation the $64$bit metedata field alone is suffice. Moreover we consider the action part of an entry to be an integer, which in practice can be implemented by a Set-Metadata instruction where the written value is that integer.
+  
+  
+  \liron{got till here}
+  
+We use creation and deletion of flow entries as abstraction to claiming/unclaiming  resource id numbers and also to checking whether a given id is claimed. The match part of the added flow entry represents the added
+number and the mask part of the match varies from one controller to another in order to allow multiple controllers to claim the same number without overriding the same flow entry. 
+As can be seen in Algorithms \ref{alg:claim}-\ref{alg:unclaim}, the match mask is a concatenation of the controller id with all ones, while the value is the id concatenated twice. We can see that for any two numbers $x_1$ and $x_2$ and controller ids $c_1\neq c_2$ the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_1=(x_2\concat x_2, c_2\concat all-1)$ are not equal even if $x_1=x_2$ therefore they can both claim and unclaim without affecting each other.
+
+In order to check if a number is claimed we try to create the corresponding entry while setting the
+flag \textsf{CHECK\_OVERLAP}, thereby inflicting a failure in case an entry with same match value but different action exists. If the check succeeds we delete the entry. Considering $m_1$ and $m_2$ defined above and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap with different actions iff $x_1=x_2$. Therefore if one is used in check after the other used in claims, a conflict is detected iff $x_1=x_2$ as expected.
+Note that checking for claims must contain a deletion of the added flow entry otherwise a successive check operation might mistakenly fail. Moreover the two commands (adding and deleting of the flow entries) must be sent as part of the same bundle to support concurrent checks by different controllers.
+
+Similarly, we use a deletion of group $x$ and a creation of group $y$ (with GroupMod commands) as an
+abstraction to performing a $CAS(x,y)$ operation to a special $16$bit register (we abstract only one register). The $16$ bit limit is resulted by th $16$bit group id size. 
+%The group id of the added group represents the added number. 
+Note that trying to delete a group that doesn't exist (or trying to create a group with id that already exists) fails, thereby preventing adding the new value $y$ if $x$ hasn't existed before. Note that the two action should be performed inside the same bundle in order to ensure the atomic nature ot the abstraction.
+
+To commit the transaction,  the controller sends a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
+\textsf{OFPBCT\_COMMIT\_REQUEST} and waits until a matching control
+message from the switch is received. When the switch receives the
+commit request it tries to atomically process all the buffered messages
+equipped with the corresponding bundle identifier and, if the
+processing is successful for all of them, returns  a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
+\textsf{OFPBCT\_CLOSE\_REPLY}; otherwise it sends a specific error
+message  pointing out the aborted transactional operation.
+
+
+
+%A container contains items: they represent the flow table entries (i.e., a match-action rules, plus e.g., counters belonging to the rule).
+%Items can be added and removed atomically and in bundles (e.g., to update the switch with
+%a new policy). Recall that we want to add items only if they do not exist
+%yet; otherwise the transaction should abort without taking effect.
+%And similarly for removes: transactions should not take effect if the corresponding
+%update contains rules which currently do not exist at the switch.
+
+\begin{algorithm}[t]
+    \caption{$\textit{claim}(x)$}
+    \label{alg:claim}
+    \begin{algorithmic}[1]
+    \Require \emph{self} as the calling controller id.
+%    \Ensure
+    		\State $value \gets x\concat x$
+    		\State $mask \gets self\concat all-1$
+	    	\State $match \gets (value,mask)$
+    		%\State $cookie \gets x\concat self$
+    		\State $action \gets x\concat self$
+    		\State $flag \gets 0$
+    		\State $cmd\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
+			\Return $cmd$
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+    \caption{$\textit{check}(x)$}
+    \label{alg:check}
+    \begin{algorithmic}[1]
+    \Require \emph{self} as the calling controller id.
+%    \Ensure
+    		\State $value \gets x\concat x$
+    		\State $mask \gets self\concat all-1$
+    		\State $match \gets (value,mask)$
+    		%\State $cookie \gets x\concat self$
+    		\State $action \gets x\concat self$
+    		\State $flag \gets \textsf{OFPFF\_CHECK\_OVERLAP}$
+    		\State $cmd1\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
+    		\State $cmd2\gets \textsc{FlowMod}(match, op = DELETE) $
+			\Return $cmd1$,$cmd2$
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+    \caption{$\textit{unclaim}(x)$}
+    \label{alg:unclaim}
+    \begin{algorithmic}[1]
+    \Require \emph{self} as the calling controller id.
+%    \Ensure
+    		\State $value \gets x\concat x$
+    		\State $mask \gets self\concat all-1$
+    		%\State $cookie \gets x\concat self$
+    		\State $match \gets (value,mask)$
+    		\State $cmd\gets \textsc{FlowMod}(match, op=DELETE, cookie) $
+    	
+			
+			\Return $cmd$
+    \end{algorithmic}
+\end{algorithm}
+
+
+\begin{algorithm}[t]
+    \caption{$\textit{CAS}(old,new)$}
+    \label{alg:cas}
+    \begin{algorithmic}[1]
+    %\Require  id $i$.
+%    \Ensure
+
+    		\State $op \gets \textsf{OFPGC\_DELETE}$
+    		\State $group\_id \gets old$
+    		\State $cmd1\gets GroupMod(op, group\_id) $
+    		
+    		\State $op \gets \textsf{OFPGC\_ADD}$
+    		\State $type \gets \textsf{OFPGT\_INDIRECT}$
+    		\State $group\_id \gets new$
+    		\State $buckets \gets [dummy\_backet]$
+    		\State $cmd2\gets GroupMod(op, type, group\_id, buckets) $
+			\Return $cmd1,cmd2$
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+    \caption{$\textit{try-commit}()$}
+    \label{alg:commit}
+    \begin{algorithmic}[1]
+    \Require  current bundle id $bid$.
+		    \State $cmd \gets struct ofp_bundle_ctrl_msg$
+    		\State  $cmd.bundle\_id \gets bid$
+    		\State  $cmd.type \gets $ \textsf{OFPBCT\_COMMIT\_REQUEST} 
+    		\State  $cmd.flags \gets $ \textsf{OFPBF\_ATOMIC}
+    		\State send $cmd$
+		\Return $cmd$
+    \end{algorithmic}
+\end{algorithm}
+
+
+%\section{The Container Object}\label{sec:vision}
 \section{Transactional Synchronization}\label{sec:main}
 
 This section describes how to introduce more powerful transactions.
@@ -531,7 +797,7 @@ semantics:
   identifier $k$;
 
 
-\item by performing $\textit{unclaim}(i)$, $i\in[N]$, controller $i$
+\item by performing $\textit{unclaim}(k)$, $i\in[N]$, $k\in\Nat$, controller $i$
   \emph{unclaim} identifier $k$;  
 
 \item $\textit{check}(k)$, $k\in\Nat$, returns $\textit{true}$ if and
