@@ -29,6 +29,7 @@
 %\usepackage{framed}
 \usepackage{framed,color}
 \definecolor{shadecolor}{rgb}{0.9,0.9,0.9}
+\definecolor{mygreen}{rgb}{0,0.5,0}
 
 %\usepackage{algorithm}
 %\usepackage[noend]{algorithmic}
@@ -46,9 +47,11 @@
 \newcommand{\append}[0]{\frown}
 \newcommand{\Nat}{\mathbb{N}}
 \newcommand{\cas}{CAS}
+\newcommand{\claimcheck}{check}
+\newcommand{\compare}{compare}
 
 \newcommand{\stefan}[1]{\textit{\textcolor{red}{[stefan]: #1}}} % Comments
-\newcommand{\liron}[1]{\textit{\textcolor{green}{[liron]: #1}}} % Comments
+\newcommand{\liron}[1]{\textit{\textcolor{mygreen}{[liron]: #1}}} % Comments
 \newcommand{\petr}[1]{\textit{\textcolor{blue}{[carlos]: #1}}} % Comments
 
 
@@ -386,6 +389,15 @@ fields, and fields can be wildcarded and sometimes bitmasked.
 (For instance, the meta-data field is maskable.) If no rule
 matches, the packet is dropped.
 
+\liron{I think that maybe the rest of this section should be explained by the following subsections, providing in depth description of the OpenFlow features.}
+\liron{Another direction is to have a simplified explenation as now and to refference spesific sections of the standard in side our paper.}
+\subsection{The flow entry modification command (FlowMod)}
+
+
+\subsubsection{The CHECK\_OVERLAP flag}
+
+\subsection{Bundling}
+
 \textbf{Useful features for synchronization.} The Openflow standard (as of \textbf{TODO}) offers four interesting
 features which we will exploit to implement the transactional memory abstraction:
 
@@ -512,7 +524,7 @@ object, which can be used for storing the current used policy identifier.
 %
 \subsubsection{A resource claimer}
 A resource-claimer object implements a weak type of locking, exports operations \emph{claim},
-\emph{unclaim} and \emph{abortIfClaimed} with the following sequential
+\emph{unclaim} and \emph{\claimcheck} with the following sequential
 semantics:
 %The container synchronization object introduced in this paper
 %is essentially a transactional memory abstraction which can be implemented
@@ -535,7 +547,7 @@ semantics:
 \item by performing $\textit{unclaim}(k)$, $i\in[N]$, $k\in\Nat$, controller $i$
   \emph{unclaim} identifier $k$;  
 
-\item $\textit{abortIfClaimed}(k)$, $k\in\Nat$, 
+\item $\textit{\claimcheck}(k)$, $k\in\Nat$, 
 abort current transaction if $k$ is currently claimed by any controller.
 %returns $\textit{true}$ if and
 %  only if $k$ is not currently claimed by any controller; if
@@ -552,7 +564,7 @@ semantics:
 \item by performing $\textit{Write}(addr,k)$,
   $addr,k\in\Nat$, the value at memory offset $addr$ is set to $k$;
 
-\item $\textit{abortIfUnequal}(addr,k)$, $addr,k\in\Nat$, 
+\item $\textit{\compare}(addr,k)$, $addr,k\in\Nat$, 
 aborts current transaction if the value at memory offset $addr$ is not equal to $k$.
 %returns $\textit{true}$ if and
 %  only if $k$ is not currently claimed by any controller; if
@@ -615,8 +627,8 @@ abstractions using standard OpenFlow features.
 %supported. \textbf{TODO}
 %]]
 Algorithms~\ref{alg:claim}-\ref{alg:cas} describe implementations of  
-transactional operations  $\textit{claim}(x)$, $\textit{check}(x)$, $\textit{unclaim}(x)$,
-and $\textit{CAS}(x)$, respectively. 
+transactional operations  $\textit{claim}(x)$, $\textit{\claimcheck}(x)$, $\textit{unclaim}(x)$, $\textit{write}(x)$,  $\textit{\compare}(x)$
+and $\textit{\cas}(x)$, respectively. 
 Algorithm~\ref{alg:commit} describes the procedure executed by
 a transaction at \emph{commit time}.
 
@@ -631,31 +643,15 @@ Messages with same bundle id are considered to belong to same bundle and are per
 Our implementation is based on OpenFlow flow entries modification command, the FlowMod message that explained in Section \ref{sec:background}. We use the CHECK\_OVERLAP optional flag to make the transaction execution dependent on switch state.    
 
 We consider the match part of an entry to be a ternary string of bounded length (represented by binary value and mask) which can be applied to any set of supported packet header fields. In our implementation the $64$bit metedata field alone is suffice. Moreover we consider the action part of an entry to be an integer, which in practice can be implemented by a Set-Metadata instruction where the written value is that integer.
-  
-  
-  \liron{got till here}
-  
-We use creation and deletion of flow entries as abstraction to claiming/unclaiming  resource id numbers and also to checking whether a given id is claimed. The match part of the added flow entry represents the added
-number and the mask part of the match varies from one controller to another in order to allow multiple controllers to claim the same number without overriding the same flow entry. 
-As can be seen in Algorithms \ref{alg:claim}-\ref{alg:unclaim}, the match mask is a concatenation of the controller id with all ones, while the value is the id concatenated twice. We can see that for any two numbers $x_1$ and $x_2$ and controller ids $c_1\neq c_2$ the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_1=(x_2\concat x_2, c_2\concat all-1)$ are not equal even if $x_1=x_2$ therefore they can both claim and unclaim without affecting each other.
+ 
+ As can be seen in Algorithms \ref{alg:claim}-\ref{alg:unclaim}, for the resource-claimer, 
+  the match part of the added flow entry represents the claimed id (id concatenated twice).
+   In addition the mask part of the match (controller id concatenated with all-ones) varies from one controller to another in order to allow multiple controllers to claim the same number without overriding the same flow entry. 
+    We can see that for any two resource ids $x_1$ and $x_2$ and controller ids $c_1\neq c_2$ the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_1=(x_2\concat x_2, c_2\concat all-1)$ are not equal even if $x_1=x_2$ therefore they can both claim and unclaim without affecting each other.
 
 In order to check if a number is claimed we try to create the corresponding entry while setting the
-flag \textsf{CHECK\_OVERLAP}, thereby inflicting a failure in case an entry with same match value but different action exists. If the check succeeds we delete the entry. Considering $m_1$ and $m_2$ defined above and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap with different actions iff $x_1=x_2$. Therefore if one is used in check after the other used in claims, a conflict is detected iff $x_1=x_2$ as expected.
+flag \textsf{CHECK\_OVERLAP} and using different action, thereby inflicting a failure in case an entry with overlapping match value exists. If the check succeeds we delete the entry. Considering $m_1$ and $m_2$ defined above and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap with different actions iff $x_1=x_2$. Therefore if one is used in check after the other used in claims, a conflict is detected iff $x_1=x_2$, as expected.
 Note that checking for claims must contain a deletion of the added flow entry otherwise a successive check operation might mistakenly fail. Moreover the two commands (adding and deleting of the flow entries) must be sent as part of the same bundle to support concurrent checks by different controllers.
-
-Similarly, we use a deletion of group $x$ and a creation of group $y$ (with GroupMod commands) as an
-abstraction to performing a $CAS(x,y)$ operation to a special $16$bit register (we abstract only one register). The $16$ bit limit is resulted by th $16$bit group id size. 
-%The group id of the added group represents the added number. 
-Note that trying to delete a group that doesn't exist (or trying to create a group with id that already exists) fails, thereby preventing adding the new value $y$ if $x$ hasn't existed before. Note that the two action should be performed inside the same bundle in order to ensure the atomic nature ot the abstraction.
-
-To commit the transaction,  the controller sends a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
-\textsf{OFPBCT\_COMMIT\_REQUEST} and waits until a matching control
-message from the switch is received. When the switch receives the
-commit request it tries to atomically process all the buffered messages
-equipped with the corresponding bundle identifier and, if the
-processing is successful for all of them, returns  a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
-\textsf{OFPBCT\_CLOSE\_REPLY}; otherwise it sends a specific error
-message  pointing out the aborted transactional operation.
 
 
 
@@ -684,7 +680,7 @@ message  pointing out the aborted transactional operation.
 \end{algorithm}
 
 \begin{algorithm}[t]
-    \caption{$\textit{check}(x)$}
+    \caption{$\textit{\claimcheck}(x)$}
     \label{alg:check}
     \begin{algorithmic}[1]
     \Require \emph{self} as the calling controller id.
@@ -719,25 +715,72 @@ message  pointing out the aborted transactional operation.
 \end{algorithm}
 
 
+We use similar techniques for implementing memory write and abortIfUnequal operations.
+ As can be seen in Algorithms \ref{alg:write}-\ref{alg:compare}, 
+  the match part of the added flow entry is used as the memory address and the action as the written value. Values written to the same address will replace one another, following the command definition to replace old flow entry with a new one in casae they share the same match parts (as described in Section \ref{sec:background}).
+  
+In order to check if a value is written in a givven address, we try to add it the same way as in the write operation  but we also set the \textsf{CHECK\_OVERLAP} flag. If the value is not there, our action differ from the action of the existsing entry thereby inflicting a failure.
+In case the value is there, our flow entry replaces the existing flow entry with identical one.
+In addition we present in Algorithm \ref{alg:cas} a simple implementation of Comapare and set (CAS) usin the two last operations.
+
 \begin{algorithm}[t]
-    \caption{$\textit{CAS}(old,new)$}
+    \caption{$\textit{write}(addr,k)$}
+    \label{alg:write}
+    \begin{algorithmic}[1]
+    %\Require  id $i$.
+%    \Ensure
+    		\State $value \gets addr$
+    		\State $mask \gets  all-1$
+    		\State $match \gets (value,mask)$
+    		%\State $cookie \gets x\concat self$
+    		\State $action \gets k$
+    		\State $flag \gets 0$
+    		\State $cmd\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
+			\Return $cmd$
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+    \caption{$\textit{\compare}(addr,k)$}
+    \label{alg:compare}
+    \begin{algorithmic}[1]
+    %\Require  id $i$.
+%    \Ensure
+    		\State $value \gets addr$
+    		\State $mask \gets  all-1$
+    		\State $match \gets (value,mask)$
+    		%\State $cookie \gets x\concat self$
+    		\State $action \gets k$
+    		\State $flag \gets \textsf{OFPFF\_CHECK\_OVERLAP}$
+    		\State $cmd\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
+			\Return $cmd$
+    \end{algorithmic}
+\end{algorithm}
+
+
+
+\begin{algorithm}[t]
+    \caption{$\textit{\cas}(addr, old,new)$}
     \label{alg:cas}
     \begin{algorithmic}[1]
     %\Require  id $i$.
 %    \Ensure
 
-    		\State $op \gets \textsf{OFPGC\_DELETE}$
-    		\State $group\_id \gets old$
-    		\State $cmd1\gets GroupMod(op, group\_id) $
-    		
-    		\State $op \gets \textsf{OFPGC\_ADD}$
-    		\State $type \gets \textsf{OFPGT\_INDIRECT}$
-    		\State $group\_id \gets new$
-    		\State $buckets \gets [dummy\_backet]$
-    		\State $cmd2\gets GroupMod(op, type, group\_id, buckets) $
+    		\State $cmd1\gets \textsc{abortIfUnequal}((addr, old) $
+    		\State $cmd2\gets \textsc{Write}((addr, new) $
 			\Return $cmd1,cmd2$
     \end{algorithmic}
 \end{algorithm}
+
+
+To commit the transaction,  the controller sends a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
+\textsf{OFPBCT\_COMMIT\_REQUEST} and waits until a matching control
+message from the switch is received. When the switch receives the
+commit request it tries to atomically process all the buffered messages
+equipped with the corresponding bundle identifier and, if the
+processing is successful for all of them, returns  a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
+\textsf{OFPBCT\_CLOSE\_REPLY}; otherwise it sends a specific error
+message  pointing out the aborted transactional operation.
 
 \begin{algorithm}[t]
     \caption{$\textit{try-commit}()$}
@@ -1106,7 +1149,7 @@ If one of the actions in the transaction fails we try again. There is no progres
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTxn
- 				\State $check(my\_id)$
+ 				\State $abortIfClaimed(my\_id)$
 	 			\State $CAS(pid,my\_id)$
 	 			\State \textbf{add} $new\_policy$ rules %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
@@ -1421,6 +1464,34 @@ The CHECK\_OVERLAP flag enables us to add an entry if no contradicting entry exi
     		    		\State $cmds.append(cmd)$
     		\EndFor
 			\Return $cmds$
+    \end{algorithmic}
+\end{algorithm}
+
+
+
+\section{Implementing CAS with GroupMod commands}\label{sec:with-groups}
+Similarly, we use a deletion of group $x$ and a creation of group $y$ (with GroupMod commands) as an
+abstraction to performing a $CAS(x,y)$ operation to a special $16$bit register (we abstract only one register). The $16$ bit limit is resulted by th $16$bit group id size. 
+%The group id of the added group represents the added number. 
+Note that trying to delete a group that doesn't exist (or trying to create a group with id that already exists) fails, thereby preventing adding the new value $y$ if $x$ hasn't existed before. Note that the two action should be performed inside the same bundle in order to ensure the atomic nature ot the abstraction.
+
+\begin{algorithm}[H]
+    \caption{$\textit{group-CAS}(old,new)$}
+    \label{alg:gcas}
+    \begin{algorithmic}[1]
+    %\Require  id $i$.
+%    \Ensure
+
+    		\State $op \gets \textsf{OFPGC\_DELETE}$
+    		\State $group\_id \gets old$
+    		\State $cmd1\gets GroupMod(op, group\_id) $
+    		
+    		\State $op \gets \textsf{OFPGC\_ADD}$
+    		\State $type \gets \textsf{OFPGT\_INDIRECT}$
+    		\State $group\_id \gets new$
+    		\State $buckets \gets [dummy\_backet]$
+    		\State $cmd2\gets GroupMod(op, type, group\_id, buckets) $
+			\Return $cmd1,cmd2$
     \end{algorithmic}
 \end{algorithm}
 
