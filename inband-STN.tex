@@ -31,9 +31,12 @@
 \usepackage{framed,color}
 \definecolor{shadecolor}{rgb}{0.9,0.9,0.9}
 \definecolor{mygreen}{rgb}{0,0.5,0}
+\definecolor{mygrey}{rgb}{0.5,0.5,0.5}
 
 %\usepackage{algorithm}
 %\usepackage[noend]{algorithmic}
+
+\usepackage{listings}
 
 \usepackage{algorithmicx}
 \usepackage{algpseudocode}
@@ -394,12 +397,96 @@ matches, the packet is dropped.
 \liron{I think that maybe the rest of this section should be explained by the following subsections, providing in depth description of the OpenFlow features.}
 \liron{Another direction is to have a simplified explenation as now and to refference spesific sections of the standard in side our paper.}
 \subsection{The flow entry modification command (FlowMod)}
+\lstset{% general command to set parameter(s)
+	basicstyle=\small, % print whole listing small
+	keywordstyle=\color{black}\bfseries, % underlined bold black keywords
+	identifierstyle=, % nothing happens
+	commentstyle=\color{mygrey}, % white comments
+	stringstyle=\ttfamily, % typewriter type for strings
+	showstringspaces=false, % no special string spaces
+	language=C}
+\begin{lstlisting}
+struct ofp_flow_mod {
+	struct ofp_header header;
+	uint64_t cookie; /* Opaque controller-issued identifier. */
+	uint64_t cookie_mask; /* Mask used to restrict the cookie bits
+		that must match when the command is
+		OFPFC_MODIFY* or OFPFC_DELETE*. A value
+		of 0 indicates no restriction. */
+	/* Flow actions. */
+	uint8_t table_id; /* ID of the table to put the flow in.
+		For OFPFC_DELETE_* commands, OFPTT_ALL
+		can also be used to delete matching
+		flows from all tables. */
+	uint8_t command; /* One of OFPFC_*. */
+	uint16_t idle_timeout; /* Idle time before discarding (seconds). */
+	uint16_t hard_timeout; /* Max time before discarding (seconds). */
+	uint16_t priority; /* Priority level of flow entry. */
+	uint32_t buffer_id; /* Buffered packet to apply to, or
+		OFP_NO_BUFFER.
+		Not meaningful for OFPFC_DELETE*. */
+	uint32_t out_port; /* For OFPFC_DELETE* commands, require
+		matching entries to include this as an
+		output port. A value of OFPP_ANY
+		indicates no restriction. */
+	uint32_t out_group; /* For OFPFC_DELETE* commands, require
+		matching entries to include this as an
+		output group. A value of OFPG_ANY
+		indicates no restriction. */
+	uint16_t flags; /* Bitmap of OFPFF_* flags. */
+	uint16_t importance; /* Eviction precedence (optional). */
+	struct ofp_match match; /* Fields to match. Variable size. */
+	/* The variable size and padded match is always followed by instructions. */
+	//struct ofp_instruction_header instructions[0];
+		/* Instruction set - 0 or more. The length
+		of the instruction set is inferred from
+		the length field in the header. */
+};
+\end{lstlisting}
+
+
 - Creating an entry with the same match part replaces the existing one.
 
 \subsubsection{The CHECK\_OVERLAP flag}
 - creating and entry with overlapping match (same priority) and different instructions fails.
 \subsection{Bundling}
 - failed command aborts the bundle.
+"When the commit fails, the switch must generate an error message corresponding to the
+message that could not be applied. The error message must use the xid of the offending message,
+the error data field corresponding to that message and the error code corresponding to the failure. If
+multiple messages are generating errors, the switch may return only the first error found or generate
+multiple error messages for the same bundle."
+\subsubsection{Bundle control messages}
+
+%/* Message structure for OFPT_BUNDLE_CONTROL. */
+\begin{lstlisting}
+struct ofp_bundle_ctrl_msg {
+	struct ofp_header header;
+	uint32_t bundle_id; /* Identify the bundle. */
+	uint16_t type; /* OFPBCT_*. */
+	uint16_t flags; /* Bitmap of OFPBF_* flags. */
+	/* Bundle Property list. */
+	struct ofp_bundle_prop_header properties[0]; /* Zero or more properties. */
+};
+\end{lstlisting}
+\subsubsection{Bundle add message}
+
+%/* Message structure for OFPT_BUNDLE_ADD_MESSAGE.
+\begin{lstlisting}
+* Adding a message in a bundle is done with. */
+struct ofp_bundle_add_msg {
+	struct ofp_header header;
+	uint32_t bundle_id; /* Identify the bundle. */
+	uint16_t pad; /* Align to 64 bits. */
+	uint16_t flags; /* Bitmap of OFPBF_* flags. */
+	struct ofp_header message; /* Message added to the bundle. */
+	/* If there is one property or more, 'message' is followed by:
+	* - Exactly (message.length + 7)/8*8 - (message.length) (between 0 and 7)
+	* bytes of all-zero bytes */
+	/* Bundle Property list. */
+	//struct ofp_bundle_prop_header properties[0]; /* Zero or more properties. */
+};
+\end{lstlisting}
 
 \textbf{Useful features for synchronization.} The Openflow standard (as of \textbf{TODO}) offers four interesting
 features which we will exploit to implement the transactional memory abstraction:
@@ -520,12 +607,40 @@ which none of its operations takes effect.
 
 \subsection{Synchronization Objects}\label{sec:t-if}
 
-We assume transactional access to  two kinds of objects: a
+We assume transactional access to  two kinds of objects: a read-write \emph{memory} abstraction
+object, which we later use for storing the current used policy identifier, and a
 \emph{resource-claimer} object, provides claiming a resource id (e.g. policy \emph{identifier}) in a
-given (bounded or unbounded) set, and a read-write \emph{memory} abstraction
-object, which we later use for storing the current used policy identifier.
+given (bounded or unbounded) set.
+In theory one can use the memory abstraction to implement the resource claimer, however we found it far more simple and efficient to consider the resource claimer as base object.
 %
-\subsubsection{A resource claimer}
+
+
+A memory can be accessed with the following sequential
+semantics:
+
+\begin{itemize}
+\item by performing $\textit{Write}(addr,k)$,
+  $addr,k\in\Nat$, the value at memory offset $addr$ is set to $k$;
+
+\item $\textit{\compare}(addr,k)$, $addr,k\in\Nat$, 
+aborts current transaction if the value at memory offset $addr$ is not equal to $k$.
+%returns $\textit{true}$ if and
+%  only if $k$ is not currently claimed by any controller; if
+%  $\textit{false}$ is returned, we say that the check operation
+%  \emph{fails} (which causes an abort of the transaction invoking it).
+
+\end{itemize}  
+
+Note that reading the memory can be done by just reading the switch configuration however such action doesn't affect the execution of the transaction (as $\textit{\compare}$ does).
+
+An immediate extension of the memory interface is the \emph{compare-and-set} (CAS) operation that takes two integer parameters
+$\textit{old}$ and $\textit{new}$, reads the register and, if the
+value of it is $\textit{old}$, replaces it with $\textit{new}$ and
+returns $\textit{true}$; otherwise, $\textit{false}$ is returned and
+we say that the CAS operation \emph{fails} (which causes an abort if
+the transaction invoking it).   
+
+
 A resource-claimer object implements a weak type of locking, exports operations \emph{claim},
 \emph{unclaim} and \emph{\claimcheck} with the following sequential
 semantics:
@@ -559,31 +674,6 @@ abort current transaction if $k$ is currently claimed by any controller.
 
 \end{itemize}  
 
-\subsubsection{A memory abstraction}
-A memory can be accessed with the following sequential
-semantics:
-
-\begin{itemize}
-\item by performing $\textit{Write}(addr,k)$,
-  $addr,k\in\Nat$, the value at memory offset $addr$ is set to $k$;
-
-\item $\textit{\compare}(addr,k)$, $addr,k\in\Nat$, 
-aborts current transaction if the value at memory offset $addr$ is not equal to $k$.
-%returns $\textit{true}$ if and
-%  only if $k$ is not currently claimed by any controller; if
-%  $\textit{false}$ is returned, we say that the check operation
-%  \emph{fails} (which causes an abort of the transaction invoking it).
-
-\end{itemize}  
-
-Note that reading the memory can be done by just reading the switch configuration however such action doesn't affect the execution of the transaction (as $\textit{abortIfUnequal}$ does).
-
-An immediate extension of the memory interface is the \emph{compare-and-set} (CAS) operation that takes two integer parameters
-$\textit{old}$ and $\textit{new}$, reads the register and, if the
-value of it is $\textit{old}$, replaces it with $\textit{new}$ and
-returns $\textit{true}$; otherwise, $\textit{false}$ is returned and
-we say that the CAS operation \emph{fails} (which causes an abort if
-the transaction invoking it).   
 
 \subsection{Interface}\label{sec:t-if}
 
@@ -622,6 +712,7 @@ We now describe how to implement our transactional
 abstractions using standard OpenFlow features. 
 
 
+\subsubsection{A resource claimer}
 %features , including
 %\emph{bundling}, \emph{conditional application}, and \emph{groups}.
 %[[PK let us leave for the moment
@@ -653,9 +744,9 @@ We consider the match part of an entry to be a ternary string of bounded length 
     We can see that for any two resource ids $x_1$ and $x_2$ and controller ids $c_1\neq c_2$ the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_2=(x_2\concat x_2, c_2\concat all-1)$ are not equal even if $x_1=x_2$ therefore they can both be used to claim and unclaim without affecting each other.
 
 In order to check if a number is claimed we try to create the corresponding entry while setting the
-flag \textsf{CHECK\_OVERLAP} and using different action, thereby inflicting a failure in case an entry with overlapping match value exists. If the check succeeds we delete the entry. Considering $m_1$ and $m_2$ defined above and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap with different actions iff $x_1=x_2$. Therefore if one is used in \claimcheck after the other used in claim, a conflict is detected iff $x_1=x_2$, as expected.
+flag \textsf{CHECK\_OVERLAP} and using different action ($2$ instead of $1$), thereby inflicting a failure in case an entry with overlapping match value exists. If the check succeeds we delete the entry. Considering $m_1$ and $m_2$ defined above and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap with different actions iff $x_1=x_2$. Therefore if one is used in \claimcheck after the other used in claim, a conflict is detected iff $x_1=x_2$, as expected.
 
-Note that checking for claims must contain a deletion of the added flow entry otherwise a successive check operation might mistakenly fail. Moreover the two commands (adding and deleting of the flow entries) must be sent as part of the same bundle to support concurrent checks by different controllers.
+Note that for switch space reasons, checking for claims contains also a deletion of the added tester flow entry but it has no affect on claims and checks of other controllers and therefore the deletion command doesn't have to be sent as part of a bundle. This makes the \textsf{\claimcheck} operation atomic by nature, similar to the \textsf{claim} and \textsf{unclaim}, as being implemented by essentially one command.
 
 
 
@@ -666,7 +757,7 @@ Note that checking for claims must contain a deletion of the added flow entry ot
 %And similarly for removes: transactions should not take effect if the corresponding
 %update contains rules which currently do not exist at the switch.
 
-\begin{algorithm}[t]
+\begin{algorithm}[H]
     \caption{$\textit{claim}(x)$}
     \label{alg:claim}
     \begin{algorithmic}[1]
@@ -676,14 +767,14 @@ Note that checking for claims must contain a deletion of the added flow entry ot
     		\State $mask \gets self\concat all-1$
 	    	\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
-    		\State $action \gets x\concat self$
+    		\State $action \gets 1$
     		\State $flag \gets 0$
     		\State $cmd\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
 			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
 
-\begin{algorithm}[t]
+\begin{algorithm}[H]
     \caption{$\textit{\claimcheck}(x)$}
     \label{alg:check}
     \begin{algorithmic}[1]
@@ -693,7 +784,7 @@ Note that checking for claims must contain a deletion of the added flow entry ot
     		\State $mask \gets self\concat all-1$
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
-    		\State $action \gets x\concat self$
+    		\State $action \gets 2$
     		\State $flag \gets \textsf{OFPFF\_CHECK\_OVERLAP}$
     		\State $cmd1\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
     		\State $cmd2\gets \textsc{FlowMod}(match, op = DELETE) $
@@ -701,7 +792,7 @@ Note that checking for claims must contain a deletion of the added flow entry ot
     \end{algorithmic}
 \end{algorithm}
 
-\begin{algorithm}[t]
+\begin{algorithm}[H]
     \caption{$\textit{unclaim}(x)$}
     \label{alg:unclaim}
     \begin{algorithmic}[1]
@@ -711,24 +802,26 @@ Note that checking for claims must contain a deletion of the added flow entry ot
     		\State $mask \gets self\concat all-1$
     		%\State $cookie \gets x\concat self$
     		\State $match \gets (value,mask)$
-    		\State $cmd\gets \textsc{FlowMod}(match, op=DELETE, cookie) $
+    		\State $cmd\gets \textsc{FlowMod}(match, op=DELETE) $
     	
 			
 			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
 
+\subsubsection{A memory abstraction}
 
-We use similar techniques for implementing memory write and \compare 
+
+We use similar techniques for implementing memory \memwrite and \compare 
  operations.
  As can be seen in Algorithms \ref{alg:write}-\ref{alg:compare}, 
-  the match part of the added flow entry is used as the memory address and the action as the written value. Values written to the same address will replace one another, following the command definition to replace old flow entry with a new one in casae they share the same match parts (as described in Section \ref{sec:background}).
+  the match part of the added flow entry is used as the memory address and the action as the written value. Values written to the same address will replace one another, following the command definition to replace old flow entry with a new one in case they share the same match parts (as described in Section \ref{sec:background}).
   
-In order to check if a value is written in a givven address, we try to add it the same way as in the write operation  but we also set the \textsf{CHECK\_OVERLAP} flag. If the value is not there, our action differ from the action of the existsing entry thereby inflicting a failure.
+In order to check if a value is written in a given address, we try to add it the same way as in the \memwrite operation  but we also set the \textsf{CHECK\_OVERLAP} flag. If the value is not there, our action differ from the action of the existing entry thereby inflicting a failure.
 In case the value is there, our flow entry replaces the existing flow entry with identical one.
-In addition we present in Algorithm \ref{alg:cas} a simple implementation of Comapare and set (CAS) usin the two last operations.
+In addition we present in Algorithm \ref{alg:cas} a simple implementation of Compare and set (CAS) using the two last operations.
 
-\begin{algorithm}[t]
+\begin{algorithm}[h]
     \caption{$\textit{write}(addr,k)$}
     \label{alg:write}
     \begin{algorithmic}[1]
@@ -745,7 +838,7 @@ In addition we present in Algorithm \ref{alg:cas} a simple implementation of Com
     \end{algorithmic}
 \end{algorithm}
 
-\begin{algorithm}[t]
+\begin{algorithm}[h]
     \caption{$\textit{\compare}(addr,k)$}
     \label{alg:compare}
     \begin{algorithmic}[1]
@@ -764,7 +857,7 @@ In addition we present in Algorithm \ref{alg:cas} a simple implementation of Com
 
 
 
-\begin{algorithm}[t]
+\begin{algorithm}[h]
     \caption{$\textit{\cas}(addr, old,new)$}
     \label{alg:cas}
     \begin{algorithmic}[1]
@@ -787,7 +880,7 @@ processing is successful for all of them, returns  a \textsf{OFPT\_BUNDLE\_CONTR
 \textsf{OFPBCT\_CLOSE\_REPLY}; otherwise it sends a specific error
 message  pointing out the aborted transactional operation.
 
-\begin{algorithm}[t]
+\begin{algorithm}[h]
     \caption{$\textit{try-commit}()$}
     \label{alg:commit}
     \begin{algorithmic}[1]
