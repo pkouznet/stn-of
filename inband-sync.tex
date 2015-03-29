@@ -208,7 +208,10 @@ perform basic forms of policy compositions in-band.
 %{\bf Regular and student paper: Dan Levin is a full-time student.}
 %\end{center}
 
-%\section*{todo before submission}
+\section*{todo}
+
+stefan add old notes, bundle size complexity (how to make it minimal: store rule in one table, select it with a pointer / selector),
+practical implementation (not even noviswitch has bundles)
 
 \section{Introduction}\label{sec:intro}
 
@@ -305,12 +308,15 @@ new synchronization objects for managing these identifiers:
 a \emph{claim-id object}, used for claiming an available identifier in a given
 (bounded or unbounded) set, and a \emph{read-write register object}, used for storing the
 currently used identifier.
-Thus, our paper also provides the missing link for the read-modify-write object
+The claim, unclaim, and check-claim operations can be implemented individually without the Openflow
+bundle feature. 
+
+Our paper therefore also provides the missing link for the read-modify-write object
 postulated in~\cite{cpc}.
 
-Finally, we also show that interesting synchronization mechanisms may be included
-in-band even without the bundle feature, and as a case study, show
-how to automatically \emph{compose} updates originating \emph{from different controllers}.
+%Finally, we also show that interesting synchronization mechanisms may be included
+%in-band even without the bundle feature, and as a case study, show
+%how to automatically \emph{compose} updates originating \emph{from different controllers}.
 
 Finally, we hope that our work can contribute to the ongoing discussion of what can be implemented
 in-band in Openflow~\cite{compute,reclaim}, by taking a first look
@@ -343,7 +349,7 @@ protocol and discuss its features which are relevant for our work.
 In Section~\ref{sec:motivation}, we discuss the limitations of interpreting
 the Openflow bundle as a transaction, and motivate our approach.
 We then present our approach in detail in Section~\ref{sec:main}, and discuss use cases in Section~\ref{sec:apps}.
-Section~\ref{sec:compo} describes how to perform in-band composition.
+%Section~\ref{sec:compo} describes how to perform in-band composition.
 We review related literature in Section~\ref{sec:relwork}, and conclude
 in Section~\ref{sec:conclusion}. Some technical details are postponed
 to the Appendix.
@@ -396,106 +402,33 @@ matches, the packet is dropped.
 
 \liron{I think that maybe the rest of this section should be explained by the following subsections, providing in depth description of the OpenFlow features.}
 \liron{Another direction is to have a simplified explenation as now and to refference spesific sections of the standard in side our paper.}
-\subsection{The flow entry modification command (FlowMod)}
-\lstset{% general command to set parameter(s)
-	basicstyle=\small, % print whole listing small
-	keywordstyle=\color{black}\bfseries, % underlined bold black keywords
-	identifierstyle=, % nothing happens
-	commentstyle=\color{mygrey}, % white comments
-	stringstyle=\ttfamily, % typewriter type for strings
-	showstringspaces=false, % no special string spaces
-	language=C}
-\begin{lstlisting}
-struct ofp_flow_mod {
-	struct ofp_header header;
-	uint64_t cookie; /* Opaque controller-issued identifier. */
-	uint64_t cookie_mask; /* Mask used to restrict the cookie bits
-		that must match when the command is
-		OFPFC_MODIFY* or OFPFC_DELETE*. A value
-		of 0 indicates no restriction. */
-	/* Flow actions. */
-	uint8_t table_id; /* ID of the table to put the flow in.
-		For OFPFC_DELETE_* commands, OFPTT_ALL
-		can also be used to delete matching
-		flows from all tables. */
-	uint8_t command; /* One of OFPFC_*. */
-	uint16_t idle_timeout; /* Idle time before discarding (seconds). */
-	uint16_t hard_timeout; /* Max time before discarding (seconds). */
-	uint16_t priority; /* Priority level of flow entry. */
-	uint32_t buffer_id; /* Buffered packet to apply to, or
-		OFP_NO_BUFFER.
-		Not meaningful for OFPFC_DELETE*. */
-	uint32_t out_port; /* For OFPFC_DELETE* commands, require
-		matching entries to include this as an
-		output port. A value of OFPP_ANY
-		indicates no restriction. */
-	uint32_t out_group; /* For OFPFC_DELETE* commands, require
-		matching entries to include this as an
-		output group. A value of OFPG_ANY
-		indicates no restriction. */
-	uint16_t flags; /* Bitmap of OFPFF_* flags. */
-	uint16_t importance; /* Eviction precedence (optional). */
-	struct ofp_match match; /* Fields to match. Variable size. */
-	/* The variable size and padded match is always followed by instructions. */
-	//struct ofp_instruction_header instructions[0];
-		/* Instruction set - 0 or more. The length
-		of the instruction set is inferred from
-		the length field in the header. */
-};
-\end{lstlisting}
+
+\textbf{The FlowMod Command.}
+\emph{FlowMod} is the main messages used in Openflow 
+to update the switch configuration. 
+In a nutshell, \emph{FlowMod} specifies the type of flow table modification,
+a match and an action. 
+The standard behavior is that the new rule simply replaces an existing one
+with exactly the same match, and is installed
+in addition to an existing one if the match only
+partially overlaps. The latter can result
+in inconsistencies, especially if the old and the new rule
+have the same priority. \stefan{liron, is this correct?}
+\emph{FlowMod} can be used together with a the CHECK\_OVERLAP flag
+of \emph{FlowMod}, in order to detect conflicts: if the flow spaces of an old
+and the new rule overlap, 
+that is, if there is an entry with overlapping match part but different action, 
+ and if the two rules have the same priority, then 
+\emph{FlowMod} fails. 
+
+As we will see, in order to implement our synchronization objects,
+the \emph{FlowMod} and CHECK\_OVERLAP features are sufficient.
 
 
-- Creating an entry with the same match part replaces the existing one.
-
-\subsubsection{The CHECK\_OVERLAP flag}
-- creating and entry with overlapping match (same priority) and different instructions fails.
-\subsection{Bundling}
-- failed command aborts the bundle.
-"When the commit fails, the switch must generate an error message corresponding to the
-message that could not be applied. The error message must use the xid of the offending message,
-the error data field corresponding to that message and the error code corresponding to the failure. If
-multiple messages are generating errors, the switch may return only the first error found or generate
-multiple error messages for the same bundle."
-\subsubsection{Bundle control messages}
-
-%/* Message structure for OFPT_BUNDLE_CONTROL. */
-\begin{lstlisting}
-struct ofp_bundle_ctrl_msg {
-	struct ofp_header header;
-	uint32_t bundle_id; /* Identify the bundle. */
-	uint16_t type; /* OFPBCT_*. */
-	uint16_t flags; /* Bitmap of OFPBF_* flags. */
-	/* Bundle Property list. */
-	struct ofp_bundle_prop_header properties[0]; /* Zero or more properties. */
-};
-\end{lstlisting}
-\subsubsection{Bundle add message}
-
-%/* Message structure for OFPT_BUNDLE_ADD_MESSAGE.
-\begin{lstlisting}
-* Adding a message in a bundle is done with. */
-struct ofp_bundle_add_msg {
-	struct ofp_header header;
-	uint32_t bundle_id; /* Identify the bundle. */
-	uint16_t pad; /* Align to 64 bits. */
-	uint16_t flags; /* Bitmap of OFPBF_* flags. */
-	struct ofp_header message; /* Message added to the bundle. */
-	/* If there is one property or more, 'message' is followed by:
-	* - Exactly (message.length + 7)/8*8 - (message.length) (between 0 and 7)
-	* bytes of all-zero bytes */
-	/* Bundle Property list. */
-	//struct ofp_bundle_prop_header properties[0]; /* Zero or more properties. */
-};
-\end{lstlisting}
-
-\textbf{Useful features for synchronization.} The Openflow standard (as of \textbf{TODO}) offers four interesting
-features which we will exploit to implement the transactional memory abstraction:
-
-\begin{enumerate}
-\item \textbf{Bundling:}
-A bundle can be seen as a ``mini-transaction'':
-a bundles aggregates multiple control messages
-into one \textsc{FlowMod} message, so that either all of the control messages are
+\textbf{Bundling.}
+The Openflow bundle can be seen as a ``mini-transaction'':
+a bundles aggregates multiple control messages (add, remove, and modify rule)
+into one, so that either all of the control messages are
 processed, or none of them is. In particular, if, for some reason, the
 configuration request contained in one of the bundled messages cannot
 be processed, all the other requests  are rejected and an error
@@ -504,23 +437,25 @@ This bundled processing can be, when properly configured, done in a
 \emph{packet-atomic} way, so that each packet is processed according
 to the switch configuration either \emph{before} or \emph{after} the
 request was processed.
+If used together with the CHECK\_OVERLAP flag, the bundle command also returns a reason 
+if the modification failed: the failed command in the bundle:
+a CHECK\_OVERLAP flag can be defined for each command in the bundle.
 
-\item \textbf{Check Overlap:}
-The Openflow standard also supports the \emph{conditional} creation of
-flow entries. A specific $\textsf{OFPFF\_CHECK\_OVERLAP}$ flag
-set in the flow creation message ensures
-that the flow entry is created if and only if it does not \emph{conflict}
-with any other flow entry currently in the flow table.
-This  conflict detection mechanism, combined with bundling,
-allows us to implement specific types of \emph{transactions} that may
-atomically install multiple rules if certain compatibility conditions
-are met.
+Concretely, when the commit fails, the switch must generate an error message corresponding to the
+message that could not be applied. The error message must use the xid of the offending message,
+the error data field corresponding to that message and the error code corresponding to the failure. If
+multiple messages are generating errors, the switch may return only the first error found or generate
+multiple error messages for the same bundle.
 
-\item \textbf{Cookies:} Cookies allow to name and retrieve individual
-flow entries and to use masks to delete modify/delete multiple entries. Our synchronization mechanism will implement controller-specific cookies.
+We will make use of bundling only for policy updates. 
+Bundling is \emph{not required} to implement transactions.
 
-\item \textbf{Groups:} Groups of action buckets can be defined in a special group table. Each group has a unique id and any attempt to create a group with existing id or to delete un existing group fails (and can abort a bundle in process).
-\end{enumerate}
+%\textbf{Cookies:} Cookies allow to name and retrieve individual
+%flow entries and to use masks to delete modify/delete multiple entries. 
+%Our synchronization mechanism will implement controller-specific cookies.
+%
+%\item \textbf{Groups:} Groups of action buckets can be defined in a special group table. Each group has a unique id and any attempt to create a group with existing id or %to delete un existing group fails (and can abort a bundle in process).
+%\end{enumerate}
 
 \begin{figure*}[t]
 \centering
@@ -533,6 +468,11 @@ depending on other flow spaces.}\label{fig:illu}
 \end{figure*}
 
 \section{Limitations and Motivation}\label{sec:motivation}
+
+what is the poewr of bundling flowmods:
+- no cookies: delete entries now by specifying exact match part
+
+- alterantive impelmentation without: group is bounded resources, can have own table etc. dont have many controlelrs anyway so not much is needed; also maybe other policies need groups
 
 Before presenting our transactional interface and implementation,
 let us first discuss the limitations of the Openflow features discussed above.
@@ -603,7 +543,7 @@ transactional interface which allows each controller $i\in[N]$ ($N\geq
 operations on the configuration of an OpenFlow switch as an atomic
 \emph{transaction}, inspired by the transactional-memory paradigm~\cite{stm-st95,tm-book}. A transaction may \emph{commit}, in
 which case it appears as executed sequentially, or \emph{abort}, in
-which none of its operations takes effect.  
+which none of its operations takes effect.
 
 \subsection{Synchronization Objects}\label{sec:t-if}
 
@@ -622,14 +562,14 @@ semantics:
 \item by performing $\textit{Write}(addr,k)$,
   $addr,k\in\Nat$, the value at memory offset $addr$ is set to $k$;
 
-\item $\textit{\compare}(addr,k)$, $addr,k\in\Nat$, 
+\item $\textit{\compare}(addr,k)$, $addr,k\in\Nat$,
 aborts current transaction if the value at memory offset $addr$ is not equal to $k$.
 %returns $\textit{true}$ if and
 %  only if $k$ is not currently claimed by any controller; if
 %  $\textit{false}$ is returned, we say that the check operation
 %  \emph{fails} (which causes an abort of the transaction invoking it).
 
-\end{itemize}  
+\end{itemize}
 
 Note that reading the memory can be done by just reading the switch configuration however such action doesn't affect the execution of the transaction (as $\textit{\compare}$ does).
 
@@ -638,7 +578,7 @@ $\textit{old}$ and $\textit{new}$, reads the register and, if the
 value of it is $\textit{old}$, replaces it with $\textit{new}$ and
 returns $\textit{true}$; otherwise, $\textit{false}$ is returned and
 we say that the CAS operation \emph{fails} (which causes an abort if
-the transaction invoking it).   
+the transaction invoking it).
 
 
 A resource-claimer object implements a weak type of locking, exports operations \emph{claim},
@@ -658,21 +598,21 @@ semantics:
 %provides two main functions:
 \begin{itemize}
 \item by performing $\textit{claim}(k)$, $i\in[N]$,
-  $k\in\Nat$, controller $i$ \emph{claims} 
+  $k\in\Nat$, controller $i$ \emph{claims}
   identifier $k$;
 
 
 \item by performing $\textit{unclaim}(k)$, $i\in[N]$, $k\in\Nat$, controller $i$
-  \emph{unclaim} identifier $k$;  
+  \emph{unclaim} identifier $k$;
 
-\item $\textit{\claimcheck}(k)$, $k\in\Nat$, 
+\item $\textit{\claimcheck}(k)$, $k\in\Nat$,
 abort current transaction if $k$ is currently claimed by any controller.
 %returns $\textit{true}$ if and
 %  only if $k$ is not currently claimed by any controller; if
 %  $\textit{false}$ is returned, we say that the check operation
 %  \emph{fails} (which causes an abort of the transaction invoking it).
 
-\end{itemize}  
+\end{itemize}
 
 
 \subsection{Interface}\label{sec:t-if}
@@ -684,32 +624,32 @@ of an SDN switch. Our transactional abstraction exports the
 $\textbf{atomic}\{\;\ldots\;\}$ construct
 containing a sequence of transactional
 operations and may \emph{commit} and return responses to all its operations
-or \emph{abort} (so that none of its operation takes effect).  
+or \emph{abort} (so that none of its operation takes effect).
 We guarantee that in every execution, all committed
 transactions constitute a \emph{legal} sequential
 order~\cite{Pap79-serial}, i.e., every transaction appears as executed
 sequentially. On the progress side, we ensure that a
-transaction $T$ is only allowed to abort if either another 
-transaction updated a flow table entry read by $T$  
+transaction $T$ is only allowed to abort if either another
+transaction updated a flow table entry read by $T$
 or if one of $T$'s operations (\textit{check} or CAS) fails.
-We employ the \emph{deferred-update} semantics:  
+We employ the \emph{deferred-update} semantics:
 no transaction can affect other transactions before it commits.
 In particular, if a controller crashes before committing its
-transactions, no future transaction can be affected.  
+transactions, no future transaction can be affected.
 %Note that
-%, assuming such a transactional memory,  
+%, assuming such a transactional memory,
 %a $\emph{contains}(x)$ operation can be implemented as a transaction
-%composed of $\textit{cond-add}(x)$ followed by $\textit{cond-delete}(x)$.  
+%composed of $\textit{cond-add}(x)$ followed by $\textit{cond-delete}(x)$.
 %A \emph{set} abstraction is a special instance of a multi-set that is
 %only modified with \textit{cond-add} and \textit{cond-delete}
 %operations (this way the set only contains at most one copy of a given
-%item).  
+%item).
 
 
 \subsection{Implementation in Openflow}\label{sec:t-impl}
 
-We now describe how to implement our transactional 
-abstractions using standard OpenFlow features. 
+We now describe how to implement our transactional
+abstractions using standard OpenFlow features.
 
 
 \subsubsection{A resource claimer}
@@ -720,27 +660,27 @@ abstractions using standard OpenFlow features.
 %in older Openflow versions where they are not
 %supported. \textbf{TODO}
 %]]
-Algorithms~\ref{alg:claim}-\ref{alg:cas} describe implementations of  
+Algorithms~\ref{alg:claim}-\ref{alg:cas} describe implementations of
 transactional operations  $\textit{claim}(x)$, $\textit{\claimcheck}(x)$, $\textit{unclaim}(x)$, $\textit{write}(x)$,  $\textit{\compare}(x)$
-and $\textit{\cas}(x)$, respectively. 
+and $\textit{\cas}(x)$, respectively.
 Algorithm~\ref{alg:commit} describes the procedure executed by
 a transaction at \emph{commit time}.
 
 We describe each operation as a message factory that returns OpenFlow commands that should be sent to the switch as part of the same transaction.
-We assume that every transaction has a unique identifier  used to start a \emph{bundle}. 
+We assume that every transaction has a unique identifier  used to start a \emph{bundle}.
 All messages generated during a transaction invocation, are wrapped by bundle messages carrying the bundle's id and followed by bundle commit message.
 Messages with same bundle id are considered to belong to same bundle and are performed atomically.
 
 %The OpenFlow messages that we use (besides )
 
-  
-Our implementation is based on OpenFlow flow entries modification command, the FlowMod message that we explain in Section \ref{sec:background}. We use the CHECK\_OVERLAP optional flag to make the transaction execution dependent on switch state.    
+
+Our implementation is based on OpenFlow flow entries modification command, the FlowMod message that we explain in Section \ref{sec:background}. We use the CHECK\_OVERLAP optional flag to make the transaction execution dependent on switch state.
 
 We consider the match part of an entry to be a ternary string of bounded length (represented by binary value and mask) which can be applied to any set of supported packet header fields. In our implementation the $64$bit metedata field alone is suffice. Moreover we consider the action part of an entry to be an integer, which in practice can be implemented by a Set-Metadata instruction where the written value is that integer.
- 
- As can be seen in Algorithms \ref{alg:claim}-\ref{alg:unclaim}, for the resource-claimer, 
+
+ As can be seen in Algorithms \ref{alg:claim}-\ref{alg:unclaim}, for the resource-claimer,
   the match part of the added flow entry represents the claimed id (id concatenated twice).
-   In addition the mask part of the match (controller id concatenated with all-ones) varies from one controller to another in order to allow multiple controllers to claim the same number without overriding the same flow entry. 
+   In addition the mask part of the match (controller id concatenated with all-ones) varies from one controller to another in order to allow multiple controllers to claim the same number without overriding the same flow entry.
     We can see that for any two resource ids $x_1$ and $x_2$ and controller ids $c_1\neq c_2$ the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_2=(x_2\concat x_2, c_2\concat all-1)$ are not equal even if $x_1=x_2$ therefore they can both be used to claim and unclaim without affecting each other.
 
 In order to check if a number is claimed we try to create the corresponding entry while setting the
@@ -812,11 +752,11 @@ Note that for switch space reasons, checking for claims contains also a deletion
 \subsubsection{A memory abstraction}
 
 
-We use similar techniques for implementing memory \memwrite and \compare 
+We use similar techniques for implementing memory \memwrite and \compare
  operations.
- As can be seen in Algorithms \ref{alg:write}-\ref{alg:compare}, 
+ As can be seen in Algorithms \ref{alg:write}-\ref{alg:compare},
   the match part of the added flow entry is used as the memory address and the action as the written value. Values written to the same address will replace one another, following the command definition to replace old flow entry with a new one in case they share the same match parts (as described in Section \ref{sec:background}).
-  
+
 In order to check if a value is written in a given address, we try to add it the same way as in the \memwrite operation  but we also set the \textsf{CHECK\_OVERLAP} flag. If the value is not there, our action differ from the action of the existing entry thereby inflicting a failure.
 In case the value is there, our flow entry replaces the existing flow entry with identical one.
 In addition we present in Algorithm \ref{alg:cas} a simple implementation of Compare and set (CAS) using the two last operations.
@@ -887,7 +827,7 @@ message  pointing out the aborted transactional operation.
     \Require  current bundle id $bid$.
 		    \State $cmd \gets struct ofp_bundle_ctrl_msg$
     		\State  $cmd.bundle\_id \gets bid$
-    		\State  $cmd.type \gets $ \textsf{OFPBCT\_COMMIT\_REQUEST} 
+    		\State  $cmd.type \gets $ \textsf{OFPBCT\_COMMIT\_REQUEST}
     		\State  $cmd.flags \gets $ \textsf{OFPBF\_ATOMIC}
     		\State send $cmd$
 		\Return $cmd$
@@ -909,15 +849,15 @@ allows a set of  controllers to concurrently update switch  \emph{policies} , i.
 effective rules in its flow tables, under the
 condition that these rules can be composed with the currently installed
 policy (the composition predicate is encoded in a user-specific
-$\textit{apply\_update}()$ function~\cite{cpc}.  
+$\textit{apply\_update}()$ function~\cite{cpc}.
 
-Every policy is associated with a \emph{policy identifier} 
+Every policy is associated with a \emph{policy identifier}
 In the algorithm, the controller first reads the currently installed
 policy, then choose a new unique policy, checks whether the new
 policy and the current policy can be composed and, if so, replaces the
 current policy with the composition. If, meanwhile, a new
 policy (with a different identifier) has been installed, the update
-fails and takes no effect. 
+fails and takes no effect.
 
 Algorithm~\ref{alg:simple-update} use increasing numbers as policies
 ids and use them in order to make sure that the new policy, with id
@@ -929,23 +869,23 @@ performed iff the current policy is still there and preventing other
 controllers to replace the new policy with another without observing it.
 
 For brevity, we omit explicitly putting the $\textbf{atomic}\{...\}$ construct
-around each of the transactional operation used in the algorithm.   
+around each of the transactional operation used in the algorithm.
 Indeed, since \textit{claim} and \textit{unclaim} operations cannot
 cause the corresponding transaction, we can assume that all
 ``singleton'' (consisting of one operation only)  transactions
-containing such operations always commit.    
+containing such operations always commit.
 
 Algorithm~\ref{alg:simple-update} allows policy identifiers to grow
 without bound. In fact, as was observed in~\cite{cpc}, the number of currently
 used policies can be made proportional to the number of concurrent
 controllers.
- 
- 
+
+
  It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we seek to
  obtain a unique \emph{id}. FIXME: to be continued...
  \textbf{LS: I am not sure if I need to tell every step of the story or maybe it best to explain the main dif from the previous one similarly to what I just wrote next}.
- 
-Algorithm~\ref{alg:update} claims the current policy id in order to prevent someone of using it with different policy in the future (during the current update) and in the bundle used to update the policy it also checks that the new policy id that it about to use (chosen from a finite set of ids) wasn't claimed by someone else. 
+
+Algorithm~\ref{alg:update} claims the current policy id in order to prevent someone of using it with different policy in the future (during the current update) and in the bundle used to update the policy it also checks that the new policy id that it about to use (chosen from a finite set of ids) wasn't claimed by someone else.
 
 \hide{
 We compute our new suggested policy by applying the update requests on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by anyone else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy.
@@ -969,7 +909,7 @@ If one of the actions in the transaction fails we try again. There is no progres
  		%\Do
  		\Repeat
  			\State \textbf{read} switch configuration
- 			\State $pid\gets$ current policy id 
+ 			\State $pid\gets$ current policy id
  			\State $cur\_policy\gets$ current policy
  			\State $new\_policy\gets apply\_update(cur\_policy,U)$
  			\startTxn
@@ -997,8 +937,8 @@ If one of the actions in the transaction fails we try again. There is no progres
  		%\Do
  		\Repeat
  			\State \textbf{read} switch configuration
- 			\State $my\_id\gets$ an unused \emph{id} 
- 			\State $pid\gets$ current policy id 
+ 			\State $my\_id\gets$ an unused \emph{id}
+ 			\State $pid\gets$ current policy id
  			\State $claim(pid)$
  			\State \textbf{read} switch configuration
  			\If {$pid\notin Cur$}
@@ -1060,21 +1000,21 @@ If one of the actions in the transaction fails we try again. There is no progres
 It is straightforward to implement consensus among the controllers
 using just a single register that can be accessed with an atomic CAS
 operation~\cite{Her91}. In our transactional setting, the controllers
-can use CAS to replace the default value of such a register 
+can use CAS to replace the default value of such a register
 with their consensus input values (e.g., the identifiers of the
 policies that should be applied first). If the corresponding
-singleton transaction commits, the controller consideres itself 
+singleton transaction commits, the controller consideres itself
 the \emph{winner} and decides on its input, if
 it aborts (the controller fails in the CAS) it remains to read the register to get the input of the
-winner to decide.    
+winner to decide.
 
 By using multiple CAS invocations, the controllers can implement any
 generic replicated state machine~\cite{Her91,Lam98}, which will be instrumental in the
-next section. 
+next section.
 
 %\paragraph{One-Shot Update} FIXME: desribe how to implement one-shot update
 
-\paragraph{STN} 
+\paragraph{STN}
 
 \textbf{TODO}
 
@@ -1199,12 +1139,12 @@ other controllers can take over. STN~\cite{stn} is based on
 atomic read-modify-write primitives provided by the switches, but
 while the availability of such primitives is postulated, no implementation is
 described. In this paper, we provide this missing link, and also show that other useful and
-more powerful synchronization primitives can be implemented. 
+more powerful synchronization primitives can be implemented.
 Also, some STN implementations in~\cite{stn} assume that the control
 plane maintains a certain amount of synchrony that allows controllers
-to solve consensus or implement a replicated state machine.     
+to solve consensus or implement a replicated state machine.
 In this paper, we describe an OpenFlow-based consensus protocol that
-can be used for this purpose.  
+can be used for this purpose.
 
 Our work is also closely related to the recent work on providing more high-level
 abstractions and programming languages for SDNs, such as Frenetic~\cite{frenetic},
@@ -1214,7 +1154,7 @@ by initiating the discussion of concurrency objects and abstractions.
 
 The transactional interface we describe in this paper is inspired by the
 work on speculative concurrency control using software transactional memory
-(STM)~\cite{stm-st95,tm-book}. 
+(STM)~\cite{stm-st95,tm-book}.
 %[[PK I think this is enough]]
 
 Our work also contributes to the ongoing discussion of what can be implemented
@@ -1267,7 +1207,7 @@ languages for SDNs (e.g., Frenetic, Pyretic, Merlin), the
 question of which synchronization abstractions to provide
 has received much less attention.
 %
-In this paper, we describe transactional abstractions that 
+In this paper, we describe transactional abstractions that
 can be implemented using standard Openflow features.
 %
 Our work complements existing research on the design of
@@ -1275,7 +1215,7 @@ distributed control planes, and also provides some missing links,
 e.g., for the transactional approach taken by STN~\cite{stn}.
 We also hope that our work can nourish the discussion of
 which synchronization objects we can and want to implement
-in an SDN. 
+in an SDN.
 
 
 {
@@ -1283,12 +1223,100 @@ in an SDN.
 \bibliography{references}  % main.bib is the name of the Bibliography in this case
 }
 
+\cleardoublepage
+
+\onecolumn
+
 \begin{appendix}
 
+\section{The FlowMod Command}
+
+\lstset{% general command to set parameter(s)
+	basicstyle=\small, % print whole listing small
+	keywordstyle=\color{black}\bfseries, % underlined bold black keywords
+	identifierstyle=, % nothing happens
+	commentstyle=\color{mygrey}, % white comments
+	stringstyle=\ttfamily, % typewriter type for strings
+	showstringspaces=false, % no special string spaces
+	language=C}
+\begin{lstlisting}
+struct ofp_flow_mod {
+	struct ofp_header header;
+	uint64_t cookie; /* Opaque controller-issued identifier. */
+	uint64_t cookie_mask; /* Mask used to restrict the cookie bits
+		that must match when the command is
+		OFPFC_MODIFY* or OFPFC_DELETE*. A value
+		of 0 indicates no restriction. */
+	/* Flow actions. */
+	uint8_t table_id; /* ID of the table to put the flow in.
+		For OFPFC_DELETE_* commands, OFPTT_ALL
+		can also be used to delete matching
+		flows from all tables. */
+	uint8_t command; /* One of OFPFC_*. */
+	uint16_t idle_timeout; /* Idle time before discarding (seconds). */
+	uint16_t hard_timeout; /* Max time before discarding (seconds). */
+	uint16_t priority; /* Priority level of flow entry. */
+	uint32_t buffer_id; /* Buffered packet to apply to, or
+		OFP_NO_BUFFER.
+		Not meaningful for OFPFC_DELETE*. */
+	uint32_t out_port; /* For OFPFC_DELETE* commands, require
+		matching entries to include this as an
+		output port. A value of OFPP_ANY
+		indicates no restriction. */
+	uint32_t out_group; /* For OFPFC_DELETE* commands, require
+		matching entries to include this as an
+		output group. A value of OFPG_ANY
+		indicates no restriction. */
+	uint16_t flags; /* Bitmap of OFPFF_* flags. */
+	uint16_t importance; /* Eviction precedence (optional). */
+	struct ofp_match match; /* Fields to match. Variable size. */
+	/* The variable size and padded match is always followed by instructions. */
+	//struct ofp_instruction_header instructions[0];
+		/* Instruction set - 0 or more. The length
+		of the instruction set is inferred from
+		the length field in the header. */
+};
+\end{lstlisting}
+
+
+- Creating an entry with the same match part replaces the existing one.
+
+\section{Bundle Control Message}
+
+%/* Message structure for OFPT_BUNDLE_CONTROL. */
+\begin{lstlisting}
+struct ofp_bundle_ctrl_msg {
+	struct ofp_header header;
+	uint32_t bundle_id; /* Identify the bundle. */
+	uint16_t type; /* OFPBCT_*. */
+	uint16_t flags; /* Bitmap of OFPBF_* flags. */
+	/* Bundle Property list. */
+	struct ofp_bundle_prop_header properties[0]; /* Zero or more properties. */
+};
+\end{lstlisting}
+
+\begin{lstlisting}
+* Adding a message in a bundle is done with. */
+struct ofp_bundle_add_msg {
+	struct ofp_header header;
+	uint32_t bundle_id; /* Identify the bundle. */
+	uint16_t pad; /* Align to 64 bits. */
+	uint16_t flags; /* Bitmap of OFPBF_* flags. */
+	struct ofp_header message; /* Message added to the bundle. */
+	/* If there is one property or more, 'message' is followed by:
+	* - Exactly (message.length + 7)/8*8 - (message.length) (between 0 and 7)
+	* bytes of all-zero bytes */
+	/* Bundle Property list. */
+	//struct ofp_bundle_prop_header properties[0]; /* Zero or more properties. */
+};
+\end{lstlisting}
+
+
+\begin{comment}
 \section{Implementing CAS with FlowMod commands}\label{sec:without-groups}
 This section describes an implementation without group tables.
 
-Here we describe a second implementation of the Compare\&Set abstraction that is based on entirely on flow entry creations and deletions (FlowMod commands). 
+Here we describe a second implementation of the Compare\&Set abstraction that is based on entirely on flow entry creations and deletions (FlowMod commands).
 
 The CHECK\_OVERLAP flag enables us to add an entry if no contradicting entry exists and to fail if such do exists. However, the compare stage of \cas requires us to fail if a certain value doesn't exists, i.e. $\cas(x,y)$ failes iff $x \notin T$, where $T$ is the set of match entries defined in a dedicated flow table.
 ...
@@ -1330,8 +1358,8 @@ The CHECK\_OVERLAP flag enables us to add an entry if no contradicting entry exi
 
 \section{Implementing CAS with GroupMod commands}\label{sec:with-groups}
 Similarly, we use a deletion of group $x$ and a creation of group $y$ (with GroupMod commands) as an
-abstraction to performing a $CAS(x,y)$ operation to a special $16$bit register (we abstract only one register). The $16$ bit limit is resulted by th $16$bit group id size. 
-%The group id of the added group represents the added number. 
+abstraction to performing a $CAS(x,y)$ operation to a special $16$bit register (we abstract only one register). The $16$ bit limit is resulted by th $16$bit group id size.
+%The group id of the added group represents the added number.
 Note that trying to delete a group that doesn't exist (or trying to create a group with id that already exists) fails, thereby preventing adding the new value $y$ if $x$ hasn't existed before. Note that the two action should be performed inside the same bundle in order to ensure the atomic nature ot the abstraction.
 
 \begin{algorithm}[H]
