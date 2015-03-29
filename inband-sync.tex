@@ -213,6 +213,10 @@ perform basic forms of policy compositions in-band.
 stefan add old notes, bundle size complexity (how to make it minimal: store rule in one table, select it with a pointer / selector),
 practical implementation (not even noviswitch has bundles)
 
+we add all rules of the policy also! but we could add rules before and only activate later => set selector later (maybe set timeout); transaction size constant => keep bundle small important: packet atomicity so maybe on hold during bundle
+
+
+
 \section{Introduction}\label{sec:intro}
 
 By consolidating and outsourcing the control over the dataplane switches to a logically
@@ -293,7 +297,8 @@ For example, we find that while Openflow's \emph{bundle} or \emph{rule overlap c
 features can serve as synchronization primitives,
 without further mechanisms, their use is very limited:
 with a bundle alone it is not possible to react to
-and change switch configuration state in any non-trivial way,
+and change switch configuration state in any non-trivial way (a bundle
+essentially represents a single switch interaction),
 and with the rule overlap check it is not possible to react to
 update conflicts defined over non-overlapping flow spaces.
 Moreover, we show that many powerful synchronous operations
@@ -462,6 +467,12 @@ it first contains a \emph{send message} to start bundle,
 followed by a sequence of messages wrapped in bundle and bundle ID, 
 and finally end bundle control message for commit.
 A bundle always returns a binary result: \emph{error} or \emph{success}.
+Concretely, a transaction can represent between two to five switch interactions:
+if limited space, Algo 7: read, claim id, read again, transaction, unclaim;
+if if unlimited space: alg 6 is unbounded, increase policy ID by one.
+transactions = five switch interactions , claim pid (line 5+6) together in bundle => one iteraction less?
+
+In general, it is desirable to minimize the number of transactions \stefan{stefan should cite \cite{Jin2014Dionysus} here}
 
 
 To commit the transaction,  the controller sends a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
@@ -498,12 +509,12 @@ the bundle.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=0.8\columnwidth]{loadbal.pdf}~~
+\includegraphics[width=0.35\columnwidth]{loadbal-before.pdf}~\includegraphics[width=0.35\columnwidth]{loadbal.pdf}~~
 \includegraphics[width=0.8\columnwidth]{pic.pdf}\\
 \caption{\emph{Left:} Load-balancing gone wrong. \emph{Right:} Illustration of transactional abstraction which  allows
 controllers to modify switch configurations in complex ways,
 and
-depending on other flow spaces. Colors indicate different actions.}\label{fig:illu}
+depending on other flow spaces. Colors indicate different actions. \stefan{lets make two real transactions: one bundle and one 2 or 5 interactions?}}\label{fig:illu}
 \end{figure*}
 
 Finally, we remark that our solution is only based on flow tables
@@ -878,6 +889,8 @@ In the following we give two more examples of our approach.
 
 \subsection{Policy Updates}
 
+\stefan{liron: maybe we can make a more concrete example like we had it in medieval?}
+
 Our first example (Algorithm~\ref{alg:simple-update}) is a simple policy composition protocol that
 allows a set of  controllers to concurrently update switch  \emph{policies} , i.e., sets of
 effective rules in its flow tables, under the
@@ -885,7 +898,7 @@ condition that these rules can be composed with the currently installed
 policy (the composition predicate is encoded in a user-specific
 $\textit{apply\_update}()$ function~\cite{cpc}.
 
-Every policy is associated with a \emph{policy identifier}
+Every policy is associated with a \emph{policy identifier}.
 In the algorithm, the controller first reads the currently installed
 policy, then choose a new unique policy, checks whether the new
 policy and the current policy can be composed and, if so, replaces the
