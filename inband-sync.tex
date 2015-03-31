@@ -421,7 +421,7 @@ with exactly the same match, and is installed
 in addition to an existing one if the match only
 partially overlaps. The latter can result
 in inconsistencies, especially if the old and the new rule
-have the same priority. \stefan{liron, is this correct?}
+have the same priority. \stefan{liron, is this correct?}\liron{a bit not clear, lets talk about this}
 \emph{FlowMod} can be used together with a the CHECK\_OVERLAP flag
 of \emph{FlowMod}, in order to detect conflicts: if the flow spaces of an old
 and the new rule overlap, 
@@ -449,6 +449,7 @@ request was processed.
 If used together with the CHECK\_OVERLAP flag, the bundle command also returns a reason 
 if the modification failed: the failed command in the bundle:
 a CHECK\_OVERLAP flag can be defined for each command in the bundle.
+\liron{these last two sentences are not cleaar}
 
 Concretely, when the commit fails, the switch must generate an error message corresponding to the
 message that could not be applied. The error message must use the xid of the offending message,
@@ -467,6 +468,7 @@ it first contains a \emph{send message} to start bundle,
 followed by a sequence of messages wrapped in bundle and bundle ID, 
 and finally end bundle control message for commit.
 A bundle always returns a binary result: \emph{error} or \emph{success}.
+\liron{the notion of transaction presented next is confusing considering the bundle just explained}
 Concretely, a transaction can represent between two to five switch interactions:
 if limited space, Algo 7: read, claim id, read again, transaction, unclaim;
 if if unlimited space: alg 6 is unbounded, increase policy ID by one.
