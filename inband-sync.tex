@@ -947,23 +947,21 @@ If one of the actions in the transaction fails we try again. There is no progres
 \textbf{TODO: fix the pseudocode, make the use of afdd/delete
   operations uniform, make all switch operations transactional}
 
-
+\liron{for alg \ref{alg:simple-update} we should say that switch configuration = pid + policy}
 
 \begin{algorithm}[t]
     \caption{Policy update with only CAS}
     \label{alg:simple-update}
     \begin{algorithmic}[1]
-    \Require update requirements $U$, a predefined (memory) address for  policy id: $pid\_addr$
+    \Require unsafe policy update function $U$, a predefined switch (memory) address for policy id: $pid\_addr$
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
- 			\State \textbf{read} switch configuration
- 			\State $pid\gets$ current policy id
- 			\State $cur\_policy\gets$ current policy
- 			\State $new\_policy\gets apply\_update(cur\_policy,U)$
+ 			\State $pid,policy\gets$ \textbf{read} switch configuration
+ 			\State $cmds\gets U(policy)$
  			\startTxn
 	 			\State $CAS(pid\_addr,pid,pid+1)$
-	 			\State add $new\_policy$ rules %conditioned on $metadata=my\_a$
+	 			\State \textbf{send} $cmds$ %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
      		%\State $res \gets $ commit transaction
@@ -976,30 +974,29 @@ If one of the actions in the transaction fails we try again. There is no progres
 \end{algorithm}
 
 
+\liron{for alg \ref{alg:update} we should say that switch configuration = pid + claims + policy}
 
 \begin{algorithm}[t]
     \caption{Advanced policy update}
     \label{alg:update}
     \begin{algorithmic}[1]
-    \Require update requirements $U$, a predefined (memory) address for  policy id: $pid\_addr$
+        \Require unsafe policy update function $U$, a predefined switch (memory) address for policy id: $pid\_addr$, a predefined id space $C$.
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
- 			\State \textbf{read} switch configuration
- 			\State $my\_id\gets$ an unused \emph{id}
- 			\State $pid\gets$ current policy id
+		 	\State $pid,claims,policy\gets$ \textbf{read} switch configuration
  			\State $claim(pid)$
- 			\State \textbf{read} switch configuration
- 			\If {$pid\notin Cur$}
+ 			\State $pid2,claims,policy\gets$ \textbf{read} switch configuration
+ 			\If {$pid\neq pid2$}
 	 			\State $unclaim(pid)$
  				\State {\bf continue} (\textbf{restart} loop)
  			\EndIf
- 			\State $cur\_policy\gets$ current policy
- 			\State $new\_policy\gets apply\_update(cur\_policy,U)$
+ 			\State $my\_id\gets$ choose a number from $C\setminus claims$
+ 			\State $cmds\gets U(policy)$
  			\startTxn
  				\State $\claimcheck(my\_id)$
 	 			\State $CAS(pid\_addr, pid,my\_id)$
-	 			\State \textbf{add} $new\_policy$ rules %conditioned on $metadata=my\_a$
+	 			\State \textbf{send} $cmds$ %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
 	 		\State $unclaim(pid)$
