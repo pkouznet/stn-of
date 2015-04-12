@@ -423,7 +423,8 @@ with exactly the same match, and is installed
 in addition to an existing one if the match only
 partially overlaps. The latter can result
 in inconsistencies, especially if the old and the new rule
-have the same priority. \stefan{liron, is this correct?}\liron{a bit not clear, lets talk about this}
+have the same priority. 
+
 
 \emph{FlowMod} can be used together with a the CHECK\_OVERLAP flag
 of \emph{FlowMod}, in order to detect conflicts: if the flow spaces of an old
@@ -435,6 +436,9 @@ that is, if there is an entry with overlapping match part but different action,
 As we will see, in order to implement our synchronization objects,
 the \emph{FlowMod} and CHECK\_OVERLAP features are sufficient.
 
+In this paper, we denote the creation of a \emph{FlowMod} message by calling a function named \emph{FlowMod} with the following interface $FlowMod(match, action, flags)$, where flags are used to activate the CHECK\_OVERLAP feature.
+
+Note that the \emph{FlowMod} message (and flow entries) includes more parameters which we don't utilize in this paper and one should use default values for them in order to implement the described schemes.
 
 \subsection{Bundling}
 
@@ -449,10 +453,9 @@ This bundled processing can be, when properly configured, done in a
 \emph{packet-atomic} way, so that each packet is processed according
 to the switch configuration either \emph{before} or \emph{after} the
 request was processed.
-If used together with the CHECK\_OVERLAP flag, the bundle command also returns a reason 
-if the modification failed: the failed command in the bundle:
-a CHECK\_OVERLAP flag can be defined for each command in the bundle.
-\liron{these last two sentences are not cleaar}
+If multiple FlowMod messages with the CHECK\_OVERLAP flag are sent as a single bundle, the bundle command also returns a reason 
+if the checks failed: the failed command in the bundle.
+%:a CHECK\_OVERLAP flag can be defined for each command in the bundle.\liron{these last two sentences are not cleaar}
 
 Concretely, when the commit fails, the switch must generate an error message corresponding to the
 message that could not be applied. The error message must use the xid of the offending message,
@@ -467,10 +470,11 @@ In the remainder of this paper, we will use the notation
 $\textbf{bundle}\{\;\ldots\;\}$ to refer to represent a
 sequence of commands in a bundle.
 \stefan{liron: i think the following needs more details $:-)$ :} A bundle will always have the following structure:
-it first contains a \emph{send message} to start bundle,
-followed by a sequence of messages wrapped in bundle and bundle ID, 
-and finally end bundle control message for commit.
+it first contains a \emph{create bundle message} to start bundle,
+followed by a sequence of messages (e.g., FlowMod) each wrapped in a \emph{add to bundle message} with the bundle ID, 
+and finally \emph{commit bundle} control message for commit.
 A bundle always returns a binary result: \emph{error} or \emph{success}.
+
 \liron{the notion of transaction presented next is confusing considering the bundle just explained}
 Concretely, a transaction can represent between two to five switch interactions:
 if limited space, Algo 7: read, claim id, read again, transaction, unclaim;
