@@ -414,14 +414,17 @@ matches, the packet is dropped.
 
 \emph{FlowMod} is the main messages used in Openflow 
 to update the switch configuration. 
-In a nutshell, \emph{FlowMod} specifies the type of flow table modification,
-a match and an action. 
-The standard behavior is that the new rule simply replaces an existing one
+In a nutshell, \emph{FlowMod} specifies a new flow entry or the modifications to existing flow entries.
+The main properties of each flow entry are: 1) A match defined by a ternary patterns (a value and a mask) over packet header fields, 2) Instructions defined by  a list of modifications to packet action set 3) a cookie value used to reference a single or multiple packets.
+
+%,a match and an action. 
+The standard behavior is that the new flow entry simply replaces an existing one
 with exactly the same match, and is installed
 in addition to an existing one if the match only
 partially overlaps. The latter can result
 in inconsistencies, especially if the old and the new rule
 have the same priority. \stefan{liron, is this correct?}\liron{a bit not clear, lets talk about this}
+
 \emph{FlowMod} can be used together with a the CHECK\_OVERLAP flag
 of \emph{FlowMod}, in order to detect conflicts: if the flow spaces of an old
 and the new rule overlap, 
@@ -574,6 +577,19 @@ decide to forward traffic $1*$ and $0*$ to the same server.
 Flow space overlap checks cannot be used to detect
 such conflicts.
 FIXME: make this example better
+
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=1\columnwidth]{no-sync.png}\\
+\caption{}\label{fig:no-sync}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=1\columnwidth]{sync-with-cas.png}\\
+\caption{}\label{fig:cas-sync}
+\end{figure}
 
 \textbf{Example 2.} To give another example,
 consider the problem of modifying previously
