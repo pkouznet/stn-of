@@ -414,8 +414,8 @@ matches, the packet is dropped.
 
 \emph{FlowMod} is the main messages used in Openflow 
 to update the switch configuration. 
-In a nutshell, \emph{FlowMod} specifies a new flow entry or the modifications to existing flow entries.
-The main properties of each flow entry are: 1) A match defined by a ternary patterns (a value and a mask) over packet header fields, 2) Instructions defined by  a list of modifications to packet action set 3) a cookie value used to reference a single or multiple packets.
+In a nutshell, \emph{FlowMod} specifies a new flow entry or modifications to existing flow entries.
+A flow entry is mainly composed from a match defined by a ternary patterns (a value and a mask) over packet header fields, and from actions.
 
 %,a match and an action. 
 The standard behavior is that the new flow entry simply replaces an existing one
@@ -439,8 +439,8 @@ the \emph{FlowMod} and CHECK\_OVERLAP features are sufficient.
 \subsection{Bundling}
 
 The Openflow bundle can be seen as a ``mini-transaction'':
-a bundles aggregates multiple control messages (add, remove, and modify rule)
-into one, so that either all of the control messages are
+a bundles aggregates multiple control commands (e.g., FlowMod messages)
+into one execution, so that either all of the control messages are
 processed, or none of them is. In particular, if, for some reason, the
 configuration request contained in one of the bundled messages cannot
 be processed, all the other requests  are rejected and an error
