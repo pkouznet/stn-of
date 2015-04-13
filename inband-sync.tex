@@ -1030,36 +1030,6 @@ If one of the actions in the transaction fails we try again. There is no progres
 \end{algorithm}
 
 
-\begin{algorithm}[t]
-    \caption{Policy composition without bundle}
-    \label{alg:wobundle}
-    \begin{algorithmic}[1]
-    \Require policy $P$ (a set of FlowMod entry creation commands), three consecutive flow tables ids (per controller) $T_s,T_0,T_1$, active table index $active\in\{0,1\}$.
-    %\Ensure installed policy is consistent with previous one
-    \State $unactive \gets active + 1 \mod{2}$
-    \For {$cmd \in P$}
-	    \State $cmd.action\gets Reencode(cmd.action)$
-	    \State $cmd.table\_id\gets T_{unactive}$
-	    \State send $cmd$
-    \EndFor
-    \State modify the action of $T_s$ entry to goto $T_{unactive}$
-    \State clear table $T_{active}$
-    \State $active \gets unactive$
-	\Return
-
-    \end{algorithmic}
-\end{algorithm}
-
-\begin{algorithm}[t]
-    \caption{Update with pipeline}
-    \label{alg:pipeline}
-    \begin{algorithmic}[1]
-    \Require update requirements $U$, array $ARR$.
-    \Ensure installed policy is consistent with previous one
-			\Return
-
-    \end{algorithmic}
-\end{algorithm}
 
 \subsection{Consensus and Replicated State Machines}
 
@@ -1384,6 +1354,39 @@ struct ofp_bundle_add_msg {
 	//struct ofp_bundle_prop_header properties[0]; /* Zero or more properties. */
 };
 \end{lstlisting}
+
+\section{To Be Deleted...}
+
+\begin{algorithm}[h]
+    \caption{Policy composition without bundle}
+    \label{alg:wobundle}
+    \begin{algorithmic}[1]
+    \Require policy $P$ (a set of FlowMod entry creation commands), three consecutive flow tables ids (per controller) $T_s,T_0,T_1$, active table index $active\in\{0,1\}$.
+    %\Ensure installed policy is consistent with previous one
+    \State $unactive \gets active + 1 \mod{2}$
+    \For {$cmd \in P$}
+	    \State $cmd.action\gets Reencode(cmd.action)$
+	    \State $cmd.table\_id\gets T_{unactive}$
+	    \State send $cmd$
+    \EndFor
+    \State modify the action of $T_s$ entry to goto $T_{unactive}$
+    \State clear table $T_{active}$
+    \State $active \gets unactive$
+	\Return
+
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[h]
+    \caption{Update with pipeline}
+    \label{alg:pipeline}
+    \begin{algorithmic}[1]
+    \Require update requirements $U$, array $ARR$.
+    \Ensure installed policy is consistent with previous one
+			\Return
+
+    \end{algorithmic}
+\end{algorithm}
 
 
 \begin{comment}
