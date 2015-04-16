@@ -445,9 +445,9 @@ Note that the \emph{FlowMod} message (and flow entries) includes more parameters
 The Openflow bundle can be seen as a ``mini-transaction'':
 a bundles aggregates multiple control commands (e.g., FlowMod messages)
 into one execution, so that either all of the control messages are
-processed, or none of them is. In particular, if, for some reason, the
+performed, or none of them is. In particular, if, for some reason, the
 configuration request contained in one of the bundled messages cannot
-be processed, all the other requests  are rejected and an error
+be performed, all the other requests  are rejected and an error
 message is sent to the controller that issued them.
 This bundled processing can be, when properly configured, done in a
 \emph{packet-atomic} way, so that each packet is processed according
@@ -463,16 +463,20 @@ the error data field corresponding to that message and the error code correspond
 multiple messages are generating errors, the switch may return only the first error found or generate
 multiple error messages for the same bundle.
 
+
 We will make use of bundling only for policy updates. 
 Bundling is \emph{not required} to implement transactions.
+\liron{what does is means?}
 
 In the remainder of this paper, we will use the notation 
+%$\textbf{bundle}\{\;\ldots\;\}\rightarrow res$ to refer to represent a
 $\textbf{bundle}\{\;\ldots\;\}$ to refer to represent a
-sequence of commands in a bundle.
-\stefan{liron: i think the following needs more details $:-)$ :} A bundle will always have the following structure:
-it first contains a \emph{create bundle message} to start bundle,
-followed by a sequence of messages (e.g., FlowMod) each wrapped in a \emph{add to bundle message} with the bundle ID, 
-and finally \emph{commit bundle} control message for commit.
+sequence of commands sent in a bundle, returning $True$ if and only if all are performed successfully.
+\stefan{liron: i think the following needs more details $:-)$ :}\liron{is it ok now?} A bundle will always have the following structure:
+it first contains a \emph{create bundle message} ( \textsf{OFPT\_BUNDLE\_CONTROL} message with type
+\textsf{OFPBCT\_OPEN\_REQUEST}) to start bundle,
+followed by a sequence of commands (e.g., FlowMod) each wrapped in a \emph{add to bundle message} ( \textsf{OFPT\_BUNDLE\_ADD\_MESSAGE}) with the bundle ID, 
+and finally \emph{commit bundle} control message (\textsf{OFPT\_BUNDLE\_CONTROL} message with type \textsf{OFPBCT\_COMMIT\_REQUEST}) for commit.
 A bundle always returns a binary result: \emph{error} or \emph{success}.
 
 \liron{the notion of transaction presented next is confusing considering the bundle just explained}
@@ -483,7 +487,7 @@ transactions = five switch interactions , claim pid (line 5+6) together in bundl
 
 In general, it is desirable to minimize the number of transactions \stefan{stefan should cite \cite{Jin2014Dionysus} here}
 
-
+\hide{
 To commit the transaction,  the controller sends a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
 \textsf{OFPBCT\_COMMIT\_REQUEST} and waits until a matching control
 message from the switch is received. When the switch receives the
@@ -492,6 +496,7 @@ equipped with the corresponding bundle identifier and, if the
 processing is successful for all of them, returns  a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
 \textsf{OFPBCT\_CLOSE\_REPLY}; otherwise it sends a specific error
 message  pointing out the aborted transactional operation.
+
 
 Algorithm~\ref{alg:commit} describes how to commit
 the bundle. 
@@ -508,7 +513,7 @@ the bundle.
 		\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
-
+}
 %\textbf{Cookies:} Cookies allow to name and retrieve individual
 %flow entries and to use masks to delete modify/delete multiple entries. 
 %Our synchronization mechanism will implement controller-specific cookies.
