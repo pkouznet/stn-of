@@ -64,7 +64,7 @@
 \newcommand{\match}{\emph{match}\xspace}
 \newcommand{\action}{\emph{action}\xspace}
 \newcommand{\flags}{\emph{flags}\xspace}
-\newcommand{\checko}{\texttt{chkov}\xspace}
+\newcommand{\checko}{\texttt{check\_overlap}\xspace}
 
 \newcommand{\stefan}[1]{\textit{\textcolor{red}{[stefan]: #1}}} % Comments
 \newcommand{\liron}[1]{\textit{\textcolor{mygreen}{[liron]: #1}}} % Comments
@@ -191,8 +191,8 @@ transactions
 over the switch configuration space: Our transactions
 can include complex notions of conflicts (beyond flow overlap checks),
 as well as computations and multiple controller interactions. 
-We show how our interface can be used for applications such as 
-in-band controller consensus, consistent policy installation, or load-balancing.
+We discuss applications of our transactional memory interface to  
+in-band controller consensus, consistent policy installation, and load-balancing.
 \end{abstract}
 
 %\vspace{1cm}
@@ -440,7 +440,7 @@ The latter can result
 in inconsistencies, especially if the old and the new rule
 have the same priority.
 
-In order to avoid conflicts, \emph{FlowMod} can be used together with a the $\checko$ flag ($CHECK\_OVERLAP$):
+In order to avoid conflicts, \emph{FlowMod} can be used together with a the $\checko$ flag:
 if the flow spaces of an old
 and the new rule overlap,
 that is, if there is an entry with an overlapping match part but a
@@ -493,12 +493,12 @@ $\top$ if and only if
 all commands are performed successfully, and otherwise $\bot$.
 The bundles used in this paper will always have the following structure:
 \begin{enumerate}
-\item First, it contains a \emph{create bundle} message: a \textsf{OFPT\_BUNDLE\_CONTROL} message of type
-\textsf{OFPBCT\_OPEN\_REQUEST}.
+\item First, it contains a \emph{create bundle} message: a \texttt{ofpt\_bundle\_control} message of type
+\texttt{OFPBCT\_OPEN\_REQUEST}.
 \item The follows a sequence of commands (e.g., \emph{FlowMod}), each wrapped in an 
-\emph{add to bundle message} (\textsf{OFPT\_BUNDLE\_\add\_MESSAGE}) with the \emph{bundle identifier}.
-\item Finally, a \emph{commit bundle} control message (\textsf{OFPT\_BUNDLE\_CONTROL}) of 
-type \textsf{OFPBCT\_COMMIT\_REQUEST}.
+\emph{add to bundle message} (\texttt{ofpt\_bundle\_add\_message}) with the \emph{bundle identifier}.
+\item Finally, a \emph{commit bundle} control message (\texttt{ofpt\_bundle\_control}) of
+type \texttt{ofpbct\_commit\_request}.
 \end{enumerate}
 Again, the bundle always returns a binary result: \emph{error} ($\bot$) or \emph{success} ($\top$).
 
@@ -511,13 +511,13 @@ Again, the bundle always returns a binary result: \emph{error} ($\bot$) or \emph
 %In general, it is desirable to minimize the number of transactions \stefan{stefan should cite \cite{Jin2014Dionysus} here}
 
 \hide{
-To commit the transaction,  the controller sends a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
-\textsf{OFPBCT\_COMMIT\_REQUEST} and waits until a matching control
+To commit the transaction,  the controller sends a \texttt{OFPT\_BUNDLE\_CONTROL} message with type
+\texttt{OFPBCT\_COMMIT\_REQUEST} and waits until a matching control
 message from the switch is received. When the switch receives the
 commit request it tries to atomically process all the buffered messages
 equipped with the corresponding bundle identifier and, if the
-processing is successful for all of them, returns  a \textsf{OFPT\_BUNDLE\_CONTROL} message with type
-\textsf{OFPBCT\_CLOSE\_REPLY}; otherwise it sends a specific error
+processing is successful for all of them, returns  a \texttt{OFPT\_BUNDLE\_CONTROL} message with type
+\texttt{OFPBCT\_CLOSE\_REPLY}; otherwise it sends a specific error
 message  pointing out the aborted transactional operation.
 
 
@@ -530,9 +530,9 @@ the bundle.
     \Require  current bundle id $bid$.
 		    \State $cmd \gets struct ofp_bundle_ctrl_msg$
     		\State  $cmd.bundle\_id \gets bid$
-    		\State  $cmd.type \gets $ \textsf{OFPBCT\_COMMIT\_REQUEST}
-    		\State  $cmd.flags \gets $ \textsf{OFPBF\_ATOMIC}
-    		\State send $cmd$
+    		\State  $cmd.type \gets $ \texttt{ofpbct\_commit\_request}
+    		\State  $cmd.flags \gets $ \texttt{ofpbf\_atomic}
+    		\State \textbf{send} $cmd$
 		\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
@@ -565,7 +565,7 @@ are always identified by exact matches.
 At first sight, the Openflow bundle feature seems to provide everything
 we need to implement our transactional interface: the bundle
  defines a sequence of read and write operations
- on the switch state which are executed atomically.
+ on the switch state which is executed atomically.
  However, while the bundle can indeed be seen 
  as a ``mini-transaction'', it comes with several
  limitations, which we discuss in the following. 
@@ -573,7 +573,7 @@ we need to implement our transactional interface: the bundle
 First, if employed without any additional features, a bundle does not allow
  to change the switch state in any non-trivial way:
 the read and write actions in the bundle do
- not support any conditional modifications or computations which
+ not support any conditional \emph{modifications} or computations which
  depend on the read results. 
 But also using the bundle together with the check overlap feature ($\checko$)
 comes with limitations: while it is possible
@@ -588,15 +588,14 @@ comes with limitations: while it is possible
 Let us consider two examples.
 
 \begin{enumerate}
-\item \textbf{Example 1: More complex dependencies.} Let us consider a controller application in charge
+\item \textbf{Example 1: More complex dependencies.} Let us consider two controllers 
+in charge
 of \emph{load-balancing}. 
 In a load-balancing application, seemingly independent actions, defined over
-completely independent logical flow spaces,
+completely independent logical flow spaces (say, two flows with source IP address ranges $1*$ and $0*$),
 may in fact be dependent due to collocation in the underlying physical network.
-To be more concrete, say that the objective of the load-balancer
-is to distribute flows equally across links or servers.
-If multiple controllers concurrently and independently
-update forwarding rules (say, two ``independent'' flows with source IP address ranges $1*$ and $0*$), 
+If the two controllers concurrently and independently
+update forwarding rules,  
 they may unvoluntarily
 unbalance the flow allocation, as the managed flows are embedded
 on the same physical links.  
@@ -612,8 +611,8 @@ old rules (and, using the flow space overlap
 check feature $\checko$, to abort the transaction if potentially conflicting
 rules were already there), it cannot be used
 to modify rules in non-trivial ways.
-In other words, the bundle and overlap check only helps
-for the conditional creation of rules, not their modification.
+In other words, the bundle and overlap check only help
+for the \emph{conditional creation} of rules, not their \emph{modification}.
 \end{enumerate}
 
 
@@ -654,7 +653,7 @@ which none of its operations takes effect.
 
 Our approach is based on the distributed management of \emph{identifiers (IDs)}. In particular, 
 we introduce two new synchronization objects (and describe their implementation in standard Openflow),
-which allows controllers to coordinate 
+which allow controllers to coordinate 
 themselves based on these identifiers.
 
 \subsection{Synchronization Objects}\label{sec:t-if}
@@ -674,29 +673,29 @@ write-compare access semantics:
 \begin{itemize}
 \item By performing $\textit{write}(\addr,k)$,
   $\addr,k\in\Nat$, the value at memory offset $\addr$ is set to $k$. For
-  example, the offset $\addr$ may be used to identify the policy (identifier),
+  example, the offset $\addr$ may correspond to the policy identifier (\emph{pid}),
   but our approach is more general.
 
-\item The operation $\textit{\compare}(\addr,k)$, $\addr,k\in\Nat$,
-aborts current transaction, if the value at memory offset $\addr$ is not equal to $k$.
+\item By performing an operation $\textit{\compare}(\addr,k)$, $\addr,k\in\Nat$,
+a transaction can be aborted if the value at memory offset $\addr$ is not equal to $k$.
 %returns $\textit{true}$ if and
 %  only if $k$ is not currently claimed by any controller; if
 %  $\textit{false}$ is returned, we say that the check operation
 %  \emph{fails} (which causes an abort of the transaction invoking it).
 \end{itemize}
 
-As we will see, the bundle feature is not required to implement this abstraction.
+As we will see, the bundle feature is not required to implement these semantics.
 Also note that memory read operations correspond to reading the switch 
 configuration, and are simple as they do not affect the execution of the transaction 
 (unlike the $\textit{\compare}$ operation).
 
-With this memory interface we can immediately implement 
-a powerful \emph{compare-and-set} (CAS) operation which takes two integer parameters
+Given this memory interface, we can immediately implement 
+a powerful \emph{Compare-And-Set} (CAS) operation which takes two integer parameters
 $\textit{old}$ and $\textit{new}$, reads the register and, if the
 value of it is $\textit{old}$, replaces it with $\textit{new}$ and
 returns $\top$; otherwise, $\bot$ is returned and
-we say that the CAS operation \emph{fails} (which causes an abort if
-the transaction invoking it).
+we say that the CAS operation \emph{fails} (which causes an abort of
+the invoking transaction).
 
 Our resource-claimer object implements a weak type of locking, and exports operations \emph{claim},
 \emph{unclaim} and \emph{\claimcheck} with the following sequential
@@ -714,12 +713,12 @@ semantics:
 %The container
 %provides two main functions:
 \begin{itemize}
-\item With $\textit{claim}(k)$, $i\in[N]$,
-  $k\in\Nat$, a controller $i$ \emph{claims}
+\item With $\textit{claim}(k)$, 
+  $k\in\Nat$, a controller $i\in[N]$ \emph{claims}
   identifier $k$.
 
-\item With $\textit{unclaim}(k)$, $i\in[N]$, $k\in\Nat$, controller $i$
-  \emph{unclaims} identifier $k$;
+\item With $\textit{unclaim}(k)$, $k\in\Nat$, controller $i\in[N]$
+  \emph{unclaims} identifier $k$.
 
 \item If $k$ is currently claimed by any controller, 
 $\textit{\claimcheck}(k)$, $k\in\Nat$,
@@ -814,7 +813,7 @@ even if $x_1=x_2$; therefore, they can both be used to claim and unclaim identif
 
 In order to check if a number is claimed, we try to create the 
 corresponding entry while setting the
-flag \textsf{\checko}, and using different actions ($2$ instead of $1$), thereby inflicting 
+flag \texttt{\checko}, and using different actions ($2$ instead of $1$), thereby inflicting
 a failure in case an entry with overlapping match value exists. 
 If the check succeeds, we delete the entry. Considering $m_1$ and $m_2$ as defined above, 
 and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap 
@@ -823,8 +822,8 @@ a conflict is detected iff $x_1=x_2$, as desired.
 
 Note that for switch space reasons, when checking for claims, also the deletion of the added tester flow entry is included,
 which however has no effect on claims and checks of other controllers; hence, the deletion command does not 
-have to be sent as part of a bundle. Therefore, the \textsf{\claimcheck} operation is atomic by nature, 
-similar to the \textsf{claim} and \textsf{unclaim} operations, and is implemented as essentially one command.
+have to be sent as part of a bundle. Therefore, the \texttt{\claimcheck} operation is atomic by nature,
+similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemented as essentially one command.
 
 %A container contains items: they represent the flow table entries (i.e., a match-action rules, plus e.g., counters belonging to the rule).
 %Items can be added and removed atomically and in bundles (e.g., to update the switch with
@@ -861,7 +860,7 @@ similar to the \textsf{claim} and \textsf{unclaim} operations, and is implemente
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets 2$
-    		\State $flag \gets \textsf{OFPFF\_\checko}$
+    		\State $flag \gets \texttt{OFPFF\_\checko}$
     		\State $cmd1\gets \emph{FlowMod}(match, op = \add, flag, action) $
     		\State $cmd2\gets \emph{FlowMod}(match, op = \dele) $
 			\Return $cmd1$,$cmd2$
@@ -896,13 +895,13 @@ share the same match parts.
 
 In order to check if a value is written in a given address, 
 we try to add it the same way as in the \memwrite operation,  
-but we also set the \textsf{\checko} flag. If the value is not there, 
+but we also set the \texttt{\checko} flag. If the value is not there,
 our action differs from the action of the existing entry, 
 thereby inflicting a failure.
 In case the value is there, our flow entry replaces the existing flow entry 
 with an identical one.
 In addition, we present in Algorithm \ref{alg:cas} a simple implementation 
-of \emph{compare-and-set (CAS)}, using the two last operations.
+of \emph{Compare-And-Set (CAS)}, using the two last operations.
 
 \begin{algorithm}[h]
     \caption{$\textit{write}(\addr,k)$}
@@ -932,7 +931,7 @@ of \emph{compare-and-set (CAS)}, using the two last operations.
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets k$
-    		\State $flag \gets \textsf{OFPFF\_\checko}$
+    		\State $flag \gets \texttt{OFPFF\_\checko}$
     		\State $cmd\gets \emph{FlowMod}(match, op = \add, flag, action) $
 			\Return $cmd$
     \end{algorithmic}
@@ -982,7 +981,7 @@ with a notion of tags.
 \subsection{Policy Updates}
 
 As a second example, let us consider a simple policy composition protocol that
-allows a set of  controllers to concurrently update switch  \emph{policies} , i.e., sets of
+allows a set of  controllers to concurrently update switch  \emph{policies}, i.e., sets of
 effective flow tables rules, under the
 condition that these rules can be composed with the currently installed
 policy. 
@@ -998,9 +997,9 @@ policy (with a different identifier) has been installed, the update
 fails and takes no effect.
 
 We use increasing numbers as policies
-ids and use them in order to make sure that the new policy, with id
+IDs and use them in order to make sure that the new policy, with id
 $x$, replaces the (what considered as) current policy, with id
-$x-1$. Considering the policies ids, we send the policy installation
+$x-1$. Considering the policies IDs, we send the policy installation
 commands as part of a bundle that also tries to perform
 $CAS(x-1,x)$, thereby insuring that the commands are
 performed iff the current policy is still there and preventing other
@@ -1022,7 +1021,7 @@ It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we
  obtain a unique \emph{id}. FIXME: to be continued...
  \textbf{LS: I am not sure if I need to tell every step of the story or maybe it best to explain the main dif from the previous one similarly to what I just wrote next}.
 
-Algorithm~\ref{alg:update} claims the current policy id in order to prevent someone of using it with different policy in the future (during the current update) and in the bundle used to update the policy it also checks that the new policy id that it about to use (chosen from a finite set of ids) wasn't claimed by someone else.
+Algorithm~\ref{alg:update} claims the current policy id in order to prevent someone of using it with different policy in the future (during the current update) and in the bundle used to update the policy it also checks that the new policy id that it about to use (chosen from a finite set of IDs) wasn't claimed by someone else.
 
 \hide{
 We compute our new suggested policy by applying the update requests on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by anyone else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy.
@@ -1051,7 +1050,7 @@ If one of the actions in the transaction fails we try again. There is no progres
 	 			%\State update policy selector to $my\_a$
  			\endTxn
      		%\State $res \gets $ commit transaction
-     	\Until{$res\neq\texttt{abort}$}
+     	\Until{$res\neq \bot$}
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
 			\Return
@@ -1087,7 +1086,7 @@ If one of the actions in the transaction fails we try again. There is no progres
  			\endTxn
 	 		\State $unclaim(\pid)$
      		%\State $res \gets $ commit transaction
-     	\Until{$res\neq\texttt{abort}$}
+     	\Until{$res\neq\bot$}
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
 			\Return
@@ -1333,11 +1332,11 @@ struct ofp_flow_mod {
 	uint64_t cookie; /* Opaque controller-issued identifier. */
 	uint64_t cookie_mask; /* Mask used to restrict the cookie bits
 		that must match when the command is
-		OFPFC_MODIFY* or OFPFC_\dele*. A value
+		\texttt{ofpfc_{modify}*} or \texttt{ofpfc_{delete}*. A value
 		of 0 indicates no restriction. */
 	/* Flow actions. */
 	uint8_t table_id; /* ID of the table to put the flow in.
-		For OFPFC_\dele_* commands, OFPTT_ALL
+		For OFPFC_DELETE_* commands, OFPTT_ALL
 		can also be used to delete matching
 		flows from all tables. */
 	uint8_t command; /* One of OFPFC_*. */
@@ -1371,7 +1370,7 @@ struct ofp_flow_mod {
 
 \section{Bundle Control Message}
 
-%/* Message structure for OFPT_BUNDLE_CONTROL. */
+%/* Message structure for OFPT_BUNDLE_CTRL. */
 \begin{lstlisting}
 struct ofp_bundle_ctrl_msg {
 	struct ofp_header header;
@@ -1405,7 +1404,7 @@ struct ofp_bundle_add_msg {
     \caption{Policy composition without bundle}
     \label{alg:wobundle}
     \begin{algorithmic}[1]
-    \Require policy $P$ (a set of FlowMod entry creation commands), three consecutive flow tables ids (per controller) $T_s,T_0,T_1$, active table index $active\in\{0,1\}$.
+    \Require policy $P$ (a set of FlowMod entry creation commands), three consecutive flow tables IDs (per controller) $T_s,T_0,T_1$, active table index $active\in\{0,1\}$.
     %\Ensure installed policy is consistent with previous one
     \State $unactive \gets active + 1 \mod{2}$
     \For {$cmd \in P$}
@@ -1490,12 +1489,12 @@ Note that trying to delete a group that doesn't exist (or trying to create a gro
     %\Require  id $i$.
 %    \Ensure
 
-    		\State $op \gets \textsf{OFPGC\_\dele}$
+    		\State $op \gets \texttt{OFPGC\_\dele}$
     		\State $group\_id \gets old$
     		\State $cmd1\gets GroupMod(op, group\_id) $
     		
-    		\State $op \gets \textsf{OFPGC\_\add}$
-    		\State $type \gets \textsf{OFPGT\_INDIRECT}$
+    		\State $op \gets \texttt{OFPGC\_\add}$
+    		\State $type \gets \texttt{OFPGT\_INDIRECT}$
     		\State $group\_id \gets new$
     		\State $buckets \gets [dummy\_backet]$
     		\State $cmd2\gets GroupMod(op, type, group\_id, buckets) $
