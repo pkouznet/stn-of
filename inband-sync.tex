@@ -55,6 +55,11 @@
 \newcommand{\compare}{compare\xspace}
 \newcommand{\memwrite}{write\xspace}
 
+\newcommand{\addr}{\emph{addr}\xspace}
+\newcommand{\pid}{\emph{pid}\xspace}
+\newcommand{\add}{\textbf{add}\xspace}
+\newcommand{\dele}{\textbf{delete}\xspace}
+
 \newcommand{\FlowMod}{\emph{FlowMod}\xspace}
 \newcommand{\match}{\emph{match}\xspace}
 \newcommand{\action}{\emph{action}\xspace}
@@ -491,7 +496,7 @@ The bundles used in this paper will always have the following structure:
 \item First, it contains a \emph{create bundle} message: a \textsf{OFPT\_BUNDLE\_CONTROL} message of type
 \textsf{OFPBCT\_OPEN\_REQUEST}.
 \item The follows a sequence of commands (e.g., \emph{FlowMod}), each wrapped in an 
-\emph{add to bundle message} (\textsf{OFPT\_BUNDLE\_ADD\_MESSAGE}) with the \emph{bundle identifier}.
+\emph{add to bundle message} (\textsf{OFPT\_BUNDLE\_\add\_MESSAGE}) with the \emph{bundle identifier}.
 \item Finally, a \emph{commit bundle} control message (\textsf{OFPT\_BUNDLE\_CONTROL}) of 
 type \textsf{OFPBCT\_COMMIT\_REQUEST}.
 \end{enumerate}
@@ -501,7 +506,7 @@ Again, the bundle always returns a binary result: \emph{error} ($\bot$) or \emph
 %Concretely, a transaction can represent between two to five switch interactions:
 %if limited space, Algo 7: read, claim id, read again, transaction, unclaim;
 %if if unlimited space: alg 6 is unbounded, increase policy ID by one.
-%transactions = five switch interactions , claim pid (line 5+6) together in bundle => one iteraction less?
+%transactions = five switch interactions , claim \pid (line 5+6) together in bundle => one iteraction less?
 
 %In general, it is desirable to minimize the number of transactions \stefan{stefan should cite \cite{Jin2014Dionysus} here}
 
@@ -667,13 +672,13 @@ given (bounded or unbounded) set.
 With these base objects, we provide the following shared memory abstraction, with 
 write-compare access semantics:
 \begin{itemize}
-\item By performing $\textit{Write}(addr,k)$,
-  $addr,k\in\Nat$, the value at memory offset $addr$ is set to $k$. For
-  example, the offset $addr$ may be used to identify the policy (identifier),
+\item By performing $\textit{write}(\addr,k)$,
+  $\addr,k\in\Nat$, the value at memory offset $\addr$ is set to $k$. For
+  example, the offset $\addr$ may be used to identify the policy (identifier),
   but our approach is more general.
 
-\item The operation $\textit{\compare}(addr,k)$, $addr,k\in\Nat$,
-aborts current transaction, if the value at memory offset $addr$ is not equal to $k$.
+\item The operation $\textit{\compare}(\addr,k)$, $\addr,k\in\Nat$,
+aborts current transaction, if the value at memory offset $\addr$ is not equal to $k$.
 %returns $\textit{true}$ if and
 %  only if $k$ is not currently claimed by any controller; if
 %  $\textit{false}$ is returned, we say that the check operation
@@ -840,7 +845,7 @@ similar to the \textsf{claim} and \textsf{unclaim} operations, and is implemente
     		%\State $cookie \gets x\concat self$
     		\State $action \gets 1$
     		\State $flag \gets 0$
-    		\State $cmd\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
+    		\State $cmd\gets \emph{FlowMod}(match, op = \add, flag, action) $
 			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
@@ -857,8 +862,8 @@ similar to the \textsf{claim} and \textsf{unclaim} operations, and is implemente
     		%\State $cookie \gets x\concat self$
     		\State $action \gets 2$
     		\State $flag \gets \textsf{OFPFF\_\checko}$
-    		\State $cmd1\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
-    		\State $cmd2\gets \textsc{FlowMod}(match, op = DELETE) $
+    		\State $cmd1\gets \emph{FlowMod}(match, op = \add, flag, action) $
+    		\State $cmd2\gets \emph{FlowMod}(match, op = \dele) $
 			\Return $cmd1$,$cmd2$
     \end{algorithmic}
 \end{algorithm}
@@ -873,7 +878,7 @@ similar to the \textsf{claim} and \textsf{unclaim} operations, and is implemente
     		\State $mask \gets self\concat all-1$
     		%\State $cookie \gets x\concat self$
     		\State $match \gets (value,mask)$
-    		\State $cmd\gets \textsc{FlowMod}(match, op=DELETE) $
+    		\State $cmd\gets \emph{FlowMod}(match, op=\dele) $
     	
 			
 			\Return $cmd$
@@ -881,95 +886,118 @@ similar to the \textsf{claim} and \textsf{unclaim} operations, and is implemente
 \end{algorithm}
 
 \paragraph{A memory abstraction}
-
-We use similar techniques for implementing memory \memwrite and \compare
- operations.
+The memory \memwrite and \compare
+ operations can be implemented using similar techniques.
  As can be seen in Algorithms \ref{alg:write}-\ref{alg:compare},
-  the match part of the added flow entry is used as the memory address and the action as the written value. Values written to the same address will replace one another, following the command definition to replace old flow entry with a new one in case they share the same match parts (as described in Section \ref{sec:background}).
+  the match part of the added flow entry is used as the memory address and the action as 
+  the written value. Values written to the same address will replace one another,
+following the command definition to replace old flow entry with a new one in case they 
+share the same match parts.
 
-In order to check if a value is written in a given address, we try to add it the same way as in the \memwrite operation  but we also set the \textsf{\checko} flag. If the value is not there, our action differ from the action of the existing entry thereby inflicting a failure.
-In case the value is there, our flow entry replaces the existing flow entry with identical one.
-In addition we present in Algorithm \ref{alg:cas} a simple implementation of Compare and set (CAS) using the two last operations.
+In order to check if a value is written in a given address, 
+we try to add it the same way as in the \memwrite operation,  
+but we also set the \textsf{\checko} flag. If the value is not there, 
+our action differs from the action of the existing entry, 
+thereby inflicting a failure.
+In case the value is there, our flow entry replaces the existing flow entry 
+with an identical one.
+In addition, we present in Algorithm \ref{alg:cas} a simple implementation 
+of \emph{compare-and-set (CAS)}, using the two last operations.
 
 \begin{algorithm}[h]
-    \caption{$\textit{write}(addr,k)$}
+    \caption{$\textit{write}(\addr,k)$}
     \label{alg:write}
     \begin{algorithmic}[1]
     %\Require  id $i$.
 %    \Ensure
-    		\State $value \gets addr$
+    		\State $value \gets \addr$
     		\State $mask \gets  all-1$
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets k$
     		\State $flag \gets 0$
-    		\State $cmd\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
+    		\State $cmd\gets \emph{FlowMod}(match, op = \add, flag, action) $
 			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
 
 \begin{algorithm}[h]
-    \caption{$\textit{\compare}(addr,k)$}
+    \caption{$\textit{\compare}(\addr,k)$}
     \label{alg:compare}
     \begin{algorithmic}[1]
     %\Require  id $i$.
 %    \Ensure
-    		\State $value \gets addr$
+    		\State $value \gets \addr$
     		\State $mask \gets  all-1$
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets k$
     		\State $flag \gets \textsf{OFPFF\_\checko}$
-    		\State $cmd\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
+    		\State $cmd\gets \emph{FlowMod}(match, op = \add, flag, action) $
 			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
 
 
-
 \begin{algorithm}[h]
-    \caption{$\textit{\cas}(addr, old,new)$}
+    \caption{$\textit{\cas}(\addr, old,new)$}
     \label{alg:cas}
     \begin{algorithmic}[1]
     %\Require  id $i$.
 %    \Ensure
 
-    		\State $cmd1\gets \textsc{\compare}((addr, old) $
-    		\State $cmd2\gets \textsc{\memwrite}((addr, new) $
+    		\State $cmd1\gets \textsc{\compare}((\addr, old) $
+    		\State $cmd2\gets \textsc{\memwrite}((\addr, new) $
 			\Return $cmd1,cmd2$
     \end{algorithmic}
 \end{algorithm}
 
 
+\section{Discussion of Use Cases}\label{sec:apps}
 
-\section{Discussion of Use-Cases}\label{sec:apps}
+Let us discuss some use cases of our transactional interface.
 
-More powerful transactions can be useful in many scenarios.
-Let us revisit our examples from earlier: with
-transactions we can easily solve the load-balancing
-and rule modification problem.
-In the following we give two more examples of our approach.
+\subsection{Consensus and Replicated State Machines}
+
+Using our approach, it is straightforward to implement consensus among the controllers
+using just a single register that can be accessed with an atomic CAS
+operation~\cite{Her91}. In our transactional setting, the controllers
+can use CAS to replace the default value of such a register
+with their consensus input values (e.g., the identifiers of the
+policies that should be applied first). If the corresponding
+singleton transaction commits, the controller considers itself
+the \emph{winner} and decides on its input, if
+it aborts (the controller fails in the CAS) it remains to read the register to get the input of the
+winner to decide.
+
+By using multiple CAS invocations, the controllers can implement any
+generic replicated state machine~\cite{Her91,Lam98}, which will be instrumental in the
+next section.
+
+Given the CAS, we can also implement more complex operations,
+for example the replicated state machine postulated in STN~\cite{stn}:
+in order to choose tags in a consistent manner, CAS needs to be enhanced
+with a notion of tags.
 
 \subsection{Policy Updates}
 
-\stefan{liron: maybe we can make a more concrete example like we had it in medieval?}
-
-Our first example (Algorithm~\ref{alg:simple-update}) is a simple policy composition protocol that
+As a second example, let us consider a simple policy composition protocol that
 allows a set of  controllers to concurrently update switch  \emph{policies} , i.e., sets of
-effective rules in its flow tables, under the
+effective flow tables rules, under the
 condition that these rules can be composed with the currently installed
-policy (the composition predicate is encoded in a user-specific
+policy. 
+Let us assume that the composition predicate is encoded in a user-specific
 $\textit{apply\_update}()$ function~\cite{cpc}.
 
-Every policy is associated with a \emph{policy identifier}.
+Algorithm~\ref{alg:simple-update} is based on the bundle feature and associates each policy with a \emph{policy identifier (pid)}.
 In the algorithm, the controller first reads the currently installed
-policy, then choose a new unique policy, checks whether the new
+policy, then chooses a new unique policy identifier \emph{pid}, checks whether the new
 policy and the current policy can be composed and, if so, replaces the
 current policy with the composition. If, meanwhile, a new
 policy (with a different identifier) has been installed, the update
 fails and takes no effect.
 
-Algorithm~\ref{alg:simple-update} use increasing numbers as policies
+We use increasing numbers as policies
 ids and use them in order to make sure that the new policy, with id
 $x$, replaces the (what considered as) current policy, with id
 $x-1$. Considering the policies ids, we send the policy installation
@@ -990,8 +1018,7 @@ without bound. In fact, as was observed in~\cite{cpc}, the number of currently
 used policies can be made proportional to the number of concurrent
 controllers.
 
-
- It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we seek to
+It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we seek to
  obtain a unique \emph{id}. FIXME: to be continued...
  \textbf{LS: I am not sure if I need to tell every step of the story or maybe it best to explain the main dif from the previous one similarly to what I just wrote next}.
 
@@ -1003,25 +1030,23 @@ We compute our new suggested policy by applying the update requests on top of cu
 If one of the actions in the transaction fails we try again. There is no progress guaranty for each controller but there is one for the whole system - at least one of the controller will succeed in fulfilling its update requirements.
 }
 
-
-
 \textbf{TODO: fix the pseudocode, make the use of afdd/delete
   operations uniform, make all switch operations transactional}
 
-\liron{for alg \ref{alg:simple-update} we should say that switch configuration = pid + policy}
+\liron{for alg \ref{alg:simple-update} we should say that switch configuration = \pid + policy}
 
 \begin{algorithm}[t]
     \caption{Policy update with only CAS}
     \label{alg:simple-update}
     \begin{algorithmic}[1]
-    \Require unsafe policy update function $U$, a predefined switch (memory) address for policy id: $pid\_addr$
+    \Require unsafe policy update function $U$, a predefined switch (memory) address for policy id: $\pid_{\addr}$
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
- 			\State $pid,policy\gets$ \textbf{read} switch configuration
+ 			\State $\pid,policy\gets$ \textbf{read} switch configuration
  			\State $cmds\gets U(policy)$
  			\startTxn
-	 			\State $CAS(pid\_addr,pid,pid+1)$
+	 			\State $CAS(\pid_{\addr},\pid,\pid+1)$
 	 			\State \textbf{send} $cmds$ %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
@@ -1035,32 +1060,32 @@ If one of the actions in the transaction fails we try again. There is no progres
 \end{algorithm}
 
 
-\liron{for alg \ref{alg:update} we should say that switch configuration = pid + claims + policy}
+\liron{for alg \ref{alg:update} we should say that switch configuration = \pid + claims + policy}
 
 \begin{algorithm}[t]
     \caption{Advanced policy update}
     \label{alg:update}
     \begin{algorithmic}[1]
-        \Require unsafe policy update function $U$, a predefined switch (memory) address for policy id: $pid\_addr$, a predefined id space $C$.
+        \Require unsafe policy update function $U$, a predefined switch (memory) address for policy id: $\pid_{\addr}$, a predefined id space $C$.
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
-		 	\State $pid,claims,policy\gets$ \textbf{read} switch configuration
- 			\State $claim(pid)$
- 			\State $pid2,claims,policy\gets$ \textbf{read} switch configuration
- 			\If {$pid\neq pid2$}
-	 			\State $unclaim(pid)$
+		 	\State $\pid,claims,policy\gets$ \textbf{read} switch configuration
+ 			\State $claim(\pid)$
+ 			\State $\pid 2,claims,policy\gets$ \textbf{read} switch configuration
+ 			\If {$\pid\neq \pid 2$}
+	 			\State $unclaim(\pid)$
  				\State {\bf continue} (\textbf{restart} loop)
  			\EndIf
  			\State $my\_id\gets$ choose a number from $C\setminus claims$
  			\State $cmds\gets U(policy)$
  			\startTxn
  				\State $\claimcheck(my\_id)$
-	 			\State $CAS(pid\_addr, pid,my\_id)$
+	 			\State $CAS(\pid_{\addr}, \pid,my\_id)$
 	 			\State \textbf{send} $cmds$ %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
-	 		\State $unclaim(pid)$
+	 		\State $unclaim(\pid)$
      		%\State $res \gets $ commit transaction
      	\Until{$res\neq\texttt{abort}$}
      	%\doWhile{$res=False$}
@@ -1071,28 +1096,6 @@ If one of the actions in the transaction fails we try again. There is no progres
 \end{algorithm}
 
 
-
-\subsection{Consensus and Replicated State Machines}
-
-It is straightforward to implement consensus among the controllers
-using just a single register that can be accessed with an atomic CAS
-operation~\cite{Her91}. In our transactional setting, the controllers
-can use CAS to replace the default value of such a register
-with their consensus input values (e.g., the identifiers of the
-policies that should be applied first). If the corresponding
-singleton transaction commits, the controller consideres itself
-the \emph{winner} and decides on its input, if
-it aborts (the controller fails in the CAS) it remains to read the register to get the input of the
-winner to decide.
-
-By using multiple CAS invocations, the controllers can implement any
-generic replicated state machine~\cite{Her91,Lam98}, which will be instrumental in the
-next section.
-
-Given the CAS, we can also implement more complex operations,
-for example the replicated state machine postulated in STN~\cite{stn}:
-in order to choose tags in a consistent manner, CAS needs to be enhanced
-with a notion of tags.
 
 %\paragraph{One-Shot Update} FIXME: desribe how to implement one-shot update
 %
@@ -1308,7 +1311,7 @@ in an SDN.
 \bibliography{references}  % main.bib is the name of the Bibliography in this case
 }
 
-\cleardoublepage
+\clearpage
 
 \onecolumn
 
@@ -1330,11 +1333,11 @@ struct ofp_flow_mod {
 	uint64_t cookie; /* Opaque controller-issued identifier. */
 	uint64_t cookie_mask; /* Mask used to restrict the cookie bits
 		that must match when the command is
-		OFPFC_MODIFY* or OFPFC_DELETE*. A value
+		OFPFC_MODIFY* or OFPFC_\dele*. A value
 		of 0 indicates no restriction. */
 	/* Flow actions. */
 	uint8_t table_id; /* ID of the table to put the flow in.
-		For OFPFC_DELETE_* commands, OFPTT_ALL
+		For OFPFC_\dele_* commands, OFPTT_ALL
 		can also be used to delete matching
 		flows from all tables. */
 	uint8_t command; /* One of OFPFC_*. */
@@ -1343,12 +1346,12 @@ struct ofp_flow_mod {
 	uint16_t priority; /* Priority level of flow entry. */
 	uint32_t buffer_id; /* Buffered packet to apply to, or
 		OFP_NO_BUFFER.
-		Not meaningful for OFPFC_DELETE*. */
-	uint32_t out_port; /* For OFPFC_DELETE* commands, require
+		Not meaningful for OFPFC_\dele*. */
+	uint32_t out_port; /* For OFPFC_\dele* commands, require
 		matching entries to include this as an
 		output port. A value of OFPP_ANY
 		indicates no restriction. */
-	uint32_t out_group; /* For OFPFC_DELETE* commands, require
+	uint32_t out_group; /* For OFPFC_\dele* commands, require
 		matching entries to include this as an
 		output group. A value of OFPG_ANY
 		indicates no restriction. */
@@ -1454,9 +1457,9 @@ The $\checko$ flag enables us to add an entry if no contradicting entry exists a
     		%\State $cookie \gets x\concat self$
     		\State $action \gets 2$
     		\State $flag \gets OFPFF\_\checko$
-    		\State $cmd1\gets \textsc{FlowMod}(match, op = ADD, flag, action) $
-    		\State $cmd2\gets \textsc{FlowMod}(match, op = DELETE) $
-    		\State $cmd3\gets \textsc{FlowMod}(cookie = old, op = DELETE) $
+    		\State $cmd1\gets \emph{FlowMod}(match, op = \add, flag, action) $
+    		\State $cmd2\gets \emph{FlowMod}(match, op = \dele) $
+    		\State $cmd3\gets \emph{FlowMod}(cookie = old, op = \dele) $
     		\State $cmds.append(cmd1)$
     		\State $cmds.append(cmd2)$
     		\State $cmds.append(cmd3)$
@@ -1465,7 +1468,7 @@ The $\checko$ flag enables us to add an entry if no contradicting entry exists a
     		    		\State $cookie \gets new$
     		    		\State $action \gets 1$
     		    		\State $flag \gets 0$
-    		    		\State $cmd\gets \textsc{FlowMod}(r\_match, ADD, flag, cookie, action) $
+    		    		\State $cmd\gets \emph{FlowMod}(r\_match, \add, flag, cookie, action) $
     		    		\State $cmds.append(cmd)$
     		\EndFor
 			\Return $cmds$
@@ -1487,11 +1490,11 @@ Note that trying to delete a group that doesn't exist (or trying to create a gro
     %\Require  id $i$.
 %    \Ensure
 
-    		\State $op \gets \textsf{OFPGC\_DELETE}$
+    		\State $op \gets \textsf{OFPGC\_\dele}$
     		\State $group\_id \gets old$
     		\State $cmd1\gets GroupMod(op, group\_id) $
     		
-    		\State $op \gets \textsf{OFPGC\_ADD}$
+    		\State $op \gets \textsf{OFPGC\_\add}$
     		\State $type \gets \textsf{OFPGT\_INDIRECT}$
     		\State $group\_id \gets new$
     		\State $buckets \gets [dummy\_backet]$
