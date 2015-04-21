@@ -672,6 +672,13 @@ we introduce two new synchronization objects (and describe their implementation 
 which allow controllers to coordinate
 themselves based on these identifiers.
 
+As we will see, in the Openflow implementation of our mechanism, 
+in addition to the ``normal'' configuration stored at the switch
+(e.g., forwarding rules according to network policies), 
+controllers will maintain additional information 
+in the switch configuration: this information is used by the
+controllers to synchronize. 
+
 \subsection{Synchronization Objects}\label{sec:t-if}
 
 We implement transactional access to  two kinds of objects:
