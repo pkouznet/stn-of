@@ -951,18 +951,6 @@ with an identical one.
 \end{algorithm}
 
 
-\begin{algorithm}[h]
-    \caption{$\textit{\cas}(\addr, old,new)$}
-    \label{alg:cas}
-    \begin{algorithmic}[1]
-    %\Require  id $i$.
-%    \Ensure
-
-    		\State $cmd1\gets \textsc{\compare}((\addr, old) $
-    		\State $cmd2\gets \textsc{\memwrite}((\addr, new) $
-			\Return $cmd1,cmd2$
-    \end{algorithmic}
-\end{algorithm}
 
 
 \section{Discussion of Use Cases}\label{sec:apps}
@@ -977,7 +965,20 @@ $\textit{old}$ and $\textit{new}$, reads the register and, if the
 value of it is $\textit{old}$, replaces it with $\textit{new}$ and
 returns $\top$; otherwise, $\bot$ is returned and
 we say that the CAS operation \emph{fails} (which causes an abort of
-the invoking transaction). See Algorithm \ref{alg:cas}.
+the invoking transaction). As can be seen Algorithm \ref{alg:cas}, CAS is implemented by two commands. These commands should be sent as part of the same bundle
+
+\begin{algorithm}[h]
+    \caption{$\textit{\cas}(\addr, old,new)$}
+    \label{alg:cas}
+    \begin{algorithmic}[1]
+    %\Require  id $i$.
+%    \Ensure
+
+    		\State $cmd1\gets \textsc{\compare}((\addr, old) $
+    		\State $cmd2\gets \textsc{\memwrite}((\addr, new) $
+			\Return $cmd1,cmd2$
+    \end{algorithmic}
+\end{algorithm}
 
 It is then straightforward to implement consensus among the controllers
 using just a single register that can be accessed with an atomic CAS
@@ -1008,21 +1009,21 @@ condition that these rules can be composed with the currently installed
 policy.
 Let us assume that the composition predicate is encoded in a user-specific
 $\textit{apply\_update}()$ function~\cite{cpc}.
-\liron{TODO: fix the description of the composition predicate - receives a policy and return the commands. we also need to say how a normal controller code can be instrumented to use our paradigm}
-
-Algorithm~\ref{alg:simple-update} is based on the bundle feature and associates each policy with a \emph{policy identifier (pid)}.
+Algorithm~\ref{alg:simple-update} uses the bundle feature to update the switch configuration, where the configuration contains both the policy and an abstracted memory address that holds the \emph{policy identifier (pid)} .
 In the algorithm, the controller first reads the currently installed
-policy and its id \emph{pid}, checks whether the new
-policy and the current policy can be composed and, if so, replaces the
-current policy with the composition. If, meanwhile, a new
+policy and its id \emph{pid}, executes the local update function ($\textit{apply\_update}()$) which results with update commands and then tries to apply them atomically with updating the $pid$. If, meanwhile, a new
 policy (with a different identifier) has been installed, the update
 fails and takes no effect.
 % \liron{the term composition doesn't make sense now with the new user update function... }
 
+
+\liron{we can explain how a normal controller code can be instrumented to use our paradigm}
+
+
 We use increasing numbers as policies
 IDs and use them in order to make sure that the new policy, with id
 $pid+1$, replaces the (what considered as) current policy, with id
-$pid$. Considering the policies IDs, we send the policy installation
+$pid$. Considering the policies IDs, we send the policy update
 commands as part of a bundle that also tries to perform
 $CAS(pid,pid+1)$, thereby insuring that the commands are
 performed iff the current policy is still there and preventing other
@@ -1035,12 +1036,6 @@ controllers to replace the new policy with another without observing it.
 %``singleton'' (consisting of one operation only)  transactions
 %containing such operations always commit. \liron{I think we can ommit this paragraph entirely - no need for bundle when it is not written}
 
-Algorithm~\ref{alg:simple-update} allows policy identifiers to grow
-arbitrarily. In fact, as was observed in~\cite{cpc}, the number of currently
-used policies can be made proportional to the number of concurrent
-controllers.
-
-\liron{for alg \ref{alg:simple-update} we should say that switch configuration = \pid + policy}
 
 \begin{algorithm}[h]
     \caption{Policy update with only CAS}
@@ -1067,26 +1062,25 @@ controllers.
 \end{algorithm}
 
 
+Algorithm~\ref{alg:simple-update} allows policy identifiers to grow
+arbitrarily. In fact, as was observed in~\cite{cpc}, the number of currently
+used policies can be made proportional to the number of concurrent
+controllers.
+
+
 \hide{
 It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we seek to
  obtain a unique \emph{id}. FIXME: to be continued...
  \textbf{LS: I am not sure if I need to tell every step of the story or maybe it best to explain the main dif from the previous one similarly to what I just wrote next}.
 }
 
-Algorithm~\ref{alg:update} claims the current policy id in order to prevent someone of using it with different policy in the future (during the current update) and in the bundle used to update the policy it also checks that the new policy id that it about to use (chosen from a finite set of IDs) wasn't claimed by someone else.
+Algorithm~\ref{alg:update} uses bounded number of policy ids by claiming the current policy id preventing someone of using it with different policy in the future (during the current update) and in the bundle used to update the policy it also checks that the new policy id that it about to use (chosen from a finite set of IDs) wasn't claimed by someone else.
 
 \hide{
 We compute our new suggested policy by applying the update requests on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by anyone else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy.
 
 If one of the actions in the transaction fails we try again. There is no progress guaranty for each controller but there is one for the whole system - at least one of the controller will succeed in fulfilling its update requirements.
 }
-
-\textbf{TODO: fix the pseudocode, make the use of add/delete
-  operations uniform, make all switch operations transactional}
-  \liron{what does this TODO mean??}
-
-
-\liron{for alg \ref{alg:update} we should say that switch configuration = \pid + claims + policy}
 
 \begin{algorithm}[h]
     \caption{Advanced policy update}
@@ -1121,6 +1115,7 @@ If one of the actions in the transaction fails we try again. There is no progres
     \end{algorithmic}
 \end{algorithm}
 
+Note that in the case of Algorithm \ref{alg:update}, switch configuration is used to store $pid$ and resource claims (both implemented by flow entries) in addition to the policy.
 
 
 %\paragraph{One-Shot Update} FIXME: desribe how to implement one-shot update
