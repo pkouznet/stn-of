@@ -68,7 +68,7 @@
 
 \newcommand{\stefan}[1]{\textit{\textcolor{red}{[stefan]: #1}}} % Comments
 \newcommand{\liron}[1]{\textit{\textcolor{mygreen}{[liron]: #1}}} % Comments
-\newcommand{\petr}[1]{\textit{\textcolor{blue}{[carlos]: #1}}} % Comments
+\newcommand{\petr}[1]{\textit{\textcolor{blue}{[petr]: #1}}} % Comments
 
 
 \algblock[<block>]{<start>}{<end>}
@@ -230,7 +230,6 @@ in-band controller consensus, consistent policy installation, and load-balancing
 %
 
 \section{Introduction}\label{sec:intro}
-
 By consolidating and outsourcing the control over the dataplane switches to a logically
 centralized controller, Software-Defined Networks (SDNs)
 simplify network management and facilitate faster innovations:
@@ -299,7 +298,7 @@ switch configuration
 space, several synchronization problems can be resolved.
 This paper investigates the implementation of a transactional interface
 (\`{a} la STN~\cite{stn}) modified concurrently by multiple controllers.
-
+\petr{"interface modified concurrently" does not sound right -> "accessed concurrently"?}
 
 \paragraph{Our Contributions}
 This paper shows how to implement a powerful transactional interface
@@ -378,7 +377,7 @@ to the Appendix.
 %Section~\ref{sec:conclusion}.
 
 \section{Background}\label{sec:background}
-
+\petr{ the 1st sentence does not belong here}\liron{I think it serves as a motivation for the section, but it fines by me to remove it}
 The transactional interface presented in this paper can be implemented in
 Openflow~\cite{of-spec}, the standard SDN protocol today.
 % In this section,
@@ -388,7 +387,7 @@ Openflow
 follows a match-action concept: Openflow switches store
 rules (installed by the controller) consisting of a match and an
 action part. A packet matched by a certain rule will be subject
-to the associated action (to be immediately applied now or later).
+to the associated action (to be immediately applied now or later).\petr{"to be immediately applied now or later" - sounds funny}\liron{I agree it sounds a bit strange, maybe we should explain this later after we disscuss the pipeline}
 For example, an action can define a port to which the
 matched packet should be forwarded, or add or change a tag
 (a certain part in the packet header).
@@ -400,7 +399,7 @@ tables form a pipeline, and flow entries are ordered according
 to priorities: A packet arriving at a switch is first checked by
 the rule of the highest priority in table 0: the fields of the
 data packet are compared with the match fields of that rule,
-and if they fit, some instructions (the actions) are executed;
+and if they fit, some instructions (the actions)  are executed; \petr{ what is the difference between instruction or action?} \liron{we should explain that: every packet is associated with an action set. This set is empty at the beginning and is changed according to the flow table matches. Each match is asociated with instructions that can add or modify actions in the action set and also to apply (now) all actions in the action set. By default action set is applied at the end of the pipeline.}
 subsequently, lower priority rules are checked. Depending on
 the outcome of the table 0 processing, the packet may be sent
 to additional flow tables in the pipeline.
@@ -429,7 +428,7 @@ to update the switch configuration is called \emph{FlowMod}.
 In a nutshell, \emph{FlowMod} either specifies a new flow entry or
 modifications to existing flow entries.
 A flow entry consists of: (1) a match defined by a ternary pattern over packet header fields
-(a value and a mask), and (2) a set of actions.
+(a value and a mask), (2) a set of actions, and (3) a priority.
 %,a match and an action.
 The standard behavior is that the new flow entry will simply \emph{replace}
 an existing one if the existing one has exactly the \emph{same match},
@@ -459,10 +458,9 @@ which however are irrelevant for our implementation: we suggest to
 use the default values.
 
 \paragraph{Bundling}
+
 Another interesting feature in Openflow
-is the \emph{bundle}. A bundle
-aggregates multiple control commands (e.g., \emph{FlowMod} messages)
-into one message, with \emph{all-or-nothing semantics}:
+is the \emph{bundle}. A bundle allows to send multiple commands (e.g., \emph{FlowMod} messages) with the same bundle id and then execute them  by sending a bundle commit message. Theses (bundled) commands are performed with \emph{all-or-nothing semantics}:
 either all of the commands are
 performed, or none of them is. In particular, if, for some reason, the
 configuration request contained in one of the bundled commands cannot
@@ -473,7 +471,7 @@ the bundled processing can be done in a
 \emph{packet-atomic} way, in the sense that
 each packet is processed according
 to the switch configuration either \emph{before} or \emph{after} the
-bundle (i.e., all its commands) took effect.
+bundle (i.e., all its commands) took effect. \liron{we need to disscuss controller atomicity and order preservation inside a bundle}
 If multiple \emph{FlowMod} messages with the $\checko$ flag are sent as a single bundle,
 the bundle command also returns a reason
 why the overlap checks failed: it returns the failed command in the bundle.
@@ -491,6 +489,7 @@ $\textbf{bundle}\{\;\ldots\;\}$ to refer to a
 sequence of commands sent in a bundle. The bundle returns
 $\top$ if and only if
 all commands are performed successfully, and otherwise $\bot$.
+\petr{What about replacing $\top-\bot$ with ack-nack? Can we also get a reason why a bundle did not commit?}
 The bundles used in this paper will always have the following structure:
 \begin{enumerate}
 \item First, it contains a \emph{create bundle} message: a \texttt{ofpt\_bundle\_control} message of type
@@ -562,12 +561,12 @@ the ``normal'' configuration which is defined by the network policy and
 directly effects the traffic (e.g., forwarding rules), and some additional
 configuration which serves as synchronization information 
 for our mechanism. 
-By installing Openflow \emph{flow monitors}, 
-a controller can read the entire configuration 
-(and subscribe for updates). 
+By installing Openflow \emph{flow monitors} with the \textsf{OFPFMF\_INITIAL} optional flag,  
+a controller can read the current configuration. 
+% %(and subscribe for updates). 
 %
 %can i match multiple flows in multiple tables? yes, but only for FlowMod, not GroupMod: but that is good enough!%
-
+\liron{I changed a bit the description of flow monitors following Petr's comment, I hope it's more clear now.}
 
 We also remark that our solution is only based on flow tables
 and does not make use
@@ -576,28 +575,42 @@ are always identified by exact matches.
 
 
 
-\section{Limitations and Motivation}\label{sec:motivation}
+\section{Limitations and Motivation}\label{sec:motivation} 
+
+ generic way for multiple distributed controllers to safely update switch configuration with no need of any control plane 
 
 At first sight, the Openflow bundle feature seems to provide everything
-we need to implement our transactional interface: the bundle
+we need to implement our transactional interface \petr{did we say what we need already?}: the bundle
  defines a sequence of read and write operations
  on the switch state which is executed atomically.
  However, while the bundle can indeed be seen
  as a ``mini-transaction'', it comes with several
  limitations, which we discuss in the following.
+ \petr{unclear what "reads and writes" are here, not discussed before. How openflow can be used to implement reads and writes?}
 
+\liron{following Petr's comments, I suggest the following paragraph}
+At first sight, the Openflow bundle feature seems to provide a simple and generic way for a controller to atomically update switch configuration, similarly to a transaction in shared memory system.
+However, while the bundle can indeed be seen
+ as a ``mini-transaction'', it comes with several
+ limitations, which we discuss in the following.
+
+\liron{ 
 First, if employed without any additional features, a bundle does not allow
  to change the switch state in any non-trivial way:
-the read and write actions in the bundle do
- not support any conditional \emph{modifications} or computations which
- depend on the read results.
-But also using the bundle together with the check overlap feature ($\checko$)
+the commands in the bundle essentially do
+ not support any conditional \emph{modifications} or computations which depend on any current switch configuration (except to limited types of constraints, e.g., free space).
+ }
+ 
+But also bundling FlowMod commands with the check overlap feature ($\checko$)
 comes with limitations: while it is possible
- to \emph{abort} transactions depending on certain conditions
+ to \emph{abort} a bundle depending on certain conditions
  in the \emph{overlapping
  flow spaces}, oftentimes it is desirable to be able
  to define more general conditions and notions of conflicts
- under which transactions should not take effect. Moreover,
+ under which an atomic update should not take effect.
+ \liron{replaced transaction in the last sentence with " atomic update"}
+ 
+  Moreover,
  sometimes it is desirable to react to conflicts in smarter ways than
  to simply abort, e.g.,
  by supporting \emph{modifications}.
@@ -621,12 +634,12 @@ such conflicts.
 \stefan{todo: explain figure}
 
 \item \textbf{Example 2: Supporting modifications.} Consider the problem of modifying previously
-installed forwarding policies.
+installed forwarding rules.
 While a bundle allows to conditionally add new rules or remove
 old rules (and, using the flow space overlap
 check feature $\checko$, to abort the transaction if potentially conflicting
-rules were already there), it cannot be used
-to modify rules in non-trivial ways.
+rules were already there), it cannot be easily used
+to conditionally modify existing rules .
 In other words, the bundle and overlap check only help
 for the \emph{conditional creation} of rules, not their \emph{modification}.
 \end{enumerate}
@@ -667,7 +680,7 @@ operations on the configuration of an OpenFlow switch as an atomic
 which case it appears as executed sequentially, or \emph{abort}, in
 which none of its operations takes effect.
 
-Our approach is based on the distributed management of \emph{identifiers (IDs)}. In particular,
+Our approach is based on the distributed management of \emph{identifiers (IDs)} \petr{unclear what "identifiers" mean here}. In particular,
 we introduce two new synchronization objects (and describe their implementation in standard Openflow),
 which allow controllers to coordinate
 themselves based on these identifiers.
@@ -678,7 +691,7 @@ in addition to the ``normal'' configuration stored at the switch
 controllers will maintain additional information 
 in the switch configuration: this information is used by the
 controllers to synchronize. 
-
+\petr{"As we will see,..." - looks funny compared with "As we will see ..." at the end of Sec 2}
 \subsection{Synchronization Objects}\label{sec:t-if}
 
 We implement transactional access to  two kinds of objects:
@@ -707,10 +720,12 @@ a transaction can be aborted if the value at memory offset $\addr$ is not equal 
 %  \emph{fails} (which causes an abort of the transaction invoking it).
 \end{itemize}
 
+\petr{it is unclear why exactly we need these write and compare operations}
+
 As we will see, the bundle feature is not required to implement these semantics.
 Also note that memory read operations correspond to reading the switch
 configuration, and are simple as they do not affect the execution of the transaction
-(unlike the $\textit{\compare}$ operation).
+(unlike the $\textit{\compare}$ operation). \petr{read operations "do not affect the execution of the transaction" appears strange, given that a transaction, if committed, "appears to execute sequentially". Something seems wrong here...}
 
 Our resource-claimer object implements a weak type of locking, and exports operations \emph{claim},
 \emph{unclaim} and \emph{\claimcheck} with the following sequential
@@ -746,7 +761,9 @@ aborts the current transaction.
 \end{itemize}
 
 Again, none of these individual operations
-requires bundles.
+requires bundles. 
+
+\petr{Would be great actually to motivate why we use reads, writes and claim ids. Maybe skecth a solution to some important problems using these primitives in the transactions.} \liron{we mention that its kind of locking. but I agree we can motivate it better}
 
 \begin{comment}
 \subsection{Interface}\label{sec:t-if}
@@ -782,12 +799,14 @@ transactions, no future transaction can be affected.
 \end{comment}
 
 
+\petr{what is "offset" here (offset addr may correspond")?}\liron{I don't understand the comment}
+
 \subsection{Implementation}\label{sec:t-impl}
 
 We now describe how to implement our transactional
 abstractions using standard OpenFlow features.
 
-\paragraph{The resource claimer}
+
 %features , including
 %\emph{bundling}, \emph{conditional application}, and \emph{groups}.
 %[[PK let us leave for the moment
@@ -795,33 +814,43 @@ abstractions using standard OpenFlow features.
 %in older Openflow versions where they are not
 %supported. \textbf{TODO}
 %]]
-Algorithms~\ref{alg:claim}-\ref{alg:cas} describe implementations of
+Algorithms~\ref{alg:claim}-\ref{alg:compare} describe implementations of
 transactional operations  $\textit{claim}(x)$, $\textit{\claimcheck}(x)$,
-$\textit{unclaim}(x)$, $\textit{write}(x)$,  $\textit{\compare}(x)$
-and $\textit{\cas}(x)$, respectively.
-Algorithm~\ref{alg:commit} describes the procedure executed by
-a transaction at \emph{commit time}.
+$\textit{unclaim}(x)$, $\textit{write}(x)$ and $\textit{\compare}(x)$, respectively.
+%Algorithm~\ref{alg:commit} describes the procedure executed by
+%a transaction at \emph{commit time}.
 
-We describe each operation as a message factory that returns OpenFlow commands which
+We describe each operation as a message factory \petr{did not get what is "message factory"} that returns OpenFlow commands which
 should be sent to the switch as part of the same transaction.
 We assume that every transaction has a unique identifier and is used to start a \emph{bundle}.
 All messages generated during a transaction invocation, are wrapped by bundle messages carrying
 the bundle's ID and followed by bundle commit message.
 Messages with same bundle ID are considered to belong to same bundle and are performed atomically.
+\liron{I don't think we need all of this bundle staff here. we need to move it to next sextion - policy updates}
 
 %The OpenFlow messages that we use (besides )
 
 Our implementation is based on the \emph{FlowMod} command.
-We use the $\checko$ optional flag to make the transaction execution dependent on switch state.
+We use the $\checko$ optional flag to make the transaction execution dependent on switch state \liron{ last sentence might a bit contradict what we said in the limitation section}.
 We consider the match part of an entry to be a ternary string of bounded length (represented by binary value and mask)
 which can be applied to any set of supported packet header fields. In our implementation, the $64$bit meta-data field alone is
 already sufficient. Moreover we consider the action part of an entry to be an integer, which in practice can be implemented by a
 \emph{set meta-data} instruction where the written value is that integer.
 
+\paragraph{The resource claimer}
+
+\petr{
+the "resource claimed" part a hard read, the trick of using masks and values is smart, deserves to be explained better
+}
+
+\petr{Alg 2 returns "cmd1, cmd2", what does it mean? Isn't it supposed to return a boolean?}
+\petr{what is this "$\concat$" operation? simple concatenation?}
+\petr{sometimes FlowMod commands have flag and action, sometimes not, sometimes flag=0, semantics of all this is unclear.}
+
 As can be seen in Algorithms \ref{alg:claim}-\ref{alg:unclaim}, for the resource-claimer,
 the match part of the added flow entry represents the claimed ID (the ID is concatenated twice).
 In addition the mask part of the match (controller ID concatenated with all-ones) varies from one controller
-to another in order to allow multiple controllers to claim the same number without overriding the same flow entry.
+to another in order to allow multiple controllers to claim the same number without overriding the same flow entry. 
 We can see that for any two resource IDs $x_1$ and $x_2$ and controller IDs $c_1\neq c_2$,
 the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_2=(x_2\concat x_2, c_2\concat all-1)$ are not equal,
 even if $x_1=x_2$; therefore, they can both be used to claim and unclaim identifiers without affecting each other.
@@ -958,7 +987,7 @@ with an identical one.
 Let us discuss some use cases of our transactional interface.
 
 \subsection{CAS and Consensus}
-
+\petr{ some motivation of why CAS is important/useful is missing}
 Given our memory interface and using the bundle concept, we can implement
 a powerful \emph{Compare-And-Set} (CAS) operation which takes two integer parameters
 $\textit{old}$ and $\textit{new}$, reads the register and, if the
@@ -999,6 +1028,12 @@ Moreover, given the CAS, we can also implement more complex operations,
 for example the replicated state machine postulated in STN~\cite{stn}:
 in order to choose tags in a consistent manner, CAS needs to be enhanced
 with a notion of tags.
+
+\petr{when talking about replicated state machines, we should make it clear that we that we talk about replication among controllers.}
+
+\petr{"more complex operations": more complex than what?}
+
+\petr{the discussion of CAS in STN is confusing, given that we never described STN.}
 
 \subsection{Policy Updates}
 
@@ -1214,6 +1249,16 @@ Our compact validation use additional temp variable, $temp_winner$, to hold the 
 \section{The Practical Implementation}\label{sec:extension}
 
 \end{comment}
+
+\petr{this is the first time we talk concretely about "policies" ("forwarding policies"?), but they were mentioned a few times before. Shouldn't we have a short "SDN primer" in Sec 3?}
+
+\petr{did not get what a "composition predicate" is}
+
+\petr{why apply-update is "local" ("local update function")?}
+
+\petr{the 1st paragraph is hard to digest}
+
+\petr{Sec 5.2 relies too heavily on [3]. Do we expect the reader unfamiliar with [3] to get it?}
 
 \section{Related Work}\label{sec:relwork}
 
