@@ -65,7 +65,7 @@
 \newcommand{\action}{\emph{action}\xspace}
 \newcommand{\flags}{\emph{flags}\xspace}
 \newcommand{\checko}{\texttt{check\_overlap}\xspace}
-
+\newcommand{\ufunc}{U} %apply\_update
 \newcommand{\stefan}[1]{\textit{\textcolor{red}{[stefan]: #1}}} % Comments
 \newcommand{\liron}[1]{\textit{\textcolor{mygreen}{[liron]: #1}}} % Comments
 \newcommand{\petr}[1]{\textit{\textcolor{blue}{[petr]: #1}}} % Comments
@@ -594,12 +594,12 @@ However, while the bundle can indeed be seen
  as a ``mini-transaction'', it comes with several
  limitations, which we discuss in the following.
 
-\liron{ 
+\liron{ Also updated the following paragraph:}
 First, if employed without any additional features, a bundle does not allow
  to change the switch state in any non-trivial way:
 the commands in the bundle essentially do
  not support any conditional \emph{modifications} or computations which depend on any current switch configuration (except to limited types of constraints, e.g., free space).
- }
+ 
  
 But also bundling FlowMod commands with the check overlap feature ($\checko$)
 comes with limitations: while it is possible
@@ -819,7 +819,8 @@ transactional operations  $\textit{claim}(x)$, $\textit{\claimcheck}(x)$,
 $\textit{unclaim}(x)$, $\textit{write}(x)$ and $\textit{\compare}(x)$, respectively.
 %Algorithm~\ref{alg:commit} describes the procedure executed by
 %a transaction at \emph{commit time}.
-
+Each operation produces OpenFlow command messages that should be sent to the switch, possibly as part of a bundle. 
+\hide{ 
 We describe each operation as a message factory \petr{did not get what is "message factory"} that returns OpenFlow commands which
 should be sent to the switch as part of the same transaction.
 We assume that every transaction has a unique identifier and is used to start a \emph{bundle}.
@@ -827,18 +828,24 @@ All messages generated during a transaction invocation, are wrapped by bundle me
 the bundle's ID and followed by bundle commit message.
 Messages with same bundle ID are considered to belong to same bundle and are performed atomically.
 \liron{I don't think we need all of this bundle staff here. we need to move it to next sextion - policy updates}
-
+}
 %The OpenFlow messages that we use (besides )
 
-Our implementation is based on the \emph{FlowMod} command.
-We use the $\checko$ optional flag to make the transaction execution dependent on switch state \liron{ last sentence might a bit contradict what we said in the limitation section}.
-We consider the match part of an entry to be a ternary string of bounded length (represented by binary value and mask)
-which can be applied to any set of supported packet header fields. In our implementation, the $64$bit meta-data field alone is
-already sufficient. Moreover we consider the action part of an entry to be an integer, which in practice can be implemented by a
-\emph{set meta-data} instruction where the written value is that integer.
+%Our implementation is based on the \emph{FlowMod} command. 
+To simplify the algorithms we set the FlowMod command field values with integers, according to the following guidelines:
+\begin{itemize}
+
+\item {\bf  Flag:} we often use the $\checko$ optional flag value to make the command execution dependent on switch state. In other cases, when the flag value remains zero, we omit the assignment.
+
+\item {\bf  Match:} we consider the match part of an entry to be a ternary string of bounded length, represented by binary strings (integers) named value and mask. In general, the match can be applied to any set of supported packet header fields. In our implementation, the $64$bit meta-data field alone is sufficient. We sometimes use the concatenation of two $32$bit integers, denoted by $a\concat b$, to form one match value or mask, where $a\concat b := (a<<32)+b$.
+
+\item {\bf Action:} we consider the action part of an entry to be an integer, which in practice can be implemented by a \emph{set meta-data} instruction where the written value is that integer.
+
+\end{itemize} 
+
+In addition we use "op" as shortened form to a field that indicates whether the command should $\add$ or $\dele$ the specified flow entry. This corresponds to the FlowMod field named "command" which can receive values OFPFC\_ADD and OFPFC\_DELETE.
 
 \paragraph{The resource claimer}
-
 \petr{
 the "resource claimed" part a hard read, the trick of using masks and values is smart, deserves to be explained better
 }
@@ -846,9 +853,10 @@ the "resource claimed" part a hard read, the trick of using masks and values is 
 \petr{Alg 2 returns "cmd1, cmd2", what does it mean? Isn't it supposed to return a boolean?}
 \petr{what is this "$\concat$" operation? simple concatenation?}
 \petr{sometimes FlowMod commands have flag and action, sometimes not, sometimes flag=0, semantics of all this is unclear.}
+\liron{There is now some text above that should help to understand this part (the resource claimer) and the next one. I hope it does.}
 
 As can be seen in Algorithms \ref{alg:claim}-\ref{alg:unclaim}, for the resource-claimer,
-the match part of the added flow entry represents the claimed ID (the ID is concatenated twice).
+the match part of the added flow entry represents the claimed ID (the ID is concatenated twice). 
 In addition the mask part of the match (controller ID concatenated with all-ones) varies from one controller
 to another in order to allow multiple controllers to claim the same number without overriding the same flow entry. 
 We can see that for any two resource IDs $x_1$ and $x_2$ and controller IDs $c_1\neq c_2$,
@@ -1003,8 +1011,8 @@ the invoking transaction). As can be seen Algorithm \ref{alg:cas}, CAS is implem
     %\Require  id $i$.
 %    \Ensure
 
-    		\State $cmd1\gets \textsc{\compare}((\addr, old) $
-    		\State $cmd2\gets \textsc{\memwrite}((\addr, new) $
+    		\State $cmd1\gets \textsc{\compare}(\addr, old) $
+    		\State $cmd2\gets \textsc{\memwrite}(\addr, new) $
 			\Return $cmd1,cmd2$
     \end{algorithmic}
 \end{algorithm}
@@ -1043,10 +1051,10 @@ effective flow tables rules, under the
 condition that these rules can be composed with the currently installed
 policy.
 Let us assume that the composition predicate is encoded in a user-specific
-$\textit{apply\_update}()$ function~\cite{cpc}.
+$\textit{\ufunc}()$ function~\cite{cpc}.
 Algorithm~\ref{alg:simple-update} uses the bundle feature to update the switch configuration, where the configuration contains both the policy and an abstracted memory address that holds the \emph{policy identifier (pid)} .
 In the algorithm, the controller first reads the currently installed
-policy and its id \emph{pid}, executes the local update function ($\textit{apply\_update}()$) which results with update commands and then tries to apply them atomically with updating the $pid$. If, meanwhile, a new
+policy and its id \emph{pid}, executes the local update function ($\textit{\ufunc}$) which results with update commands and then tries to apply them atomically with updating the $pid$. If, meanwhile, a new
 policy (with a different identifier) has been installed, the update
 fails and takes no effect.
 % \liron{the term composition doesn't make sense now with the new user update function... }
@@ -1076,15 +1084,15 @@ controllers to replace the new policy with another without observing it.
     \caption{Policy update with only CAS}
     \label{alg:simple-update}
     \begin{algorithmic}[1]
-    \Require unsafe policy update function $U$, a predefined switch (memory) address for policy id: $\pid_{\addr}$
+    \Require unsafe policy update function $\ufunc$, a predefined switch (memory) address for policy id: $\pid_{\addr}$
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
  			\State $\pid,policy\gets$ \textbf{read} switch configuration
- 			\State $cmds\gets U(policy)$
+ 			\State $update\_cmds\gets \ufunc(policy)$
  			\startTxn
-	 			\State $CAS(\pid_{\addr},\pid,\pid+1)$
-	 			\State \textbf{send} $cmds$ %conditioned on $metadata=my\_a$
+	 			\State $CAS(\pid_{\addr},\pid,\pid+1)$,
+	 			\State $update\_cmds$ %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
      		%\State $res \gets $ commit transaction
@@ -1121,7 +1129,7 @@ If one of the actions in the transaction fails we try again. There is no progres
     \caption{Advanced policy update}
     \label{alg:update}
     \begin{algorithmic}[1]
-        \Require unsafe policy update function $U$, a predefined switch (memory) address for policy id: $\pid_{\addr}$, a predefined id space $C$.
+        \Require unsafe policy update function $\ufunc$, a predefined switch (memory) address for policy id: $\pid_{\addr}$, a predefined id space $C$.
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
@@ -1133,11 +1141,11 @@ If one of the actions in the transaction fails we try again. There is no progres
  				\State {\bf continue} (\textbf{restart} loop)
  			\EndIf
  			\State $my\_id\gets$ choose a number from $C\setminus claims$
- 			\State $cmds\gets U(policy)$
+ 			\State $update\_cmds\gets \ufunc(policy)$
  			\startTxn
- 				\State $\claimcheck(my\_id)$
-	 			\State $CAS(\pid_{\addr}, \pid,my\_id)$
-	 			\State \textbf{send} $cmds$ %conditioned on $metadata=my\_a$
+ 				\State $\claimcheck(my\_id)$,
+	 			\State $CAS(\pid_{\addr}, \pid,my\_id)$,
+	 			\State $update\_cmds$ %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
 	 		\State $unclaim(\pid)$
