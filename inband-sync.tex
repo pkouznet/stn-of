@@ -117,22 +117,22 @@
 \begin{document}
 \sloppy
 
-%\title{Solving Consensus with Openflow}
+%\title{Solving Consensus with OPenFlow}
 
 %\title{One-Shot Coordination of Distributed SDN Controllers:\\The Case for Multi-Write Consensus}
 
-%\title{One-Shot Coordination of Distributed SDN Controllers:\\On the Consensus Power of Openflow}
+%\title{One-Shot Coordination of Distributed SDN Controllers:\\On the Consensus Power of OPenFlow}
 
-%\title{Coordinating Distributed SDN Controllers:\\On the Consensus Power of Openflow}
+%\title{Coordinating Distributed SDN Controllers:\\On the Consensus Power of OPenFlow}
 
 %[[PK sorry for stubborness :)
-\title{On the Synchronization Power of the Openflow Data Plane}
+\title{On the Synchronization Power of the OPenFlow Data Plane}
 %\\ {\Large Towards Atomic Transactions In-Band}}
 %]]
 
-%\title{Synchronizing Distributed SDN Controllers\\{\Large The Openflow Container}}
+%\title{Synchronizing Distributed SDN Controllers\\{\Large The OPenFlow Container}}
 
-%\title{Synchronizing Distributed Openflow Controllers\\{\Large Toward More Powerful In-Band Synchronization Objects}}
+%\title{Synchronizing Distributed OPenFlow Controllers\\{\Large Toward More Powerful In-Band Synchronization Objects}}
 
 
 \author{
@@ -168,10 +168,10 @@ Germany; $^3$ T\'el\'ecom ParisTech, France
 
 
 \begin{abstract}
-Control planes of modern Software-Defined Networks (SDNs)
-are \emph{distributed systems}: to ensure availability and fault-tolerance,
+Control planes of forthcoming Software-Defined Networks (SDNs)
+will be \emph{distributed}: to ensure availability and fault-tolerance,
 to improve load-balancing, and to reduce overheads,
-control modules operating on the data plane are physically distributed.
+control modules operating on the data plane should be physically distributed.
 %a redundant control plane
 %can ensure a high availability, and a spatially distributed
 %control plane allows to handle time-critical dataplane
@@ -197,8 +197,8 @@ A transaction aggregates a sequence
 of control messages and specific synchronization primitives, 
 providing all-or-nothing semantics.
 We show that a powerful transactional interface can be implemented \emph{in
-  band}, using the standard Openflow commands on the data-plane configuration.
-%Indeed, recent Openflow versions already come with useful but primitive
+  band}, using the standard OpenFlow commands on the data-plane configuration.
+%Indeed, recent OpenFlow versions already come with useful but primitive
 %features, in particular \emph{bundling} and \emph{rule-overlap checks}.
 %In particular, we present a
 %transactional interface which supports arbitrary atomic
@@ -251,7 +251,7 @@ centralized controller, Software-Defined Networks (SDNs)
 simplify network management and facilitate faster innovations:
 the (software) control plane can evolve independently from the
 (hardware) data plane.
-Moreover, Openflow, the standard SDN protocol today, introduces many generalizations,
+Moreover, OpenFlow, the standard SDN protocol today, introduces many generalizations,
 in terms of traffic engineering, definition of flows, as well as in-band network functionalities,
 by relying on a simple match-action paradigm which allows us to define
 forwarding rules based not only on Layer-2, but also Layer-3 and Layer-4 (and possibly beyond).
@@ -267,13 +267,13 @@ First, in order to provide high availability,
 controllers should be redundant~\cite{onix,stn,onos}: a failure
 of one controller can be masked by other controllers. 
 Second, it has also been proposed to distribute controllers \emph{spatially}, in order to handle latency-sensitive and
-communication intensive 
+communication-intensive 
 %control-plane 
 data-plane
-events close to their origin~\cite{devoflow,kandoo,jukka,disco}
-Third, larger SDNs are likely to be operated by multiple administrators or may even offer
+events close to their origin~\cite{devoflow,kandoo,jukka,disco}.
+Third, larger SDNs are likely to be operated by multiple administrators~\cite{stn} or may even offer
 participatory interfaces where different users can install and trigger policy changes
-concurrently~\cite{participatory,stn}.
+concurrently~\cite{participatory}.
 
 %[[PK not sure I see why talking about it here
 %[[
@@ -307,61 +307,91 @@ when combined, \emph{increase} the load~\cite{log-cent}.
 To render things more difficult, controllers may also fail,
 even before their updates have been completed.
 
-The distributed computing literature offers
-a wide range of abstractions
-and techniques to solve synchronization and consistency problems.
-A particularly interesting concept in distributed computing is a \emph{transactional memory}:
-a shared memory which supports atomic transactions, describing a sequence of operations
-to be executed with an all-or-nothing semantics. Transactional memories can be used to
- solve many
-classic distributed computing problems, such as consensus.
+The concurrent computing literature offers
+a wide range of synchronization abstractions~\cite{HS08-book}. 
+E.g., the popular \emph{transactional
+  memory} abstraction~\cite{stm-st95,tm-book} provides a collection of
+concurrent processes with the ability of aggregating sequences of
+shared-memory operations in atomic \emph{transactions} with
+all-or-nothing semantics.   
 
-By providing more complex and atomic transactions over the
-switch configuration
-space, several synchronization problems can be resolved.
-This paper investigates the implementation of a transactional interface
-(\`{a} la STN~\cite{stn}) modified concurrently by multiple controllers.
-\petr{"interface modified concurrently" does not sound right -> "accessed concurrently"?}
+%[[PK 
+%and techniques to solve synchronization and consistency problems.
+%A particularly interesting concept in distributed computing is a \emph{transactional memory}:
+%a shared memory which supports atomic transactions, describing a sequence of operations
+%to be executed with an all-or-nothing semantics. Transactional memories can be used to
+% solve many
+%classic distributed computing problems, such as consensus.
+%]]
 
-\paragraph{Our Contributions}
-This paper shows how to implement a powerful transactional interface
-for software-defined networks.
-This transactional interface is reminiscent of
-classic transactional memory abstractions~\cite{stm-st95,tm-book}
-and
-can be used to resolve
-synchronization problems of distributed control planes efficiently.
-We show that this transactional interface can be used to implement
-consensus among distributed controllers or to consistently install a policy (also providing
+\paragraph{Contributions}
+This paper applies the principle of atomicity in concurrent computing
+to distributed SDN control planes. 
+%
+Extending the recent work on Software Transactional
+Networking~\cite{stn}, we propose synchronization constructs that
+allow a controller to represent multiple configuration commands an
+the data plane as an atomic transaction. 
+%
+If none of the transaction's commands \emph{conflicts} (where conflicts can be
+defined in a general application-specific way) with the current
+configuration, the transaction appears to be executed atomically.
+Otherwise, the transaction is aborted in its entirety and does not
+affect neither traffic nor other controllers.      
+
+
+%By providing more complex and atomic transactions over the
+%switch configuration
+%space, several synchronization problems can be resolved.
+%This paper investigates the implementation of a transactional interface
+%(\`{a} la STN~\cite{stn}) modified concurrently by multiple controllers.
+%\petr{"interface modified concurrently" does not sound right -> "accessed concurrently"?}
+
+We show that powerful synchronization constructs can be implemented
+directly \emph{in OpenFlow}, i.e., using the \emoh{de facto} standard SDN
+protocol. 
+In our implementation, a part of the data-plane configuration space is
+used as a shared memory storing information about  contention and
+conflicts between distributed controllers.
+A transaction can then contain standard OpenFlow control operation
+as well as  \emph{synchronization primitives} operating on this shared
+memory. 
+Our synchronization primitives allow the controllers to define complex notions
+of conflicts that can be used for coordinating configuration updates that
+operate over \emph{independent flow spaces}, but where dependencies are introduced
+in the mapping of the flows to the physical infrastructure. This is
+important, e.g., for load-balancing applications.
+
+%[[PK 
+%This paper shows how to implement a powerful transactional interface
+%for software-defined networks.
+%This transactional interface is reminiscent of
+%classic transactional memory abstractions~\cite{stm-st95,tm-book}
+%and
+%can be used to resolve
+%synchronization problems of distributed control planes efficiently.
+%]]
+
+We then show that, using our abstraction, the controllers can 
+solve several important synchronization problems. 
+We describe an implementation of the fundamental \emph{compare-and-swap} primitive, 
+which in turn can be used to solve consensus and
+implement a generic replicated service.
+We then implement a simple CAS-based concurrent policy-update mechanism. 
+Finally, we use our synchronization abstraction to provide
 the missing link for the read-modify-write object
 postulated in~\cite{cpc}).
-The atomic transactions supported by our interface
-may also define complex notions
-of conditions when transactions stand in conflict and should be serialized:
-For instance, conflicts may be defined for transactions which seemingly
-operate over \emph{independent flow spaces}, but where dependencies are introduced
-in the mapping of the flows to the physical infrastructure. This is attractive,
-e.g., for a load-balancing application.
-
-Interestingly, our transactional interface can be implemented using standard Openflow~\cite{of-spec} primitives,
-which by themselves are of limited use.
-Concretely, we introduce, and implement in standard Openflow,
-two new synchronization objects for managing \emph{distributed identifiers}:
-a \emph{claim-id object}, used for claiming an available identifier in a given
-(bounded or unbounded) set, and a \emph{read-write register object}, used for storing the
-currently used identifier.
 
 We hope that our work can also contribute to the ongoing discussion of what can be implemented
-in-band in Openflow~\cite{compute,reclaim}, by taking a first look
-at the relevant problem of distributed
-synchronization.
+in-band in OpenFlow~\cite{compute,reclaim}, by taking a first look
+at the problem of synchronization.
 
 %Finally, we also show that interesting synchronization mechanisms may be included
 %in-band even without the bundle feature, and as a case study, show
 %how to automatically \emph{compose} updates originating \emph{from different controllers}.
 
 % we show that powerful synchronization primitives
-%can be implemented in Openflow, allowing controllers to implement
+%can be implemented in OpenFlow, allowing controllers to implement
 %non-trivial atomic transactions, and detect and
 %automatically resolve conflicts. In particular, we show how to implement
 %the classic distributed computing primitive
@@ -381,9 +411,9 @@ synchronization.
 
 \paragraph{Organization}
 The rest of the paper is organized as follows.
-In Section~\ref{sec:background}, we review the basics of the  Openflow
+In Section~\ref{sec:background}, we review the basics of the  OpenFlow
 protocol and discuss its features which are relevant for our work.
-In Section~\ref{sec:motivation}, we discuss the limitations of the Openflow
+In Section~\ref{sec:motivation}, we discuss the limitations of the OpenFlow
 primitives and motivate the need for transactions.
 We then present our approach in detail in Section~\ref{sec:main}, and discuss use cases in Section~\ref{sec:apps}.
 %Section~\ref{sec:compo} describes how to perform in-band composition.
@@ -393,26 +423,26 @@ to the Appendix.
 
 %we provide the theoretical
 %background on our approach. Section~\ref{sec:realization}
-%then discusses the basic implementation of this approach in Openflow.
+%then discusses the basic implementation of this approach in OpenFlow.
 %Section~\ref{sec:extensions} discusses practical issues and extensions.
 %After reviewing related literature in Section~\ref{sec:relwork},
 %we conclude our work in
 %Section~\ref{sec:conclusion}.
 
-\section{Background: SDN and Openflow}\label{sec:background}
+\section{Background: SDN and OpenFlow}\label{sec:background}
 %\petr{ the 1st sentence does not belong here}\liron{I think it serves as a motivation for the section, but it fines by me to remove it}
 
 %In this section, we recall the basic SDN principles, with a focus on
-%Openflow~\cite{of-spec}, the standard SDN protocol today. 
+%OpenFlow~\cite{of-spec}, the standard SDN protocol today. 
 
 \paragraph{Control and data planes}
 Software-defined networking decouples \emph{control plane}, software
 controllers that configure the network, from the \emph{data plane}, the
 devices that implement the network.  
 % 
-In Openflow~\cite{of-spec}, the \emph{de facto} standard SDN protocol
-today, the data plane consists of \emph{Openflow switches}. 
-In a nutshell, the configuration of an Openflow switch is a set of
+In OpenFlow~\cite{of-spec}, the \emph{de facto} standard SDN protocol
+today, the data plane consists of \emph{OpenFlow switches}. 
+In a nutshell, the configuration of an OpenFlow switch is a set of
 \emph{rules}. 
 A rule is essentially a \emph{match-action} pair:
 the match part of a rule identifies the space of packet headers that are
@@ -434,7 +464,7 @@ fields, and fields can be wildcarded and sometimes bitmasked.
 A set of rules, associated with \emph{priority} levels, form \emph{flow
   entries} in a \emph{flow table}, and the 
 entries are ordered according to their priorities.
-Furthermore, an Openflow switch may maintain multiple flow tables
+Furthermore, an OpenFlow switch may maintain multiple flow tables
 forming a \emph{pipeline}.
 Data-plane packets are checked against flow entries in the pipelined
 tables to determine the set of actions the switch should perform on the packet.      
@@ -547,14 +577,14 @@ In this paper, we indicate sending this message and gathering the responds (the 
 %[[PK should go to the discussion?
 %We also remark that our solution is only based on flow tables
 %and does not make use
-%of \emph{Openflow group tables}, nor do we make use of \emph{cookies}: rules
+%of \emph{OpenFlow group tables}, nor do we make use of \emph{cookies}: rules
 %are always identified by exact matches.
 %]]
 
 
 \paragraph{Bundling}
 
-Another important feature in Openflow is the \emph{bundle}. 
+Another important feature in OpenFlow is the \emph{bundle}. 
 A controller can send multiple $\FlowMod$ commands  equipped with 
 the same \emph{bundle identifier}.
 These commands are buffered temporarily by
@@ -667,7 +697,7 @@ flag already provides a very powerful synchronization mechanism.
 Indeed, its ``min-transaction'' nature allows a controller 
 to install multiple flow entries in an atomic way, making
 %[[PK we did not say what reads and writes are... 
-%At first sight, the Openflow bundle feature seems to provide everything
+%At first sight, the OpenFlow bundle feature seems to provide everything
 %we need to implement our transactional interface \petr{did we say what we need already?}: the bundle
 % defines a sequence of read and write operations
 % on the switch state which is executed atomically.
@@ -771,14 +801,14 @@ by multiple controllers despite of concurrency and conflicts.
 %of consistent policy updates.%
 %
 %Before presenting our transactional interface and implementation,
-%let us first discuss the limitations of the Openflow features discussed above.
+%let us first discuss the limitations of the OpenFlow features discussed above.
 
 %\section{The Container Object}\label{sec:vision}
 
 \section{Synchronization abstractions}\label{sec:main}
 
 We now describe how our  meta-configuration space at
-an Openflow switch can be implemented and manipulated using our
+an OpenFlow switch can be implemented and manipulated using our
 synchronization framework. 
 
 
@@ -848,11 +878,11 @@ which none of its operations takes effect.
 \subsection{Synchronization primitives}
 
 Our approach is based on the distributed management of \emph{identifiers (IDs)} \petr{unclear what "identifiers" mean here}. In particular,
-we introduce two new synchronization objects (and describe their implementation in standard Openflow),
+we introduce two new synchronization objects (and describe their implementation in standard OpenFlow),
 which allow controllers to coordinate
 themselves based on these identifiers.
 
-As we will see, in the Openflow implementation of our mechanism, 
+As we will see, in the OpenFlow implementation of our mechanism, 
 in addition to the ``normal'' configuration stored at the switch
 (e.g., forwarding rules according to network policies), 
 controllers will maintain additional information 
@@ -899,12 +929,12 @@ Our resource-claimer object implements a weak type of locking, and exports opera
 semantics:
 %The container synchronization object introduced in this paper
 %is essentially a transactional memory abstraction which can be implemented
-%in standard Openflow switches.
+%in standard OpenFlow switches.
 %Before presenting the technical details in the next section,%
 %we give a brief overview.
 
 %The postulated container object can store an arbitrary number of \emph{items}.
-%As we will see, these items correspond to flow entries on the Openflow switch.
+%As we will see, these items correspond to flow entries on the OpenFlow switch.
 %The same item may even exist multiple times in the container (i.e., the container
 %is a multi-set).
 %The container
@@ -978,7 +1008,7 @@ abstractions using standard OpenFlow features.
 %\emph{bundling}, \emph{conditional application}, and \emph{groups}.
 %[[PK let us leave for the moment
 %We will describe later how to implement some of these features
-%in older Openflow versions where they are not
+%in older OpenFlow versions where they are not
 %supported. \textbf{TODO}
 %]]
 Algorithms~\ref{alg:claim}-\ref{alg:compare} describe implementations of
@@ -1343,7 +1373,7 @@ powerful synchronization mechanisms can be implemented
 in-band \emph{even without bundles}.
 Concretely, we show that sometimes it is even possible
 to automatically compose updates originating from different controllers,
-in-band and just using Openflow.
+in-band and just using OpenFlow.
 
 To illustrate this point, we consider a simple example
 with two controllers concurrently issuing updates to a single
@@ -1361,7 +1391,7 @@ FIXME: Explain, maybe even with an example?
 
 \begin{comment}
 
-\section{Transactions in Openflow}\label{sec:sync}
+\section{Transactions in OpenFlow}\label{sec:sync}
 
 Multi-write and read-modify transactions.
 
@@ -1385,7 +1415,7 @@ Next we show how such actions can be used to implement consensus with much less 
 
 idea: multi-write consensus, a not well-known result!
 
-In order to solve consensus we suggest to use the atomic multiple entries update capability (which is discussed in Openflow standard). A shared memory system that supports atomic write to (enough) multiple locations is known to allow the implementation of consensus objects. For example consider the following implementation utilizing $n^2$ memory locations, $M_{i,j}$, where $i,j\in[n]$, and the suggested values $\{v_i\}_{i\in [n]}$. All locations are initialized to zero.
+In order to solve consensus we suggest to use the atomic multiple entries update capability (which is discussed in OpenFlow standard). A shared memory system that supports atomic write to (enough) multiple locations is known to allow the implementation of consensus objects. For example consider the following implementation utilizing $n^2$ memory locations, $M_{i,j}$, where $i,j\in[n]$, and the suggested values $\{v_i\}_{i\in [n]}$. All locations are initialized to zero.
 
 In order to participate, a server i, writes its suggested value $V_i$ and atomically rewrites row i ($M_{i,*}$) with value "1" and column i ($M_{*,i}$) with value "2". After the atomic write, a server $i$ first reads the diagonal ($M_{j,j}$ for $j\in [n]$), and consider all observed servers as candidate set S.  Then server i reads all candidates intersections (locations $M_{j,k}$ where $j,k\in S$. And computes the winner server id w that was overwritten by all other candidates, i.e. such that $M_{w,k}=2$ for all $k\in S {w}$. The consensus value is $v_w$.
 Note that a snapshot could replace the two reading phases.
@@ -1403,7 +1433,7 @@ We show that assuming minimalistic control protocol, SDN switch configuration sp
 
 
 
-Our first observation is that a match-action configuration which is accessed by multiple controllers can be considered as shared memory. Note however that standard memory map and index/offset to a word, while Flow Table entries are not necessarily indexed. However, we assume that each flow entry has some property that allows the operator to specifically reference and update it, for example Openflow entry's cookie. In cases where this property value can't be determined by the operator, we can use other variable entry properties to store the index, for example we can represent memory value $v$ in offset $i$ by an match-action entry whose match is $in\_port = i$ and action is "forward port $x$".
+Our first observation is that a match-action configuration which is accessed by multiple controllers can be considered as shared memory. Note however that standard memory map and index/offset to a word, while Flow Table entries are not necessarily indexed. However, we assume that each flow entry has some property that allows the operator to specifically reference and update it, for example OpenFlow entry's cookie. In cases where this property value can't be determined by the operator, we can use other variable entry properties to store the index, for example we can represent memory value $v$ in offset $i$ by an match-action entry whose match is $in\_port = i$ and action is "forward port $x$".
 %To overcome this we can use the match part of an entry as the index and the action part as the word value.
 
 
@@ -1414,7 +1444,7 @@ Going back to the policy update problem, the consensus scheme allow all servers 
 In some scenarios it may be desirable to shorten the policy update time by avoiding the consensus reading and policy configuration step. We define this as the one touch policy update, namely we require each server to contact the switch only once in order to (try and) update the policy, in other words participating in reaching consensus and applying it with one atomic write. Solving this problem also has significance in understanding the strength of the SDN switch computation model.
 
 The main idea of our solution is to adjust the previous policy update scheme in a way that performs consensus validation phase during every packet processing thereby requiring the servers only to make the first phase of the consensus - atomically writing the matrix.
-In order to allow the packets to validate the consensus we make the following observation: while servers can be abstracted as memory writers, the packets processed by the switch are the readers. Openflow standard define an atomic write transaction as being atomic in relation to the processed packets thereby making packet processing a multiple read transaction but one read location per table is allowed. This means that if each memory location used in the consensus scheme will be stored in different table then each packet will be able to read all of them.
+In order to allow the packets to validate the consensus we make the following observation: while servers can be abstracted as memory writers, the packets processed by the switch are the readers. OpenFlow standard define an atomic write transaction as being atomic in relation to the processed packets thereby making packet processing a multiple read transaction but one read location per table is allowed. This means that if each memory location used in the consensus scheme will be stored in different table then each packet will be able to read all of them.
 
 However, reading each memory location is not enough, as the scheme requires to make a validation that involves multiple values. We utilize the metadata field in order to store all read values, in more details, each memory value $M_{i,j}$ is stored in offset i+j*n in the metadata field. Once all values are in the metadata field, we can detect the consensus winner by trying different matches on the metadata. Although we can have one match entry per possible matrix state, this solution requires exponential number of entries. A better way which we describe next requires only $O(n^2)$ entries utilizing n tables.
 
@@ -1487,7 +1517,7 @@ work on speculative concurrency control using software transactional memory
 %[[PK I think this is enough]]
 
 Our work also contributes to the ongoing discussion of what can be implemented
-in-band in Openflow~\cite{compute,reclaim}, by assuming the relevant perspective of distributed
+in-band in OpenFlow~\cite{compute,reclaim}, by assuming the relevant perspective of distributed
 synchronization.
 
 \hide{
@@ -1537,7 +1567,7 @@ question of which synchronization abstractions to provide
 has received much less attention.
 %
 In this paper, we describe transactional abstractions that
-can be implemented using standard Openflow features.
+can be implemented using standard OpenFlow features.
 %
 Our work complements existing research on the design of
 distributed control planes, and also provides some missing links,
@@ -1749,7 +1779,7 @@ Note that trying to delete a group that doesn't exist (or trying to create a gro
 
 using the bundling feature to implement \emph{multi-write} or, more
 widely, \emph{multi-modify} transactions. .
-, using a single Openflow switch that accepts
+, using a single OpenFlow switch that accepts
 bundle control messages.
 
 We first show that they can be used to replace the read-modify-write
@@ -1766,7 +1796,7 @@ TODO: write vision and contribution in full detail, as an overview
 
 using the bundling feature to implement \emph{multi-write} or, more
 widely, \emph{multi-modify} transactions. .
-, using a single Openflow switch that accepts
+, using a single OpenFlow switch that accepts
 bundle control messages.
 
 We first show that they can be used to replace the read-modify-write
