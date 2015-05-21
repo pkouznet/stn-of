@@ -519,9 +519,12 @@ The \emph{FlowMod} message (and also the flow entries) include more parameters,
 which however are irrelevant for our implementation: we suggest to
 use the default values.
 
-
-By installing Openflow \emph{flow monitors} with the \textsf{OFPFMF\_INITIAL} optional flag,  
-a controller can read the current configuration. 
+In order to read the current configuration of a switch (the existing flow entries), the controller should send
+%By installing 
+the OpenFlow \emph{add flow monitor} command with the \textsf{OFPFMF\_INITIAL} optional flag.
+%In reply the switch will send all the flow entries defined in the switch.
+In this paper, we indicate sending this message and gathering the responds (the reply messages containing the flow entries) by \emph{read configuration} statement which also returns the configuration.
+%, a controller can read the current configuration. 
 % %(and subscribe for updates). 
 %
 %can i match multiple flows in multiple tables? yes, but only for FlowMod, not GroupMod: but that is good enough!%
@@ -564,13 +567,14 @@ bundle, and $ecode$, the \emph{error code} corresponding to the failure.
 %multiple error messages for the same bundle.
 %]]
 
-When properly configured,
-a bundle can be processed in a \emph{packet-atomic} way, in the sense that
-each packet is processed according
-to the switch configuration either \emph{before} or \emph{after} the
+ 
+%When properly configured,
+Bundle execution is considered controller atomic in the sense that all controllers can observe switch states (configurations) that either \emph{before} or \emph{after} the
 bundle (i.e., all its commands) are executed. 
-\liron{we need to disscuss controller atomicity and order preservation inside a bundle}
-\petr{Right! :)}
+By specifying the flag OFPBF\_ATOMIC,  
+a bundle can also be  \emph{packet-atomic}, in a similar sense, which can prevent packets to being processed by intermediate (possibly invalid) configuration during a bundle.
+In addition, by specifying the flag OFPBF\_ORDERED,  bundle commands are executed according to the order they were added to the bundle, thereby allowing to perform dependent actions inside a bundle.
+\liron{i added controller atomicity and order preservation, see that it make sense...}
 
 
 %:a $\checko$ flag can be defined for each command in the bundle.\liron{these last two sentences are not cleaar}
