@@ -73,6 +73,8 @@
 \newcommand{\error}{\texttt{error}}
 \newcommand{\xid}{\texttt{xid}}
 \newcommand{\ecode}{\texttt{error-code}}
+\newcommand{\bundle}{\textbf{atomic}}
+\newcommand{\ack}{\textit{ack}}
 
 
 
@@ -482,7 +484,7 @@ field
 %,a match and an action.
 The standard processing of a FlowMod command received by a switch is
 as follows. 
-If the switch already maintains a flow entry with \emoh{exactly} the
+If the switch already maintains a flow entry with \emph{exactly} the
 same match, then the new flow entry will simply \emph{replace} it.
 \petr{What if the two rules have different priorities?}
 Otherwise, the flow entry will be installed in addition to existing ones. 
@@ -573,26 +575,6 @@ bundle (i.e., all its commands) are executed.
 
 %:a $\checko$ flag can be defined for each command in the bundle.\liron{these last two sentences are not cleaar}
 
-In this paper, we will use the notation
-%$\textbf{bundle}\{\;\ldots\;\}\rightarrow res$ to refer to represent a
-$\textbf{bundle}\{\;\ldots\;\}$ to refer to a
-sequence of commands sent in a bundle.
-%\petr{What about replacing $\top-\bot$ with ack-nack? Can we also get a reason why a bundle did not commit?}
-The bundle construct is implemented as a sequence of the following
-control messages:
-\begin{enumerate}
-\item A \emph{create bundle} message: a \texttt{ofpt\_bundle\_control} message of type
-\texttt{ofpbct\_open\_request} equipped with \textit{bid}, the bundle identifier.
-\item A sequence of commands, each wrapped in an
-\emph{add to bundle message} (\texttt{ofpt\_bundle\_add\_message})
-equipped with \emph{bid}.
-\item Finally, a \emph{commit bundle} control message (\texttt{ofpt\_bundle\_control}) of
-type \texttt{ofpbct\_commit\_request} with \textit{bid}.
-\end{enumerate}
-The construct returns $\ack$ if the bundle \emph{commits} and all commands are performed successfully, and
-$\error(\xid,\ecode)$ received from the switch otherwise.
-%Again, the bundle always returns a binary result: \emph{error} ($\bot$) or \emph{success} ($\top$).
-\petr{Should also provide the reason why the bundle has failed?}
 
 %\liron{the notion of transaction presented next is confusing considering the bundle just explained}
 %Concretely, a transaction can represent between two to five switch interactions:
@@ -769,8 +751,9 @@ by multiple controllers despite of concurrency and conflicts.
 
 \section{Synchronization abstractions}\label{sec:main}
 
-We now describe the implementation of the  meta-configuration space at
-an Openflow switch and synnhronization primitives to manipulate it. 
+We now describe how our  meta-configuration space at
+an Openflow switch can be implemented and manipulated using our
+synchronization framework. 
 
 
 \subsection{Configuration space}
@@ -785,12 +768,39 @@ controllers to synchronize their actions.
 
 \subsection{Transactional interface}
  
-Our framework provides the controllers a transactional interface to the
-meta-configuration.     
-A transaction consists of a sequence of \emph{operations}.
+Our framework provides the controllers with a transactional interface to the
+switch configuration.     
+A transaction consists of a sequence of \emph{operations}, which
+should either be executed in its entirety or completely rejected. 
+An operation can be a regular FlowMod command or a synchronization
+primitive, which, as we
+show below translate into specific FlowMod commands operating on the
+switch meta-configuration. 
+
+We will use the notation
+%$\textbf{bundle}\{\;\ldots\;\}\rightarrow res$ to refer to represent a
+$\bundle\{op_1,\;\ldots\;op_k\}$ to refer to a
+sequence of commands $op_1,\ldots,op_k$ sent in a bundle.
+%\petr{What about replacing $\top-\bot$ with ack-nack? Can we also get a reason why a bundle did not commit?}
+The bundle construct is implemented as a sequence of the following
+control messages:
+\begin{enumerate}
+\item A \emph{create bundle} message: a \texttt{ofpt\_bundle\_control} message of type
+\texttt{ofpbct\_open\_request} equipped with \textit{bid}, the bundle identifier.
+\item A sequence of commands, each wrapped in an
+\emph{add to bundle message} (\texttt{ofpt\_bundle\_add\_message})
+equipped with \emph{bid}.
+\item Finally, a \emph{commit bundle} control message (\texttt{ofpt\_bundle\_control}) of
+type \texttt{ofpbct\_commit\_request} with \textit{bid}.
+\end{enumerate}
+The construct returns $\ack$ if the bundle \emph{commits} and all commands are performed successfully, and
+$\error(\xid,\ecode)$ received from the switch otherwise.
+%Again, the bundle always returns a binary result: \emph{error} ($\bot$) or \emph{success} ($\top$).
+\petr{Should also provide the reason why the bundle has failed?}
 
 
 
+\hide{
 Given this motivation, we now present a more powerful transactional interface.
 At a high level, we aim to export a
 transactional interface which allows each controller $i\in[N]$ ($N\geq
@@ -799,6 +809,10 @@ operations on the configuration of an OpenFlow switch as an atomic
 \emph{transaction}, inspired by the transactional-memory paradigm~\cite{stm-st95,tm-book}. A transaction may \emph{commit}, in
 which case it appears as executed sequentially, or \emph{abort}, in
 which none of its operations takes effect.
+}
+
+
+\subsection{Synchronization primitives}
 
 Our approach is based on the distributed management of \emph{identifiers (IDs)} \petr{unclear what "identifiers" mean here}. In particular,
 we introduce two new synchronization objects (and describe their implementation in standard Openflow),
