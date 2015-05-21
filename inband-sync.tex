@@ -73,7 +73,8 @@
 \newcommand{\error}{\texttt{error}}
 \newcommand{\xid}{\texttt{xid}}
 \newcommand{\ecode}{\texttt{error-code}}
-\newcommand{\bundle}{\textbf{atomic}}
+\newcommand{\exec}{\textbf{execute}}
+\newcommand{\execatomic}{\textbf{execute-atomic}}
 \newcommand{\ack}{\textit{ack}}
 
 
@@ -420,7 +421,7 @@ the action part identifies how the switch should process the matched
 packets (e.g., forward them to a specific port).
 
 More precisely, the match field of a rule is 
-a  a ternary pattern over packet header fields
+a ternary pattern over packet header fields
 (a value and a mask).
 \petr{example?}
 In general, a packet can be matched against any of its header
@@ -475,19 +476,26 @@ determine the network \emph{policy}.
 Controllers can change the policy via sending  
 control messages containing \emph{FlowMod commands}.
 In a nutshell, a \emph{FlowMod} command either specifies a new flow entry or
-a modifications to an existing flow entry. \petr{The description below
+a modification to an existing flow entry. \petr{The description below
   does not explain how a flow entry can be modified.}  
 A flow entry consists of: (1)~a match 
 field
 %defined by a ternary pattern over packet header fields
 (a value and a mask), (2)~a set of actions, and (3)~a priority.
 %,a match and an action.
-The standard processing of a FlowMod command received by a switch is
+
+A FlowMod command can either add a flow entry or delete 
+The standard processing of a FlowMod $\add$ command received by a switch is
 as follows. 
 If the switch already maintains a flow entry with \emph{exactly} the
-same match, then the new flow entry will simply \emph{replace} it.
+same match and priority level, then the new flow entry will simply \emph{replace} it.
 \petr{What if the two rules have different priorities?}
-Otherwise, the flow entry will be installed in addition to existing ones. 
+Otherwise, the flow entry will be installed in addition to existing
+ones.
+A $\dele$ command simply remove an existing flow entry with the same
+match and priority  or does nothing if such an entry is not present.
+\petr{Is this correct?}
+
 %but will be installed
 %\emph{in addition} to existing entries if they only
 %partially overlap (or define flowspace subsets or supersets).
@@ -510,9 +518,12 @@ in implementing our synchronization abstractions.
 %the basis of our transactional interface.
 %]]
 We will use the following notation to create a \emph{FlowMod} message:
-$\FlowMod(\match, \action, \flags)$, $\match$ denotes the match,
+$\FlowMod(\match, \add/\dele, \action, \flags)$, where the first field
+$\match$ denotes the match,
+the second introduces 
 $\action$ the action, and $\flags$ the flags to activate the $\checko$
 feature.
+
 \petr{Sometimes we also write something like op=add in flowmod, should
   we specify it here?}  
 The \emph{FlowMod} message (and also the flow entries) include more parameters,
@@ -521,7 +532,7 @@ use the default values.
 
 In order to read the current configuration of a switch (the existing flow entries), the controller should send
 %By installing 
-the OpenFlow \emph{add flow monitor} command with the \textsf{OFPFMF\_INITIAL} optional flag.
+the OpenFlow \emph{add flow monitor} command with the \textsf{ofpt\_initial} optional flag.
 %In reply the switch will send all the flow entries defined in the switch.
 In this paper, we indicate sending this message and gathering the responds (the reply messages containing the flow entries) by \emph{read configuration} statement which also returns the configuration.
 %, a controller can read the current configuration. 
@@ -558,7 +569,7 @@ the bundle are rejected and an error
 message is sent to the controller that issued them.
 %If multiple \emph{FlowMod} messages with the $\checko$ flag are sent as a single bundle,
 The error message contains $\xid$, the identifier  first failed command in the
-bundle, and $ecode$, the \emph{error code} corresponding to the failure.   
+bundle, and $\ecode$, the \emph{error code} corresponding to the failure.   
 %[[PK too detailed and not very clear
 %Concretely, when the commit fails, the switch must generate an error message corresponding to the
 %message that could not be applied. The error message must use the identifier (\emph{xid}) of the offending message,
@@ -567,13 +578,24 @@ bundle, and $ecode$, the \emph{error code} corresponding to the failure.
 %multiple error messages for the same bundle.
 %]]
 
+The bundles used in this paper will always have the following structure:
+\begin{enumerate}
+\item First, a bundle contains a \emph{create bundle} message: a \texttt{ofpt\_bundle\_control} message of type
+\texttt{ofpbct\_open\_request}.
+\item The follows a sequence of commands (e.g., \emph{FlowMod}), each wrapped in an
+\emph{add to bundle message} (\texttt{ofpt\_bundle\_add\_message}) with the \emph{bundle identifier}.
+\item Finally, a \emph{commit bundle} control message (\texttt{ofpt\_bundle\_control}) of
+type \texttt{ofpbct\_commit\_request}.
+\end{enumerate}
+Again, the bundle always returns a binary result: \emph{error} ($\bot$) or \emph{success} ($\top$).
+
  
 %When properly configured,
 Bundle execution is considered controller atomic in the sense that all controllers can observe switch states (configurations) that either \emph{before} or \emph{after} the
 bundle (i.e., all its commands) are executed. 
-By specifying the flag OFPBF\_ATOMIC,  
+By specifying the flag \texttt{OFPBF\_ATOMIC},  
 a bundle can also be  \emph{packet-atomic}, in a similar sense, which can prevent packets to being processed by intermediate (possibly invalid) configuration during a bundle.
-In addition, by specifying the flag OFPBF\_ORDERED,  bundle commands are executed according to the order they were added to the bundle, thereby allowing to perform dependent actions inside a bundle.
+In addition, by specifying the flag \texttt{OFPBF\_ORDERED},  bundle commands are executed according to the order they were added to the bundle, thereby allowing to perform dependent actions inside a bundle.
 \liron{i added controller atomicity and order preservation, see that it make sense...}
 
 
@@ -765,42 +787,49 @@ synchronization framework.
 We distinguish two parts of the configuration space of a switch:
 the ``normal'' configuration which determines the network policy and
 is used to process the data-plane traffic (e.g., forwarding rules), 
-and the ``meta'' configuration that contains information used by the
+and the \emph{meta-configuration} that contains information used by the
 controllers to synchronize their actions.
 
-\petr{How to make sure that traffic is not affected by the ``meta'' part?}
-
-\subsection{Transactional interface}
+The meta-configuration is implemented as a set of flow entries
+designed in a way that it does not affect the processing of data-plane
+traffic. One way to do it is to set a low priority to
+the meta flow entries and ensure that the regular flow entries
+maintain higher priority levels.
+Alternatively, we could leverage the standard ability of maintaining multiple
+flow tables at an OpenFlow switch, and use a separate flow table for
+the meta-configuration,  making sure that the
+\emph{pipelining} mechanism~\cite{of-spec} will never involve this
+flow table. 
  
-Our framework provides the controllers with a transactional interface to the
-switch configuration.     
-A transaction consists of a sequence of \emph{operations}, which
+  
+
+%\petr{How to make sure that traffic is not affected by the ``meta'' part?}
+
+\subsection{Synchronization}
+ 
+Our framework provides the controllers with the ability to execute
+sequences of \emph{operations} on the 
+switch configuration in an \emph{atomic} (transactional) or \emph{non-atomic} mode.     
+In the atomic mode, all operations the sequence (which we also refer
+to as a \emph{transaction}) 
 should either be executed in its entirety or completely rejected. 
-An operation can be a regular FlowMod command or a synchronization
+In the non-atomic mode, no atomicity guarantees are provided. 
+An operation here can be a regular FlowMod command or a synchronization
 primitive, which, as we
-show below translate into specific FlowMod commands operating on the
+show below, translates into a sequence of FlowMod commands operating on the
 switch meta-configuration. 
 
-We will use the notation
+We propose the following constructs
 %$\textbf{bundle}\{\;\ldots\;\}\rightarrow res$ to refer to represent a
-$\bundle\{op_1,\;\ldots\;op_k\}$ to refer to a
-sequence of commands $op_1,\ldots,op_k$ sent in a bundle.
-%\petr{What about replacing $\top-\bot$ with ack-nack? Can we also get a reason why a bundle did not commit?}
-The bundle construct is implemented as a sequence of the following
-control messages:
-\begin{enumerate}
-\item A \emph{create bundle} message: a \texttt{ofpt\_bundle\_control} message of type
-\texttt{ofpbct\_open\_request} equipped with \textit{bid}, the bundle identifier.
-\item A sequence of commands, each wrapped in an
-\emph{add to bundle message} (\texttt{ofpt\_bundle\_add\_message})
-equipped with \emph{bid}.
-\item Finally, a \emph{commit bundle} control message (\texttt{ofpt\_bundle\_control}) of
-type \texttt{ofpbct\_commit\_request} with \textit{bid}.
-\end{enumerate}
-The construct returns $\ack$ if the bundle \emph{commits} and all commands are performed successfully, and
-$\error(\xid,\ecode)$ received from the switch otherwise.
+$\exec\{op_1,\;\ldots\;op_k\}$ and $\execatomic\{op_1,\;\ldots\;op_k\}$ 
+which refer to executing a sequence of commands $op_1,\ldots,op_k$ in
+a regular and atomic way, respectively.
+The construct returns $\ack$ if the sequence of operations is performed and all commands are performed successfully, and
+$\error(\xid,\ecode)$ received from the switch otherwise, providing
+the identifier of the first command in the sequence that failed
+together with the corresponding error code. 
 %Again, the bundle always returns a binary result: \emph{error} ($\bot$) or \emph{success} ($\top$).
-\petr{Should also provide the reason why the bundle has failed?}
+%\petr{Should also provide the reason why the bundle has failed?}
 
 
 
