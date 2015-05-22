@@ -456,13 +456,12 @@ The pattern is represented as a \emph{value} and a \emph{mask}.
 In the mask, certain header fields, e.g., port numbers or destination and source
 addresses, can be \emph{wildcarded}, stipulating that their content does
 not affect the match. 
-For examples, \texttt{src=10.1.14.0, ff.ff.ff.f0} matches all packets
-with source addresses in the range \texttt{10.1.14.0}--\texttt{10.1.14.127}.
-Certain field, such as \emph{metadata}, can be arbitrarily
+Certain field, such as \emph{src}, \emph{dst}, \emph{metadata}, can be arbitrarily
 bitmasked. 
 In our implementations, we are going to use bitmasking of the metadata
-filed for performing conditional operations on  its content.   
-\petr{Example?}
+field for performing conditional operations on  its content.   
+For examples, \texttt{port=10.1.14.0, ff.ff.ff.f0} matches all packets
+with source addresses in the range \texttt{10.1.14.0}--\texttt{10.1.14.127}.
 
 A \emph{configuration} of an OpenFlow switch is represented as a
 collection \emph{flow table}.
@@ -624,11 +623,17 @@ type \texttt{ofpbct\_commit\_request} (committing the bundle).
 
 %When properly configured,
 Bundle execution is considered \emph{controller-atomic} 
-in the sense that all controllers can observe switch states (configurations) that either \emph{before} or \emph{after} the
-bundle (i.e., all its commands) are executed. 
-By specifying the flag \texttt{ofpbf\_atomic},  
-a bundle can also be  \emph{packet-atomic}, in a similar sense, which can prevent packets to being processed by intermediate (possibly invalid) configuration during a bundle.
-In addition, by specifying the flag \texttt{ofpbf\_ordered},  bundle commands are executed according to the order they were added to the bundle, thereby allowing to perform dependent actions inside a bundle.
+in the sense that all controllers can only observe switch 
+configurations \emph{before} or \emph{after} the
+bundle commands are executed. 
+We set the flag \texttt{ofpbf\_atomic},  
+making bundles \emph{packet-atomic}, 
+in the sense that every data-plane packet is processed by a configuration
+before or after the bundle, and not by a configuration resulting from
+an incomplete bundle execution.
+We also set the flag \texttt{ofpbf\_ordered},  to make sure that the 
+bundle commands are executed in the order they were added to the
+bundle, thereby respecting dependencies between bundle commands.
 %\liron{i added controller atomicity and order preservation, see that it make sense...}
 
 
@@ -732,8 +737,9 @@ Second, sometimes it is desirable to react to conflicts in smarter ways than
 by simply aborting an operation, e.g., by supporting \emph{conditional modifications}.
 Let us consider two examples.
 
-\begin{enumerate}
-\item \textbf{Example 1: Handling complex dependencies.} Let us consider two controllers
+%\begin{enumerate}
+\vspace{2mm}
+\noindent \textbf{Example 1: Handling complex dependencies.} Let us consider two controllers
 in charge
 of \emph{load-balancing}.
 In a load-balancing application, seemingly independent actions, defined over
@@ -761,7 +767,8 @@ help here.
 
 %\petr{postpone the explanation of the right part of the figure until we come to CAS?} 
 
-\item \textbf{Example 2: Supporting modifications.} 
+\vspace{2mm}
+\noindent\textbf{Example 2: Supporting modifications.} 
 Consider the problem of modifying previously installed forwarding rules.
 While a bundle allows to conditionally add new rules or remove
 old rules (and, using the flow space overlap
@@ -770,7 +777,6 @@ rules were already there), it is not straightforward how to use it to
 modify existing rules, especially provided a specific condition.
 In other words, the bundle and overlap check only help
 for the \emph{conditional creation} of rules, not their \emph{modification}.
-\end{enumerate}
 
 
 Intuitively, one way to address these issues is to use a part of the
