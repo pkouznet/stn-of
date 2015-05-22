@@ -55,8 +55,9 @@
 \newcommand{\compare}{compare\xspace}
 \newcommand{\memwrite}{write\xspace}
 
-\newcommand{\addr}{\emph{addr}\xspace}
-\newcommand{\pid}{\emph{pid}\xspace}
+\newcommand{\addr}{\textit{addr}\xspace}
+\newcommand{\paddr}{\textit{paddr}\xspace}
+\newcommand{\pid}{\textit{pid}\xspace}
 \newcommand{\add}{\textbf{add}\xspace}
 \newcommand{\dele}{\textbf{delete}\xspace}
 
@@ -65,7 +66,7 @@
 \newcommand{\action}{\emph{action}\xspace}
 \newcommand{\flags}{\emph{flags}\xspace}
 \newcommand{\checko}{\texttt{check\_overlap}\xspace}
-\newcommand{\ufunc}{U} %apply\_update
+\newcommand{\ufunc}{update} %apply\_update
 \newcommand{\stefan}[1]{\textit{\textcolor{red}{[stefan]: #1}}} % Comments
 \newcommand{\liron}[1]{\textit{\textcolor{mygreen}{[liron]: #1}}} % Comments
 \newcommand{\petr}[1]{\textit{\textcolor{blue}{[petr]: #1}}} % Comments
@@ -88,7 +89,7 @@
 [1][res]{ $#1\gets$  \textbf{commit bundle}}
 
 \algblockdefx[Bundle]{startTxn}{endTxn} %
-[0]{\textbf{bundle}\{} %
+[0]{\textbf{\execatomic}\{} %
 [1][res]{ \} $\rightarrow #1$}
 
 
@@ -376,7 +377,7 @@ important, e.g., for load-balancing applications.
 
 We then show that, using our abstraction, the controllers can 
 solve several important synchronization problems. 
-We describe an implementation of the fundamental \emph{compare-and-swap} primitive, 
+We describe an implementation of the fundamental \emph{compare-and-set} primitive, 
 which in turn can be used to solve consensus and
 implement a generic replicated service.
 We then implement a simple CAS-based concurrent policy-update mechanism. 
@@ -1218,7 +1219,7 @@ with an identical one.
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets k$
-    		\State $flag \gets \texttt{OFPFF\_\checko}$
+    		\State $flag \gets \texttt{ofpff\_\checko}$
     		\State $cmd\gets \emph{FlowMod}(match, op = \add, flag, action) $
 			\Return $cmd$
     \end{algorithmic}
@@ -1297,31 +1298,41 @@ asynchrony and failure of any number of controllers.
 \paragraph{Policy Updates}
 
 As a second example, let us consider a simple policy update protocol that
-allows a set of  controllers to concurrently update switch  \emph{policies}, i.e., sets of
-effective flow tables rules, under the
-condition that these rules can be composed with the currently installed
+allows a set of  controllers to concurrently update switch policies, i.e., sets of
+%[[PK policies have been defined in Background]]
+effective flow entries, under the
+condition that these rules can be \emph{composed} with the currently installed
 policy.
+
 Let us assume that the composition predicate is encoded in a user-specific
-$\textit{\ufunc}()$ function~\cite{cpc}.
-Algorithm~\ref{alg:simple-update} uses the bundle feature to update the switch configuration, where the configuration contains both the policy and an abstracted memory address that holds the \emph{policy identifier (pid)} .
+$\textsc{\ufunc}()$ function~\cite{cpc}.
+Algorithm~\ref{alg:simple-update} uses the bundle feature to update
+the switch configuration, where the configuration contains both the
+policy and a meta-configuration memory address $\paddr$ that holds the \emph{policy identifier (pid)} .
 In the algorithm, the controller first reads the currently installed
-policy and its id \emph{pid}, executes the local update function ($\textit{\ufunc}$) which results with update commands and then tries to apply them atomically with updating the $pid$. If, meanwhile, a new
-policy (with a different identifier) has been installed, the update
+policy together with its {\pid},  applies the
+$\textsc{\ufunc}()$ function to the current policy which results in a
+set of update FlowMod commands and then tries to apply them 
+atomically together with a CAS operation on $\paddr$ replacing $\pid$
+with $\pid+1$. 
+The latter ensures that if, concurrently, a new policy (with a different identifier) has been installed, the update
 fails and takes no effect.
 % \liron{the term composition doesn't make sense now with the new user update function... }
 
-
 \liron{we can explain how a normal controller code can be instrumented to use our paradigm}
+\petr{did not get the comment}
 
+%[[PK clear from the algorithm?]]
+% and use them in order to make sure that the new policy, with id
+%$pid+1$, replaces the (what considered as) current policy, with id
+%$pid$. 
+%Considering the policies identifiers, we send the policy update
+%commands as part of a bundle that also tries to perform
+%$CAS(pid,pid+1)$, thereby insuring that the commands are
+%performed iff the current policy is still there and preventing other
+%controllers to replace the new policy with another without observing it.
 
-We use increasing numbers as policies
-identifiers and use them in order to make sure that the new policy, with id
-$pid+1$, replaces the (what considered as) current policy, with id
-$pid$. Considering the policies identifiers, we send the policy update
-commands as part of a bundle that also tries to perform
-$CAS(pid,pid+1)$, thereby insuring that the commands are
-performed iff the current policy is still there and preventing other
-controllers to replace the new policy with another without observing it.
+\petr{what does it mean for an update function to be ``unsafe''?}
 
 %For brevity, we omit explicitly putting the $\textbf{bundle}\{...\}$ construct
 %around each of the transactional operation used in the algorithm.
@@ -1335,7 +1346,7 @@ controllers to replace the new policy with another without observing it.
     \caption{Policy update with only CAS}
     \label{alg:simple-update}
     \begin{algorithmic}[1]
-    \Require unsafe policy update function $\ufunc$, a predefined switch (memory) address for policy id: $\pid_{\addr}$
+    \Require unsafe policy update function $\ufunc$, policy id $\addr$
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
@@ -1347,7 +1358,7 @@ controllers to replace the new policy with another without observing it.
 	 			%\State update policy selector to $my\_a$
  			\endTxn
      		%\State $res \gets $ commit transaction
-     	\Until{$res\neq \bot$}
+     	\Until{$res=\ack$}
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
 			\Return
@@ -1355,23 +1366,36 @@ controllers to replace the new policy with another without observing it.
     \end{algorithmic}
 \end{algorithm}
 
-
-Algorithm~\ref{alg:simple-update} allows policy identifiers to grow
-arbitrarily. In fact, as was observed in~\cite{cpc}, the number of currently
-used policies can be made proportional to the number of concurrent
+Note that in Algorithm~\ref{alg:simple-update}, policies identifiers
+grow without bound.
+However, as was observed in~\cite{cpc}, the number of currently
+used identifiers can be made proportional to the number of concurrent
 controllers.
-
-
+%
 \hide{
 It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we seek to
  obtain a unique \emph{id}. FIXME: to be continued...
  \textbf{LS: I am not sure if I need to tell every step of the story or maybe it best to explain the main dif from the previous one similarly to what I just wrote next}.
 }
+%
 
-Algorithm~\ref{alg:update} uses bounded number of policy ids by claiming the current policy id preventing someone of using it with different policy in the future (during the current update) and in the bundle used to update the policy it also checks that the new policy id that it about to use (chosen from a finite set of identifiers) wasn't claimed by someone else.
+Algorithm~\ref{alg:update} uses our id-claimer abstraction 
+to bound the number of policy identifiers.
+Claiming a policy id prevents another controller from using it with a
+different policy.
+A controller claims the current policy identifier, chooses a new id
+from a finite set of identifiers,   
+and then checks that the new policy id is not claimed by another controller.
+Note that in Algorithm \ref{alg:update}, the meta-configuration is
+used to store $pid$ and id-claimer.
+\petr{The description is not very clear.}
+
 
 \hide{
-We compute our new suggested policy by applying the update requests on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by anyone else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy.
+We compute our new suggested policy by applying the update requests on
+top of current policy, supporting any kind of requests and
+policies. Then we make a transaction (using the bundle feature) to
+atomically check that our policy id is not blocked by another controller, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy.
 
 If one of the actions in the transaction fails we try again. There is no progress guaranty for each controller but there is one for the whole system - at least one of the controller will succeed in fulfilling its update requirements.
 }
@@ -1385,10 +1409,10 @@ If one of the actions in the transaction fails we try again. There is no progres
  		%\Do
  		\Repeat
 		 	\State $\pid,claims,policy\gets$ \textbf{read-config} %switch configuration
- 			\State $claim(\pid)$
+ 			\State $\textbf{execute}\{claim(\pid)\}$
  			\State $\pid 2,claims,policy\gets$ \textbf{read-config} %switch configuration
  			\If {$\pid\neq \pid 2$}
-	 			\State $unclaim(\pid)$
+	 			\State $\textbf{execute} \{unclaim(\pid)\}$
  				\State {\bf continue} (\textbf{restart} loop)
  			\EndIf
  			\State $my\_id\gets$ choose a number from $C\setminus claims$
@@ -1399,9 +1423,9 @@ If one of the actions in the transaction fails we try again. There is no progres
 	 			\State $update\_cmds$ %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
-	 		\State $unclaim(\pid)$
+	 		\State $\textbf{execute} \{unclaim(\pid)\}$
      		%\State $res \gets $ commit transaction
-     	\Until{$res\neq\bot$}
+     	\Until{$res=\ack$}
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
 			\Return
@@ -1409,7 +1433,6 @@ If one of the actions in the transaction fails we try again. There is no progres
     \end{algorithmic}
 \end{algorithm}
 
-Note that in the case of Algorithm \ref{alg:update}, switch configuration is used to store $pid$ and resource claims (both implemented by flow entries) in addition to the policy.
 
 
 %\paragraph{One-Shot Update} FIXME: desribe how to implement one-shot update
@@ -1485,8 +1508,6 @@ We show that assuming minimalistic control protocol, SDN switch configuration sp
 
 
 
-
-
 Our first observation is that a match-action configuration which is accessed by multiple controllers can be considered as shared memory. Note however that standard memory map and index/offset to a word, while Flow Table entries are not necessarily indexed. However, we assume that each flow entry has some property that allows the operator to specifically reference and update it, for example OpenFlow entry's cookie. In cases where this property value can't be determined by the operator, we can use other variable entry properties to store the index, for example we can represent memory value $v$ in offset $i$ by an match-action entry whose match is $in\_port = i$ and action is "forward port $x$".
 %To overcome this we can use the match part of an entry as the index and the action part as the word value.
 
@@ -1508,16 +1529,6 @@ Our compact validation use additional temp variable, $temp_winner$, to hold the 
 \section{The Practical Implementation}\label{sec:extension}
 
 \end{comment}
-
-\petr{this is the first time we talk concretely about "policies" ("forwarding policies"?), but they were mentioned a few times before. Shouldn't we have a short "SDN primer" in Sec 3?}
-
-\petr{did not get what a "composition predicate" is}
-
-\petr{why apply-update is "local" ("local update function")?}
-
-\petr{the 1st paragraph is hard to digest}
-
-\petr{Sec 5.2 relies too heavily on [3]. Do we expect the reader unfamiliar with [3] to get it?}
 
 \section{Related Work}\label{sec:relwork}
 
@@ -1571,8 +1582,8 @@ work on speculative concurrency control using software transactional memory
 %[[PK I think this is enough]]
 
 Our work also contributes to the ongoing discussion of what can be implemented
-in-band in OpenFlow~\cite{compute,reclaim}, by assuming the relevant perspective of distributed
-synchronization.
+in-band in OpenFlow~\cite{compute,reclaim}, by focusing on the
+relevant problem of synchronization.
 
 \hide{
 In terms of distributed computing: TODO PETR: maybe modify a bit the text below
@@ -1612,7 +1623,7 @@ Also, we assumed that controllers are subject to failures, which is usually not
 assumed by STM implementations.
 }
 
-\section{Conclusion}\label{sec:conclusion}
+\section{Concluding Remarks}\label{sec:conclusion}
 
 While much progress has been made over the
 last years in the development of more intuitive programming
@@ -1629,6 +1640,18 @@ e.g., for the transactional approach taken by STN~\cite{stn}.
 We also hope that our work can nourish the discussion of
 which synchronization objects we can and want to implement
 in an SDN.
+
+Even though we believe that we propose efficient and consistent
+transactional framework for in-band synchronization, we do not claim
+that we offer an exhaustive set of synchronization primitives. Indeed,
+one may explore standard OpenFlow features to enable more powerful
+primitives. For instance, \emph{cookies}~\cite{openflow} can be used for modifying
+flow tables, based on more sophisticated conditions than the default
+``exact match''. 
+Also, the standard pipelining feature allows the switches to maintain multiple flow
+tables which can be traversed in arbitrary patterns, defining the sets
+of corresponding actions. 
+Exploring the power of such features is left to future work.  
 
 
 {
