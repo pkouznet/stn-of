@@ -1052,7 +1052,7 @@ values.
 In defining the value and the mask of the math part, we 
 use notation $a\concat b$ to represent a concatenation of two
 $32$bit integers $a$ and $b$: $a\concat b := (a<<32)+b$.
-We also write \texttt{*} for  a $32$bit 
+We also write \texttt{1$\ldots$1} for  a $32$bit 
 string of $1$'s used in a mask.  
 %
 The action part in these commands is defined as an integer, which in
@@ -1083,12 +1083,12 @@ the match part of the constructed commands represents a concatenation
 of two claimed identifiers. 
 In addition, every controller uses a unique mask part of the match
 defined as a distinct $32$bit controller identifier concatenated with
-\texttt{*}.
-This allows multiple controllers to claim the same number without
-overriding the same flow entry.
+\texttt{1$\ldots$1}.
+This allows multiple controllers to claim the same identifier without
+overriding existing flow entries.
 %
 For example, for any two resource identifiers $x_1$ and $x_2$ and controller identifiers $c_1\neq c_2$,
-the match patterns $m_1=(x_1\concat x_1, c_1\concat \texttt{*})$ and $ m_2=(x_2\concat x_2, c_2\concat \texttt{*})$ are distinct,
+the match patterns $m_1=(x_1\concat x_1, c_1\concat \texttt{1$\ldots$1})$ and $ m_2=(x_2\concat x_2, c_2\concat \texttt{1$\ldots$1})$ are distinct,
 even if $x_1=x_2$. 
 Therefore, they can both be used to claim and unclaim identifiers without affecting each other.
 
@@ -1121,7 +1121,7 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
     \Require \emph{self} as the calling controller id.
 %    \Ensure
     		\State $value \gets x\concat x$
-    		\State $mask \gets self\concat \texttt{*}$
+    		\State $mask \gets self\concat \texttt{1$\ldots$1}$
 	    	\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets 1$
@@ -1138,7 +1138,7 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
     \Require \emph{self} as the calling controller identifier.
 %    \Ensure
     		\State $value \gets x\concat x$
-    		\State $mask \gets self\concat \texttt{*}$
+    		\State $mask \gets self\concat \texttt{1$\ldots$1}$
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets 2$
@@ -1156,7 +1156,7 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
     \Require \emph{self} as the calling controller id.
 %    \Ensure
     		\State $value \gets x\concat x$
-    		\State $mask \gets self\concat \texttt{*}$
+    		\State $mask \gets self\concat \texttt{1$\ldots$1}$
     		%\State $cookie \gets x\concat self$
     		\State $match \gets (value,mask)$
     		\State $cmd\gets \emph{FlowMod}(match, op=\dele) $
@@ -1166,7 +1166,7 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
     \end{algorithmic}
 \end{algorithm}
 
-\paragraph{A memory abstraction}
+\paragraph{Write and compare}
 The memory \memwrite and \compare
  operations can be implemented using similar techniques.
  As can be seen in Algorithms \ref{alg:write}-\ref{alg:compare},
@@ -1190,7 +1190,7 @@ with an identical one.
     %\Require  id $i$.
 %    \Ensure
     		\State $value \gets \addr$
-    		\State $mask \gets  \texttt{*}. \texttt{*}.$
+    		\State $mask \gets  \texttt{1$\ldots$1}. \texttt{1$\ldots$1}.$
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets k$
@@ -1207,7 +1207,7 @@ with an identical one.
     %\Require  id $i$.
 %    \Ensure
     		\State $value \gets \addr$
-    		\State $mask \gets  \texttt{*}.\texttt{*}$
+    		\State $mask \gets  \texttt{1$\ldots$1}.\texttt{1$\ldots$1}$
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets k$
@@ -1756,7 +1756,7 @@ The $\checko$ flag enables us to add an entry if no contradicting entry exists a
 %    \Ensure
 			\State $cmds \gets new\ list()$
     		\State $value \gets  old$
-    		\State $mask \gets  \texttt{*}$
+    		\State $mask \gets  \texttt{1$\ldots$1}$
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets 2$
