@@ -569,11 +569,10 @@ A standard \emph{FlowMod} message (and also the flow entries) may specify
 more parameters, which are however irrelevant for our implementation, we suggest to
 use the default values.
 
-In order to read the current configuration of a switch (the existing flow entries), the controller should send
+To read the current configuration of a switch (the existing flow entries), the controller should send
 the OpenFlow \emph{add flow monitor} command with the \textsf{ofpt\_initial} optional flag.
-In this paper, we indicate sending this message and gathering the
-responds (the reply messages containing the flow entries) 
-by \textit{read-config} statement which returns the configuration.
+In this paper, we write \textit{read-config} for sending 
+this message, receiving a response, and returning the received configuration.
 
 \hide{
 %[[PK should go to the discussion?
