@@ -76,6 +76,8 @@
 \newcommand{\exec}{\textbf{execute}}
 \newcommand{\execatomic}{\textbf{execute-atomic}}
 \newcommand{\ack}{\textit{ack}}
+\newcommand{\true}{\textit{true}}
+\newcommand{\false}{\textit{false}}
 
 
 
@@ -1225,20 +1227,20 @@ with an identical one.
 
 
 
-\section{Use Cases}\label{sec:apps}
+\section{Applications}\label{sec:apps}
 
 We now discuss several applications of our transactional interface.
 
-\subsection{Compare-and-Set}
+\paragraph{Compare-and-Set}
 The pathological scenario described in the example in
 Figure~\ref{fig:CAS-example} can be easily resolved if we put
-policy update in a transactional $\execatomic}$ construct together
+policy update in our transactional $\execatomic$ construct together
  with a \emph{compare-and-set} (CAS) operation on the policy identifier.
 A $\cas(\addr,\textit{old},\textit{new})$ operation on a memory location $\addr$ 
 checks if the content of $\addr$ is $\textit{old}$ and if so, 
 replaces it with $\textit{new}$ and returns $\true$ (the CAS
-\emh{succeeds}), otherwise it returns $\true$ (the CAS
-\emh{fails} (which causes an abort of
+\emph{succeeds}), otherwise it returns $\true$ (the CAS
+\emph{fails} (which causes an abort of
 the invoking transaction). 
 It is straightforward to implement the CAS operation by executing
 $\textit{\compare}(\addr, old)$ followed by $\textit{\memwrite}(\addr,
@@ -1260,37 +1262,39 @@ As can be seen Algorithm \ref{alg:cas}, CAS is implemented by two commands. Thes
 			\Return $cmd1,cmd2$
     \end{algorithmic}
 \end{algorithm}
+}
 %]]
 
-CAS can be used to implement a wide range powerful abstractions
-shared by the controllers, such as queues, sets, hash tables,
-etc.~\cite{Her91} in the \emph{wait-free} manner, i.e., tolerating
-asynchrony and failure of any number of controllers.      
-In our transactional setting, the controllers
-can use CAS to replace the default value of such a register
-with their consensus input values (e.g., the identifiers of the
-policies that should be applied first). If the corresponding
-singleton transaction commits, the controller considers itself
-the \emph{winner} and decides on its input, if
-it aborts (the controller fails in the CAS) it remains to read the register to get the input of the
-winner to decide.
+A single CAS invocation can be used to solve the fundamental
+problem of fault-tolerant \emph{consensus}~\cite{FLP85} in which the controllers
+need to agree on one of their private inputs, despite failures of an
+arbitrary number of controllers.    
+Indeed, each controller simply performs, within a transaction, a CAS operation to replace the default value
+in a memory location at the meta-configuration of a data-plane switch.
+If the transaction commits, the controller considers itself
+the \emph{winner} and decides on its input, 
+if it aborts (the controller fails in the CAS), it remains to read the
+memory to get the input of the winner and decide on it.
 
-By using multiple CAS invocations, the controllers can implement any
-generic replicated state machine~\cite{Her91,Lam98}, which will be instrumental in the
-next section.
+Using multiple CAS invocations, the controllers can implement any
+generic replicated state machine~\cite{Her91,Lam98} on the control plane, 
+in the \emph{wait-free} manner, i.e., tolerating
+asynchrony and failure of any number of controllers.
+%which will be instrumental in the
+%next section.
 
-Moreover, given the CAS, we can also implement more complex operations,
-for example the replicated state machine postulated in STN~\cite{stn}:
-in order to choose tags in a consistent manner, CAS needs to be enhanced
-with a notion of tags.
+%Moreover, given the CAS, we can also implement more complex operations,
+%for example the replicated state machine postulated in STN~\cite{stn}:
+%in order to choose tags in a consistent manner, CAS needs to be enhanced%
+%with a notion of tags.
 
-\petr{when talking about replicated state machines, we should make it clear that we that we talk about replication among controllers.}
+%\petr{when talking about replicated state machines, we should make it clear that we that we talk about replication among controllers.}
 
-\petr{"more complex operations": more complex than what?}
+%\petr{"more complex operations": more complex than what?}
 
-\petr{the discussion of CAS in STN is confusing, given that we never described STN.}
+%\petr{the discussion of CAS in STN is confusing, given that we never described STN.}
 
-\subsection{Policy Updates}
+\paragraph{Policy Updates}
 
 As a second example, let us consider a simple policy update protocol that
 allows a set of  controllers to concurrently update switch  \emph{policies}, i.e., sets of
