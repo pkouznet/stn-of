@@ -47,7 +47,7 @@
 \algdef{SE}[TRANSACT]{StartTransaction}{EndTransaction}{\algorithmicaaa}[1]{\algorithmicwhile\ #1}%
 
 \newcommand{\hide}[1]{}
-\newcommand{\concat}[0]{\oplus}
+\newcommand{\concat}[0]{\cdot}
 \newcommand{\append}[0]{\frown}
 \newcommand{\Nat}{\mathbb{N}}
 \newcommand{\cas}{CAS\xspace}
@@ -117,7 +117,7 @@
 \begin{document}
 \sloppy
 
-%\title{Solving Consensus with OPenFlow}
+%\title{Solving Consensus with OpenFlow}
 
 %\title{One-Shot Coordination of Distributed SDN Controllers:\\The Case for Multi-Write Consensus}
 
@@ -126,7 +126,7 @@
 %\title{Coordinating Distributed SDN Controllers:\\On the Consensus Power of OPenFlow}
 
 %[[PK sorry for stubborness :)
-\title{On the Synchronization Power of the OPenFlow Data Plane}
+\title{On the Synchronization Power of the OpenFlow Data Plane}
 %\\ {\Large Towards Atomic Transactions In-Band}}
 %]]
 
@@ -348,7 +348,7 @@ affect neither traffic nor other controllers.
 %\petr{"interface modified concurrently" does not sound right -> "accessed concurrently"?}
 
 We show that powerful synchronization constructs can be implemented
-directly \emph{in OpenFlow}, i.e., using the \emoh{de facto} standard SDN
+directly \emph{in OpenFlow}, i.e., using the \emph{de facto} standard SDN
 protocol. 
 In our implementation, a part of the data-plane configuration space is
 used as a shared memory storing information about  contention and
@@ -450,20 +450,35 @@ subject to the rule (e.g., all packets to a specific destination) and
 the action part identifies how the switch should process the matched
 packets (e.g., forward them to a specific port).
 
-More precisely, the match field of a rule is 
-a ternary pattern over packet header fields
-(a value and a mask).
-\petr{example?}
-In general, a packet can be matched against any of its header
-fields, and fields can be wildcarded and sometimes bitmasked.
-\petr{unclear what ``sometimes'' means here}
-%(For instance, the meta-data field is maskable.) 
+More precisely, the match part of a rule is 
+a ternary pattern over packet \emph{header} fields.
+The pattern is represented as a \emph{value} and a \emph{mask}. 
+In the mask, certain header fields, e.g., port numbers or destination and source
+addresses, can be \emph{wildcarded}, stipulating that their content does
+not affect the match. 
+For examples, \texttt{src=10.1.14.0, ff.ff.ff.f0} matches all packets
+with source addresses in the range \texttt{10.1.14.0}--\texttt{10.1.14.127}.
+Certain field, such as \emph{metadata}, can be arbitrarily
+bitmasked. 
+In our implementations, we are going to use bitmasking of the metadata
+filed for performing conditional operations on  its content.   
+\petr{Example?}
 
+A \emph{configuration} of an OpenFlow switch is represented as a
+collection \emph{flow table}.
+A flow table is a set of \emph{flow entries}, each containing a rule,
+with a match, an action, and a \emph{priority} level, and flow entries
+are ordered according to their priorities.  
+In the simplest setting, a switch maintains one flow table (table 0).  
+A data-plane packet arriving at a switch is first checked against
+the rule with the highest priority and in table $0$. 
+If the header of the packet fits the match fields of that rule, 
+a default \emph{instruction} associates the packet with the corresponding action.
+Otherwise, the packet is checked against flow  entries with lower
+priorities, and if no matching rule is found, the packet is dropped.
 
-
-A set of rules, associated with \emph{priority} levels, form \emph{flow
-  entries} in a \emph{flow table}, and the 
-entries are ordered according to their priorities.
+%[[PK move pipelining to the discussion?
+\hide{
 Furthermore, an OpenFlow switch may maintain multiple flow tables
 forming a \emph{pipeline}.
 Data-plane packets are checked against flow entries in the pipelined
@@ -483,11 +498,13 @@ transfer temporary information between tables.
 The meta-data field is part of the header that can be
 inserted or removed from a packet via \emph{push} and \emph{pop}
 actions. 
-\petr{do we need the discussion of multiple tables/pipelining here? I still find it
-  very confusing}
 
 The actions associated with the packet are performed at the end of the pipeline.
 If no rule matches the packet, the packet is dropped.
+\petr{do we need the discussion of multiple tables/pipelining here? I still find it
+  very confusing}
+
+
 
 \liron{we should explain that: every packet is associated with an
   action set. This set is empty at the beginning and is changed
@@ -495,31 +512,29 @@ If no rule matches the packet, the packet is dropped.
   instructions that can add or modify actions in the action set and
   also to apply (now) all actions in the action set. By default action
   set is applied at the end of the pipeline.}
-
+}
 
 %\liron{I think that maybe the rest of this section should be explained by the following subsections, providing in depth description of the OpenFlow features.}
 %\liron{Another direction is to have a simplified explenation as now and to refference spesific sections of the standard in side our paper.}
 
-\paragraph{Interaction between control and data planes: FlowMod commands}
+\paragraph{Interaction between the planes: FlowMod commands}
 The flow tables installed on the switches across the data plane
 determine the network \emph{policy}.
 Controllers can change the policy via sending  
 control messages containing \emph{FlowMod commands}.
 In a nutshell, a \emph{FlowMod} command either specifies a new flow entry or
-a modification to an existing flow entry. \petr{The description below
-  does not explain how a flow entry can be modified.}  
-A flow entry consists of: (1)~a match 
-field
-%defined by a ternary pattern over packet header fields
-(a value and a mask), (2)~a set of actions, and (3)~a priority.
-%,a match and an action.
+a modification to an existing flow entry.  
+%[[PK already said
+%A flow entry consists of: (1)~a match 
+%field
+%(a value and a mask), (2)~a set of actions, and (3)~a priority.
+%]]
 
-A FlowMod command can either add a flow entry or delete 
+A FlowMod command can either add a flow entry or delete a flow entry.
 The standard processing of a FlowMod $\add$ command received by a switch is
 as follows. 
 If the switch already maintains a flow entry with \emph{exactly} the
 same match and priority level, then the new flow entry will simply \emph{replace} it.
-\petr{What if the two rules have different priorities?}
 Otherwise, the flow entry will be installed in addition to existing
 ones.
 A $\dele$ command simply remove an existing flow entry with the same
@@ -538,7 +553,6 @@ if the switch maintains is a flow entry with an overlapping but not
 identical match part with the same priority but a different action,
  and if the two rules have the same priority, then
 \emph{FlowMod} will fail.
-\petr{Is ``different action'' important here?}
 The $\checko$ flag in a \emph{FlowMod} command helps resolving simple
 conflicts between controllers, and will be instrumental
 in implementing our synchronization abstractions.  
@@ -548,58 +562,55 @@ in implementing our synchronization abstractions.
 %the basis of our transactional interface.
 %]]
 We will use the following notation to create a \emph{FlowMod} message:
-$\FlowMod(\match, \add/\dele, \action, \flags)$, where the first field
-$\match$ denotes the match,
-the second introduces 
-$\action$ the action, and $\flags$ the flags to activate the $\checko$
+$\FlowMod(\match, op, \action, \flags)$, where 
+%$\match$ denotes the match,
+$op$ is $\add$ or $\dele$, and $\flags$ are used, e.g.,  to activate the $\checko$
 feature.
-
-\petr{Sometimes we also write something like op=add in flowmod, should
-  we specify it here?}  
-The \emph{FlowMod} message (and also the flow entries) include more parameters,
-which however are irrelevant for our implementation: we suggest to
+A standard \emph{FlowMod} message (and also the flow entries) may specify
+more parameters, which are however irrelevant for our implementation, we suggest to
 use the default values.
 
 In order to read the current configuration of a switch (the existing flow entries), the controller should send
-%By installing 
 the OpenFlow \emph{add flow monitor} command with the \textsf{ofpt\_initial} optional flag.
-%In reply the switch will send all the flow entries defined in the switch.
-In this paper, we indicate sending this message and gathering the responds (the reply messages containing the flow entries) by \emph{read configuration} statement which also returns the configuration.
-%, a controller can read the current configuration. 
-% %(and subscribe for updates). 
-%
-%can i match multiple flows in multiple tables? yes, but only for FlowMod, not GroupMod: but that is good enough!%
-\liron{I changed a bit the description of flow monitors following Petr's comment, I hope it's more clear now.}
-\petr{Not very clear what reading the configuration means: is it done
-  in an atomic way?}
+In this paper, we indicate sending this message and gathering the
+responds (the reply messages containing the flow entries) 
+by \textit{read-config} statement which returns the configuration.
 
-
+\hide{
 %[[PK should go to the discussion?
-%We also remark that our solution is only based on flow tables
-%and does not make use
-%of \emph{OpenFlow group tables}, nor do we make use of \emph{cookies}: rules
-%are always identified by exact matches.
+We also remark that our solution is only based on flow tables
+and does not make use
+of \emph{OpenFlow group tables}, nor do we make use of \emph{cookies}: rules
+are always identified by exact matches.
 %]]
-
+}
 
 \paragraph{Bundling}
 
-Another important feature in OpenFlow is the \emph{bundle}. 
+Another important feature in OpenFlow is \emph{bundling}. 
 A controller can send multiple $\FlowMod$ commands  equipped with 
 the same \emph{bundle identifier}.
 These commands are buffered temporarily by
 the switch until a \emph{bundle commit} message is received from the
 controller. 
 The bundled commands are then performed with \emph{all-or-nothing semantics}:
-either all of the commands are performed, or none of them is. 
+either all of them are performed, or none of them is. 
 In particular, if a configuration request contained in one of the bundled commands cannot
-be applied (e.g.,  all the command is rejected because of the set
+be applied (e.g., the command is rejected because of the set
 $\checko$ flag and a conflicting flow entry), all  other commands in
 the bundle are rejected and an error
 message is sent to the controller that issued them.
 %If multiple \emph{FlowMod} messages with the $\checko$ flag are sent as a single bundle,
-The error message contains $\xid$, the identifier  first failed command in the
+The error message contains $\xid$, the identifier of the first failed command in the
 bundle, and $\ecode$, the \emph{error code} corresponding to the failure.   
+
+A bundle begins with a  \texttt{ofpt\_bundle\_control} message of type
+\texttt{ofpbct\_open\_request} (creating the bundle), wraps
+each of its \emph{FlowMod} command in a message  
+\texttt{ofpt\_bundle\_add\_message} equipped with the \emph{bundle
+  identifier}, and ends with a \texttt{ofpt\_bundle\_control} message of
+type \texttt{ofpbct\_commit\_request} (committing the bundle). 
+
 %[[PK too detailed and not very clear
 %Concretely, when the commit fails, the switch must generate an error message corresponding to the
 %message that could not be applied. The error message must use the identifier (\emph{xid}) of the offending message,
@@ -608,25 +619,17 @@ bundle, and $\ecode$, the \emph{error code} corresponding to the failure.
 %multiple error messages for the same bundle.
 %]]
 
-The bundles used in this paper will always have the following structure:
-\begin{enumerate}
-\item First, a bundle contains a \emph{create bundle} message: a \texttt{ofpt\_bundle\_control} message of type
-\texttt{ofpbct\_open\_request}.
-\item The follows a sequence of commands (e.g., \emph{FlowMod}), each wrapped in an
-\emph{add to bundle message} (\texttt{ofpt\_bundle\_add\_message}) with the \emph{bundle identifier}.
-\item Finally, a \emph{commit bundle} control message (\texttt{ofpt\_bundle\_control}) of
-type \texttt{ofpbct\_commit\_request}.
-\end{enumerate}
-Again, the bundle always returns a binary result: \emph{error} ($\bot$) or \emph{success} ($\top$).
 
- 
+%Again, the bundle always returns a binary result: \emph{error} ($\bot$) or \emph{success} ($\top$).
+
 %When properly configured,
-Bundle execution is considered controller atomic in the sense that all controllers can observe switch states (configurations) that either \emph{before} or \emph{after} the
+Bundle execution is considered \emph{controller-atomic} 
+in the sense that all controllers can observe switch states (configurations) that either \emph{before} or \emph{after} the
 bundle (i.e., all its commands) are executed. 
-By specifying the flag \texttt{OFPBF\_ATOMIC},  
+By specifying the flag \texttt{ofpbf\_atomic},  
 a bundle can also be  \emph{packet-atomic}, in a similar sense, which can prevent packets to being processed by intermediate (possibly invalid) configuration during a bundle.
-In addition, by specifying the flag \texttt{OFPBF\_ORDERED},  bundle commands are executed according to the order they were added to the bundle, thereby allowing to perform dependent actions inside a bundle.
-\liron{i added controller atomicity and order preservation, see that it make sense...}
+In addition, by specifying the flag \texttt{ofpbf\_ordered},  bundle commands are executed according to the order they were added to the bundle, thereby allowing to perform dependent actions inside a bundle.
+%\liron{i added controller atomicity and order preservation, see that it make sense...}
 
 
 %:a $\checko$ flag can be defined for each command in the bundle.\liron{these last two sentences are not cleaar}
@@ -710,10 +713,11 @@ bundling has important limitations.
 First, %if employed without any additional features, 
 a bundle does not provide any means to modify the switch configuration 
 based on a generic application-specific condition, depending on the
-current configuration, except to limited types of constraints, e.g.,
-or \emph{overlapping flow spaces} or insufficient free space.
-Indeed, sometimes it is desirable to  define more generic conditions
-under which configuration updates should or should not take place.   
+current configuration, except to limited types of constraints, such as
+overlapping flow spaces or insufficient free space.
+But we might need more generic conditions under which configuration
+updates 
+should or should not take place.   
 
 %But also bundling FlowMod commands with the check overlap feature ($\checko$)
 %comes with limitations: while it is possible
@@ -725,7 +729,7 @@ under which configuration updates should or should not take place.
 % \liron{replaced transaction in the last sentence with " atomic update"}
  
 Second, sometimes it is desirable to react to conflicts in smarter ways than
- to simply abort, e.g., by supporting \emph{conditional modifications}.
+by simply aborting an operation, e.g., by supporting \emph{conditional modifications}.
 Let us consider two examples.
 
 \begin{enumerate}
@@ -755,7 +759,7 @@ unbalanced state. Note that, assuming that all these flows are
 completely independent, bundling and $\checko$ features do not really
 help here.  
 
-\petr{postpone the explanation of the right part of the figure until we come to CAS?} 
+%\petr{postpone the explanation of the right part of the figure until we come to CAS?} 
 
 \item \textbf{Example 2: Supporting modifications.} 
 Consider the problem of modifying previously installed forwarding rules.
@@ -812,13 +816,15 @@ an OpenFlow switch can be implemented and manipulated using our
 synchronization framework. 
 
 
-\subsection{Configuration space}
-
+\paragraph{Configuration space}
+%
 We distinguish two parts of the configuration space of a switch:
 the ``normal'' configuration which determines the network policy and
 is used to process the data-plane traffic (e.g., forwarding rules), 
 and the \emph{meta-configuration} that contains information used by the
 controllers to synchronize their actions.
+Flow entries in the meta-configuration can be referred to as shared
+memory locations, provided a total addressing scheme. 
 
 The meta-configuration is implemented as a set of flow entries
 designed in a way that it does not affect the processing of data-plane
@@ -835,8 +841,8 @@ flow table.
 
 %\petr{How to make sure that traffic is not affected by the ``meta'' part?}
 
-\subsection{Synchronization}
- 
+\paragraph{Synchronization}
+ %
 Our framework provides the controllers with the ability to execute
 sequences of \emph{operations} on the 
 switch configuration in an \emph{atomic} (transactional) or \emph{non-atomic} mode.     
@@ -874,8 +880,9 @@ which case it appears as executed sequentially, or \emph{abort}, in
 which none of its operations takes effect.
 }
 
-
-\subsection{Synchronization primitives}
+\paragraph{Synchronization primitives}
+%
+\hide{
 
 Our approach is based on the distributed management of \emph{identifiers (IDs)} \petr{unclear what "identifiers" mean here}. In particular,
 we introduce two new synchronization objects (and describe their implementation in standard OpenFlow),
@@ -890,41 +897,44 @@ in the switch configuration: this information is used by the
 controllers to synchronize. 
 \petr{"As we will see,..." - looks funny compared with "As we will see ..." at the end of Sec 2}
 \subsection{Synchronization Objects}\label{sec:t-if}
+}
 
-We implement transactional access to  two kinds of objects:
-a read-write \emph{memory} abstraction
-object, which we will use for storing the current used policy identifier, and a
-\emph{resource-claimer} object, which allows controllers to claim a resource ID,
-e.g., a policy \emph{identifier} in a
-given (bounded or unbounded) set.
+Following the work on consistent policy
+updates~\cite{network-update,stn}, we focus on the consistent use of  \emph{policy
+identifiers}.
+Intuitively, a controller should 
+equip each policy update it wants to install with a distinct
+identifier
+%[[PK do not want to say ``unique'': we also need to motivate claimer-id]] 
+and the installation should succeed only if the identifier of the
+currently installed policy has not changed since the last time the
+controller read it.
+   
+Therefore, we provide the following transactional operations.
+A $\textit{write}(\addr,k)$ operation sets the content at memory location
+$\addr$ to $k$. 
+%
+%For  example, the offset $\addr$ may correspond to the policy identifier (\emph{pid}),
+%  but our approach is more general.
+%
+A $\textit{\compare}(\addr,k)$ operation \emph{aborts} the transaction
+if and only if the content at
+$\addr$ is \emph{not} $k$.
+Intuitively, by combining compare and write with a set of regular
+FlowMod commands in a transaction we can make sure that the
+configuration is changed and the current policy identifier is updated
+only if the check operation \emph{succeeds} (does not abort).      
+
+To make sure that policy identifiers do not grow without bound~\cite{stn}, we
+also provide a \emph{id-claimer} object.
+The object implements a weak type
+of locking by allowing a controller to claim a \emph{resource identifier} in a
+given set, release an identifier,  and check if a given identifier
+is currently claimed by any controller.
 %While In theory one can use the memory abstraction to implement the resource claimer,
 %however we found it far more simple and efficient to consider the resource claimer as base object.
 %
-
-With these base objects, we provide the following shared memory abstraction, with
-write-compare access semantics:
-\begin{itemize}
-\item By performing $\textit{write}(\addr,k)$,
-  $\addr,k\in\Nat$, the value at memory offset $\addr$ is set to $k$. For
-  example, the offset $\addr$ may correspond to the policy identifier (\emph{pid}),
-  but our approach is more general.
-
-\item By performing an operation $\textit{\compare}(\addr,k)$, $\addr,k\in\Nat$,
-a transaction can be aborted if the value at memory offset $\addr$ is not equal to $k$.
-%returns $\textit{true}$ if and
-%  only if $k$ is not currently claimed by any controller; if
-%  $\textit{false}$ is returned, we say that the check operation
-%  \emph{fails} (which causes an abort of the transaction invoking it).
-\end{itemize}
-
-\petr{it is unclear why exactly we need these write and compare operations}
-
-As we will see, the bundle feature is not required to implement these semantics.
-Also note that memory read operations correspond to reading the switch
-configuration, and are simple as they do not affect the execution of the transaction
-(unlike the $\textit{\compare}$ operation). \petr{read operations "do not affect the execution of the transaction" appears strange, given that a transaction, if committed, "appears to execute sequentially". Something seems wrong here...}
-
-Our resource-claimer object implements a weak type of locking, and exports operations \emph{claim},
+More precisely, the id-claimer object exports three operations \emph{claim},
 \emph{unclaim} and \emph{\claimcheck} with the following sequential
 semantics:
 %The container synchronization object introduced in this paper
@@ -941,14 +951,19 @@ semantics:
 %provides two main functions:
 \begin{itemize}
 \item With $\textit{claim}(k)$,
-  $k\in\Nat$, a controller $i\in[N]$ \emph{claims}
-  identifier $k$.
+%  $k\in\Nat$, 
+a controller %$i\in[N]$ 
+\emph{claims}  identifier $k$.
 
-\item With $\textit{unclaim}(k)$, $k\in\Nat$, controller $i\in[N]$
+\item With $\textit{unclaim}(k)$, %$k\in\Nat$, 
+the controller %$i\in[N]$
   \emph{unclaims} identifier $k$.
+An identifier $k$ is called \emph{claimed} at a given point of an
+execution if there is a controller that has performed $\textit{claim}(k)$
+but has not yet performed  $\textit{unclaim}(k)$.   
 
 \item If $k$ is currently claimed by any controller,
-$\textit{\claimcheck}(k)$, $k\in\Nat$,
+$\textit{\claimcheck}(k)$ %, $k\in\Nat$,
 aborts the current transaction.
 %returns $\textit{true}$ if and
 %  only if $k$ is not currently claimed by any controller; if
@@ -957,10 +972,11 @@ aborts the current transaction.
 
 \end{itemize}
 
-Again, none of these individual operations
-requires bundles. 
+%As we will see, the bundle feature is not required to implement these semantics.
+%Also note that memory read operations correspond to reading the switch
+%configuration, and are simple as they do not affect the execution of the transaction
+%(unlike the $\textit{\compare}$ operation). \petr{read operations "do not affect the execution of the transaction" appears strange, given that a transaction, if committed, "appears to execute sequentially". Something seems wrong here...}
 
-\petr{Would be great actually to motivate why we use reads, writes and claim ids. Maybe skecth a solution to some important problems using these primitives in the transactions.} \liron{we mention that its kind of locking. but I agree we can motivate it better}
 
 \begin{comment}
 \subsection{Interface}\label{sec:t-if}
@@ -995,41 +1011,57 @@ transactions, no future transaction can be affected.
 
 \end{comment}
 
-
-\petr{what is "offset" here (offset addr may correspond")?}\liron{I don't understand the comment}
-
-\subsection{Implementation}\label{sec:t-impl}
-
+\paragraph{Implementation}\label{sec:t-impl}
+%
 We now describe how to implement our transactional
 abstractions using standard OpenFlow features.
+Essentially, we translate each of the transactional operations into a
+sequence of FlowMod commands.  
+
+The implementation of $\exec\{op_1,\ldots,op_k\}$ and
+$\execatomic\{op_1,\ldots,op_k\}$ constructs
+invoked by a control application is simple.  
+First we translate  $op_1,\ldots,op_k$ into a sequence of FlowMod
+commands. If $op_i$ is already a FlowMid command, the translation is 
+trivial. If $op_i$ is a synchronization primitive in
+$\{\textit{claim},  \textit{checkclaim}, \textit{unclaim},
+\textit{write}, \textit{compare}\}$, we use
+Algorithms~\ref{alg:claim}, \ref{alg:check}, \ref{alg:unclaim},
+\ref{alg:write}, and \ref{alg:compare}, respectively, to get the
+corresponding command(s).   
+
+To run  $\exec\{op_1,\ldots,op_k\}$, we simply send the commands in
+the resulting sequence, one by one, to the switch. 
+%
+To run  $\execatomic\{op_1,\ldots,op_k\}$, we 
+additionally create a bundle, wrap each of the resulting commands in a
+bundle message with the corresponding bundle identifier, complete it
+with a bundle commit message.
+The we wait until the
+corresponding responses are received. 
+If an error message is received
+it is returned to the control application,
+otherwise $\ack$ is returned.
+
+We now describe Algorithms~\ref{alg:claim}-\ref{alg:write} in more
+detail. 
+Each of the operations generates one or two FlowMod commands. 
+The \textit{match} part in these commands specifies only the $64$bit meta-data
+field in the header space, leaving the remaining fields in default
+values.  
+In defining the value and the mask of the math part, we 
+use notation $a\concat b$ to represent a concatenation of two
+$32$bit integers $a$ and $b$: $a\concat b := (a<<32)+b$.
+We also write \texttt{*} for  a $32$bit 
+string of $1$'s used in a mask.  
+%
+The action part in these commands is defined as an integer, which in
+practice can be implemented by a \emph{set meta-data} instruction where the written value is that integer.
 
 
-%features , including
-%\emph{bundling}, \emph{conditional application}, and \emph{groups}.
-%[[PK let us leave for the moment
-%We will describe later how to implement some of these features
-%in older OpenFlow versions where they are not
-%supported. \textbf{TODO}
-%]]
-Algorithms~\ref{alg:claim}-\ref{alg:compare} describe implementations of
-transactional operations  $\textit{claim}(x)$, $\textit{\claimcheck}(x)$,
-$\textit{unclaim}(x)$, $\textit{write}(x)$ and $\textit{\compare}(x)$, respectively.
-%Algorithm~\ref{alg:commit} describes the procedure executed by
-%a transaction at \emph{commit time}.
-Each operation produces OpenFlow command messages that should be sent to the switch, possibly as part of a bundle. 
-\hide{ 
-We describe each operation as a message factory \petr{did not get what is "message factory"} that returns OpenFlow commands which
-should be sent to the switch as part of the same transaction.
-We assume that every transaction has a unique identifier and is used to start a \emph{bundle}.
-All messages generated during a transaction invocation, are wrapped by bundle messages carrying
-the bundle's ID and followed by bundle commit message.
-Messages with same bundle ID are considered to belong to same bundle and are performed atomically.
-\liron{I don't think we need all of this bundle staff here. we need to move it to next sextion - policy updates}
-}
-%The OpenFlow messages that we use (besides )
-
-%Our implementation is based on the \emph{FlowMod} command. 
-To simplify the algorithms we set the FlowMod command field values with integers, according to the following guidelines:
+\hide{
+%[[PK too lengthy, partially said before
+To simplify the presentation we set the FlowMod command field values with integers, according to the following guidelines:
 \begin{itemize}
 
 \item {\bf  Flag:} we often use the $\checko$ optional flag value to make the command execution dependent on switch state. In other cases, when the flag value remains zero, we omit the assignment.
@@ -1040,31 +1072,32 @@ To simplify the algorithms we set the FlowMod command field values with integers
 
 \end{itemize} 
 
-In addition we use "op" as shortened form to a field that indicates whether the command should $\add$ or $\dele$ the specified flow entry. This corresponds to the FlowMod field named "command" which can receive values OFPFC\_ADD and OFPFC\_DELETE.
-
-\paragraph{The resource claimer}
-\petr{
-the "resource claimed" part a hard read, the trick of using s and values is smart, deserves to be explained better
+In addition we use "op" as shortened form to a field that indicates whether the command should $\add$ or $\dele$ the specified flow entry. This corresponds to the FlowMod field named "command" which can receive values \textt{ofpfc\_add} and \texttt{ofpfc\_delete}.
+%]]
 }
 
-\petr{Alg 2 returns "cmd1, cmd2", what does it mean? Isn't it supposed to return a boolean?}
-\petr{what is this "$\concat$" operation? simple concatenation?}
-\petr{sometimes FlowMod commands have flag and action, sometimes not, sometimes flag=0, semantics of all this is unclear.}
-\liron{There is now some text above that should help to understand this part (the resource claimer) and the next one. I hope it does.}
+\paragraph{The id-claimer}
 
-As can be seen in Algorithms \ref{alg:claim}-\ref{alg:unclaim}, for the resource-claimer,
-the match part of the added flow entry represents the claimed ID (the ID is concatenated twice). 
-In addition the mask part of the match (controller ID concatenated with all-ones) varies from one controller
-to another in order to allow multiple controllers to claim the same number without overriding the same flow entry. 
-We can see that for any two resource IDs $x_1$ and $x_2$ and controller IDs $c_1\neq c_2$,
-the match patterns $m_1=(x_1\concat x_1, c_1\concat all-1)$ and $ m_2=(x_2\concat x_2, c_2\concat all-1)$ are not equal,
-even if $x_1=x_2$; therefore, they can both be used to claim and unclaim identifiers without affecting each other.
+In Algorithms \ref{alg:claim}-\ref{alg:unclaim}, 
+the match part of the constructed commands represents a concatenation
+of two claimed identifiers. 
+In addition, every controller uses a unique mask part of the match
+defined as a distinct $32$bit controller identifier concatenated with
+\texttt{*}.
+This allows multiple controllers to claim the same number without
+overriding the same flow entry.
+%
+For example, for any two resource identifiers $x_1$ and $x_2$ and controller identifiers $c_1\neq c_2$,
+the match patterns $m_1=(x_1\concat x_1, c_1\concat \texttt{*})$ and $ m_2=(x_2\concat x_2, c_2\concat \texttt{*})$ are distinct,
+even if $x_1=x_2$. 
+Therefore, they can both be used to claim and unclaim identifiers without affecting each other.
 
-In order to check if a number is claimed, we try to create the
-corresponding entry while setting the
-flag \texttt{\checko}, and using different actions ($2$ instead of $1$), thereby inflicting
-a failure in case an entry with overlapping match value exists.
-If the check succeeds, we delete the entry. Considering $m_1$ and $m_2$ as defined above,
+In order to check if an identifier is claimed, a controller tries to add the
+a new entry setting the flag \texttt{\checko}, and using a different
+action ($2$ instead of $1$), 
+thereby inflicting a failure in case an entry with overlapping match value exists.
+If the check succeeds, we delete the entry. 
+In the example above above,
 and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap
 with different actions iff $x_1=x_2$. Therefore, if one is used in \claimcheck after the other used in the claim operation,
 a conflict is detected iff $x_1=x_2$, as desired.
@@ -1088,7 +1121,7 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
     \Require \emph{self} as the calling controller id.
 %    \Ensure
     		\State $value \gets x\concat x$
-    		\State $mask \gets self\concat all-1$
+    		\State $mask \gets self\concat \texttt{*}$
 	    	\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets 1$
@@ -1102,10 +1135,10 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
     \caption{$\textit{\claimcheck}(x)$}
     \label{alg:check}
     \begin{algorithmic}[1]
-    \Require \emph{self} as the calling controller ID.
+    \Require \emph{self} as the calling controller identifier.
 %    \Ensure
     		\State $value \gets x\concat x$
-    		\State $mask \gets self\concat all-1$
+    		\State $mask \gets self\concat \texttt{*}$
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets 2$
@@ -1123,7 +1156,7 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
     \Require \emph{self} as the calling controller id.
 %    \Ensure
     		\State $value \gets x\concat x$
-    		\State $mask \gets self\concat all-1$
+    		\State $mask \gets self\concat \texttt{*}$
     		%\State $cookie \gets x\concat self$
     		\State $match \gets (value,mask)$
     		\State $cmd\gets \emph{FlowMod}(match, op=\dele) $
@@ -1157,7 +1190,7 @@ with an identical one.
     %\Require  id $i$.
 %    \Ensure
     		\State $value \gets \addr$
-    		\State $mask \gets  all-1$
+    		\State $mask \gets  \texttt{*}. \texttt{*}.$
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets k$
@@ -1174,7 +1207,7 @@ with an identical one.
     %\Require  id $i$.
 %    \Ensure
     		\State $value \gets \addr$
-    		\State $mask \gets  all-1$
+    		\State $mask \gets  \texttt{*}.\texttt{*}$
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets k$
@@ -1261,9 +1294,9 @@ fails and takes no effect.
 
 
 We use increasing numbers as policies
-IDs and use them in order to make sure that the new policy, with id
+identifiers and use them in order to make sure that the new policy, with id
 $pid+1$, replaces the (what considered as) current policy, with id
-$pid$. Considering the policies IDs, we send the policy update
+$pid$. Considering the policies identifiers, we send the policy update
 commands as part of a bundle that also tries to perform
 $CAS(pid,pid+1)$, thereby insuring that the commands are
 performed iff the current policy is still there and preventing other
@@ -1285,7 +1318,7 @@ controllers to replace the new policy with another without observing it.
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
- 			\State $\pid,policy\gets$ \textbf{read} switch configuration
+ 			\State $\pid,policy\gets$ \textbf{read-config} %switch configuration
  			\State $update\_cmds\gets \ufunc(policy)$
  			\startTxn
 	 			\State $CAS(\pid_{\addr},\pid,\pid+1)$,
@@ -1314,7 +1347,7 @@ It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we
  \textbf{LS: I am not sure if I need to tell every step of the story or maybe it best to explain the main dif from the previous one similarly to what I just wrote next}.
 }
 
-Algorithm~\ref{alg:update} uses bounded number of policy ids by claiming the current policy id preventing someone of using it with different policy in the future (during the current update) and in the bundle used to update the policy it also checks that the new policy id that it about to use (chosen from a finite set of IDs) wasn't claimed by someone else.
+Algorithm~\ref{alg:update} uses bounded number of policy ids by claiming the current policy id preventing someone of using it with different policy in the future (during the current update) and in the bundle used to update the policy it also checks that the new policy id that it about to use (chosen from a finite set of identifiers) wasn't claimed by someone else.
 
 \hide{
 We compute our new suggested policy by applying the update requests on top of current policy, supporting any kind of requests and policies. Then we make a transaction (using the bundle feature) to atomically check that our policy id is not blocked by anyone else, to change the current policy id to ours (an action that would fail if the current policy id is no longer what we are counting of) and to actually configure our new policy.
@@ -1330,9 +1363,9 @@ If one of the actions in the transaction fails we try again. There is no progres
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
-		 	\State $\pid,claims,policy\gets$ \textbf{read} switch configuration
+		 	\State $\pid,claims,policy\gets$ \textbf{read-config} %switch configuration
  			\State $claim(\pid)$
- 			\State $\pid 2,claims,policy\gets$ \textbf{read} switch configuration
+ 			\State $\pid 2,claims,policy\gets$ \textbf{read-config} %switch configuration
  			\If {$\pid\neq \pid 2$}
 	 			\State $unclaim(\pid)$
  				\State {\bf continue} (\textbf{restart} loop)
@@ -1607,7 +1640,7 @@ struct ofp_flow_mod {
 		\texttt{ofpfc_{modify}*} or \texttt{ofpfc_{delete}*. A value
 		of 0 indicates no restriction. */
 	/* Flow actions. */
-	uint8_t table_id; /* ID of the table to put the flow in.
+	uint8_t table_id; /* identifier of the table to put the flow in.
 		For OFPFC_DELETE_* commands, OFPTT_ALL
 		can also be used to delete matching
 		flows from all tables. */
@@ -1676,7 +1709,7 @@ struct ofp_bundle_add_msg {
     \caption{Policy composition without bundle}
     \label{alg:wobundle}
     \begin{algorithmic}[1]
-    \Require policy $P$ (a set of FlowMod entry creation commands), three consecutive flow tables IDs (per controller) $T_s,T_0,T_1$, active table index $active\in\{0,1\}$.
+    \Require policy $P$ (a set of FlowMod entry creation commands), three consecutive flow tables identifiers (per controller) $T_s,T_0,T_1$, active table index $active\in\{0,1\}$.
     %\Ensure installed policy is consistent with previous one
     \State $unactive \gets active + 1 \mod{2}$
     \For {$cmd \in P$}
@@ -1723,7 +1756,7 @@ The $\checko$ flag enables us to add an entry if no contradicting entry exists a
 %    \Ensure
 			\State $cmds \gets new\ list()$
     		\State $value \gets  old$
-    		\State $mask \gets  all-1$
+    		\State $mask \gets  \texttt{*}$
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
     		\State $action \gets 2$
