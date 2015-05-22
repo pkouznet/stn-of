@@ -1225,19 +1225,28 @@ with an identical one.
 
 
 
-\section{Discussion of Use Cases}\label{sec:apps}
+\section{Use Cases}\label{sec:apps}
 
-Let us discuss some use cases of our transactional interface.
+We now discuss several applications of our transactional interface.
 
-\subsection{CAS and Consensus}
-\petr{ some motivation of why CAS is important/useful is missing}
-Given our memory interface and using the bundle concept, we can implement
-a powerful \emph{Compare-And-Set} (CAS) operation which takes two integer parameters
-$\textit{old}$ and $\textit{new}$, reads the register and, if the
-value of it is $\textit{old}$, replaces it with $\textit{new}$ and
-returns $\top$; otherwise, $\bot$ is returned and
-we say that the CAS operation \emph{fails} (which causes an abort of
-the invoking transaction). As can be seen Algorithm \ref{alg:cas}, CAS is implemented by two commands. These commands should be sent as part of the same bundle
+\subsection{Compare-and-Set}
+The pathological scenario described in the example in
+Figure~\ref{fig:CAS-example} can be easily resolved if we put
+policy update in a transactional $\execatomic}$ construct together
+ with a \emph{compare-and-set} (CAS) operation on the policy identifier.
+A $\cas(\addr,\textit{old},\textit{new})$ operation on a memory location $\addr$ 
+checks if the content of $\addr$ is $\textit{old}$ and if so, 
+replaces it with $\textit{new}$ and returns $\true$ (the CAS
+\emh{succeeds}), otherwise it returns $\true$ (the CAS
+\emh{fails} (which causes an abort of
+the invoking transaction). 
+It is straightforward to implement the CAS operation by executing
+$\textit{\compare}(\addr, old)$ followed by $\textit{\memwrite}(\addr,
+new)$ withing the same bundle.  
+
+%[[PK said it in the text
+\hide{
+As can be seen Algorithm \ref{alg:cas}, CAS is implemented by two commands. These commands should be sent as part of the same bundle
 
 \begin{algorithm}[h]
     \caption{$\textit{\cas}(\addr, old,new)$}
@@ -1251,10 +1260,13 @@ the invoking transaction). As can be seen Algorithm \ref{alg:cas}, CAS is implem
 			\Return $cmd1,cmd2$
     \end{algorithmic}
 \end{algorithm}
+%]]
 
-It is then straightforward to implement consensus among the controllers
-using just a single register that can be accessed with an atomic CAS
-operation~\cite{Her91}. In our transactional setting, the controllers
+CAS can be used to implement a wide range powerful abstractions
+shared by the controllers, such as queues, sets, hash tables,
+etc.~\cite{Her91} in the \emph{wait-free} manner, i.e., tolerating
+asynchrony and failure of any number of controllers.      
+In our transactional setting, the controllers
 can use CAS to replace the default value of such a register
 with their consensus input values (e.g., the identifiers of the
 policies that should be applied first). If the corresponding
