@@ -455,7 +455,7 @@ packets (e.g., forward them to a specific port).
 
 More precisely, the match part of a rule is 
 a ternary pattern over packet \emph{header} fields.
-The pattern is represented as a \emph{value} and a \emph{mask}. 
+The pattern is represented as a \emph{value} and a \emph{mask}. \liron{we need to discuss about this, I am not sure this description is accurate.}
 In the mask, certain header fields, e.g., port numbers or destination and source
 addresses, can be \emph{wildcarded}, stipulating that their content does
 not affect the match. 
@@ -1051,7 +1051,7 @@ If an error message is received
 it is returned to the control application,
 otherwise $\ack$ is returned.
 
-We now describe Algorithms~\ref{alg:claim}-\ref{alg:write} in more
+We now describe Algorithms~\ref{alg:claim}-\ref{alg:compare} in more
 detail. 
 Each of the operations generates one or two FlowMod commands. 
 The \textit{match} part in these commands specifies only the $64$bit meta-data
@@ -1105,9 +1105,9 @@ a new entry setting the flag \texttt{\checko}, and using a different
 action ($2$ instead of $1$), 
 thereby inflicting a failure in case an entry with overlapping match value exists.
 If the check succeeds, we delete the entry. 
-In the example above above,
-and their respective actions $a_1=x_1\concat c1$ and $a_2=x_2\concat c2$,  they overlap
-with different actions iff $x_1=x_2$. Therefore, if one is used in \claimcheck after the other used in the claim operation,
+Con sidering, $m_1$ and $m_2$ from the example above,
+with respective actions $a_1=1$ and $a_2=2$,  they overlap
+with different actions iff $x_1=x_2$. Therefore, if $m_1$ is used in \claimcheck after $m_2$ used in the claim operation,
 a conflict is detected iff $x_1=x_2$, as desired.
 
 Note that for switch space reasons, when checking for claims, also the deletion of the added tester flow entry is included,
