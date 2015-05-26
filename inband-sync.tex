@@ -352,7 +352,18 @@ affect neither traffic nor other controllers.
 
 We show that powerful synchronization constructs can be implemented
 directly \emph{in OpenFlow}, i.e., using the \emph{de facto} standard SDN
-protocol. 
+protocol. This allows us to efficiently alleviate the problems related to
+coordinating controllers via a control-plane
+out-of-band network, in the presence of asynchrony and failures. 
+Indeed, the inherent costs  of such protocols are often considered too high, both in
+terms of the necessary computability assumptions about the underlying
+system~\cite{FLP85,CHT96,cap-theorem}, and the amount of communication
+complexity~\cite{Lam98,Lam06}.
+In contrast, our \emph{in-band} solution allows the
+controllers to solve fundamental agreement tasks in just one message
+exchange with the data plane, tolerating asynchrony and failures of
+any number of controllers.    
+
 In our implementation, a part of the data-plane configuration space is
 used as a shared memory storing information about  contention and
 conflicts between distributed controllers.
@@ -377,13 +388,16 @@ important, e.g., for load-balancing applications.
 
 We then show that, using our abstraction, the controllers can 
 solve several important synchronization problems. 
-We describe an implementation of the fundamental \emph{compare-and-set} primitive, 
+We describe an implementation of the fundamental
+\emph{compare-and-set} (CAS) primitive, 
 which in turn can be used to solve consensus and
-implement a generic replicated service.
+implement a generic replicated service~\cite{Her91,Lam98} in a consistent and
+fault-tolerant way, which became a mainstream building block in
+modern system design~\cite{bigtable,spanner,zookeeper}.  
 We then implement a simple CAS-based concurrent policy-update mechanism. 
 Finally, we use our synchronization abstraction to provide
 the missing link for the read-modify-write object
-postulated in~\cite{cpc}).
+postulated in~\cite{cpc}). \petr{We do not seem to discuss the latter?}
 
 We hope that our work can also contribute to the ongoing discussion of what can be implemented
 in-band in OpenFlow~\cite{compute,reclaim}, by taking a first look
@@ -539,7 +553,7 @@ If the switch already maintains a flow entry with \emph{exactly} the
 same match and priority level, then the new flow entry will simply \emph{replace} it.
 Otherwise, the flow entry will be installed in addition to existing
 ones.
-A $\dele$ command simply remove an existing flow entry with the same
+A $\dele$ command simply removes an existing flow entry with the same
 match and priority  or does nothing if such an entry is not present.
 \petr{Is this correct?}
 
@@ -1266,8 +1280,10 @@ As can be seen Algorithm \ref{alg:cas}, CAS is implemented by two commands. Thes
 }
 %]]
 
-A single CAS invocation can be used to solve the fundamental
-problem of fault-tolerant \emph{consensus}~\cite{FLP85} in which the controllers
+CAS can be used to solve the fundamental
+problem of fault-tolerant \emph{consensus}~\cite{FLP85}
+\hide{%[[PK, feels like we do not really need this level of detail here
+ in which the controllers
 need to agree on one of their private inputs, despite failures of an
 arbitrary number of controllers.    
 Indeed, each controller simply performs, within a transaction, a CAS operation to replace the default value
@@ -1276,10 +1292,10 @@ If the transaction commits, the controller considers itself
 the \emph{winner} and decides on its input, 
 if it aborts (the controller fails in the CAS), it remains to read the
 memory to get the input of the winner and decide on it.
-
-Using multiple CAS invocations, the controllers can implement any
-generic replicated state machine~\cite{Her91,Lam98} on the control plane, 
-in the \emph{wait-free} manner, i.e., tolerating
+}
+and, more generally, 
+to implement any generic replicated state machine~\cite{Her91,Lam98} 
+in the control plane,  in the \emph{wait-free} manner, i.e., tolerating
 asynchrony and failure of any number of controllers.
 %which will be instrumental in the
 %next section.
@@ -1346,12 +1362,12 @@ fails and takes no effect.
     \caption{Policy update with only CAS}
     \label{alg:simple-update}
     \begin{algorithmic}[1]
-    \Require unsafe policy update function $\ufunc$, policy id $\addr$
+    \Require unsafe policy update function \textsc{\ufunc}, policy id $\addr$
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
  			\State $\pid,policy\gets$ \textbf{read-config} %switch configuration
- 			\State $update\_cmds\gets \ufunc(policy)$
+ 			\State $update\_cmds\gets \textsc{\ufunc}(policy)$
  			\startTxn
 	 			\State $CAS(\paddr,\pid,\pid+1)$,
 	 			\State $update\_cmds$ %conditioned on $metadata=my\_a$
@@ -1404,7 +1420,7 @@ If one of the actions in the transaction fails we try again. There is no progres
     \caption{Advanced policy update}
     \label{alg:update}
     \begin{algorithmic}[1]
-        \Require unsafe policy update function $\ufunc$, a predefined switch (memory) address for policy id: $\paddr$, a predefined id space $C$.
+        \Require unsafe policy update function \textsc{\ufunc}, a predefined switch (memory) address for policy id: $\paddr$, a predefined id space $C$.
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
@@ -1416,7 +1432,7 @@ If one of the actions in the transaction fails we try again. There is no progres
  				\State {\bf continue} (\textbf{restart} loop)
  			\EndIf
  			\State $my\_id\gets$ choose a number from $C\setminus claims$
- 			\State $update\_cmds\gets \ufunc(policy)$
+ 			\State $update\_cmds\gets \textsc{\ufunc}(policy)$
  			\startTxn
  				\State $\claimcheck(my\_id)$,
 	 			\State $CAS(\paddr, \pid,my\_id)$,
