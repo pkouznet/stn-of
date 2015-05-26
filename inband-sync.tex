@@ -456,15 +456,15 @@ packets (e.g., forward them to a specific port).
 More precisely, the match part of a rule is 
 a ternary pattern over packet \emph{header} fields.
 The pattern is represented as a \emph{value} and a \emph{mask}. \liron{we need to discuss about this, I am not sure this description is accurate.}
-In the mask, certain header fields, e.g., port numbers or destination and source
+In the mask, certain header fields, e.g., TCP or UDP port numbers or destination and source
 addresses, can be \emph{wildcarded}, stipulating that their content does
 not affect the match. 
-Certain field, such as \emph{src}, \emph{dst}, \emph{metadata}, can be arbitrarily
+Certain fields, such as \emph{ipv4\_src }, \emph{ipv4\_dst}, \emph{metadata}, can be arbitrarily
 bitmasked. 
 In our implementations, we are going to use bitmasking of the metadata
 field for performing conditional operations on  its content.   
-For examples, \texttt{port=10.1.14.0, ff.ff.ff.f0} matches all packets
-with source addresses in the range \texttt{10.1.14.0}--\texttt{10.1.14.127}.
+For example, \texttt{ipv4\_src=10.1.14.0, ff.ff.ff.f0} matches all packets
+with source IP addresses in the range \texttt{10.1.14.0}--\texttt{10.1.14.127}.
 
 A \emph{configuration} of an OpenFlow switch is represented as a
 collection \emph{flow table}.
