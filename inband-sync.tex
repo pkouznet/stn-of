@@ -1353,7 +1353,7 @@ fails and takes no effect.
  			\State $\pid,policy\gets$ \textbf{read-config} %switch configuration
  			\State $update\_cmds\gets \ufunc(policy)$
  			\startTxn
-	 			\State $CAS(\pid_{\addr},\pid,\pid+1)$,
+	 			\State $CAS(\paddr,\pid,\pid+1)$,
 	 			\State $update\_cmds$ %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
@@ -1404,7 +1404,7 @@ If one of the actions in the transaction fails we try again. There is no progres
     \caption{Advanced policy update}
     \label{alg:update}
     \begin{algorithmic}[1]
-        \Require unsafe policy update function $\ufunc$, a predefined switch (memory) address for policy id: $\pid_{\addr}$, a predefined id space $C$.
+        \Require unsafe policy update function $\ufunc$, a predefined switch (memory) address for policy id: $\paddr$, a predefined id space $C$.
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
@@ -1419,7 +1419,7 @@ If one of the actions in the transaction fails we try again. There is no progres
  			\State $update\_cmds\gets \ufunc(policy)$
  			\startTxn
  				\State $\claimcheck(my\_id)$,
-	 			\State $CAS(\pid_{\addr}, \pid,my\_id)$,
+	 			\State $CAS(\paddr, \pid,my\_id)$,
 	 			\State $update\_cmds$ %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
@@ -1532,7 +1532,8 @@ Our compact validation use additional temp variable, $temp_winner$, to hold the 
 
 \section{Related Work}\label{sec:relwork}
 
-There exists a wide consensus that SDN control planes need to be distributed.~\cite{onos,onix,elasticon}
+There exists a wide consensus that SDN control planes need to be
+distributed~\cite{onos,onix,elasticon}
 Onix~\cite{onix} is one of the earliest proposals, and introduced the
 the notion of Network Information Base (NIB), abstracting network state
 distribution from control logic, but
