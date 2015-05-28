@@ -781,6 +781,37 @@ unbalanced state. Note that, assuming that all these flows are
 completely independent, bundling and $\checko$ features do not really
 help here.  
 
+\begin{algorithm}[h]
+    \caption{$\textit{Naive Load Balancing}$}
+    \label{alg:naive-lb}
+\begin{algorithmic}[1]
+
+    \Require \emph{new\_flows} as flow entries of the new flows, \emph{ports} as a list of switch output ports.
+    \State $policy \gets \textbf{read\_config}$
+    \State $update\_cmds \gets Calc\_LB\_update(policy)$ %(new\_flows, ports, policy)$
+    \State $\textbf{execute-atomic}\{update\_cmds\}$
+    \Statex 
+    
+    \Statex \emph{\bf Function} $\textit{Calc\_LB\_update(policy)}$ % (new\_flows, ports, policy)}$
+
+	\State $flows\_per\_port \gets [0, 0, \ldots, 0]$
+	\For {$entry \in policy$}
+	    \State $port \gets entry.output\_port$
+	    \State $flows\_per\_port[port]++$
+	\EndFor
+	\State $new\_flow\_mod\_cmds \gets \{\}$    
+	\For {$entry \in new\_flows$}
+	    \State $port \gets Argmin_{p\in ports} flows\_per\_port[p]$
+	    \State $entry.output\_port \gets port$
+	    \State $flows\_per\_port[port]++$
+	    \State $cmd \gets FlowMod(add,f)$
+	    \State $new\_flow\_mod\_cmds.add(cmd)$
+	\EndFor
+	\Return $new\_flow\_mod\_cmds$
+    \State \emph{\bf EndFunction}
+\end{algorithmic}
+\end{algorithm}
+
 %\petr{postpone the explanation of the right part of the figure until we come to CAS?} 
 
 \vspace{2mm}
