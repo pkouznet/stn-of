@@ -367,7 +367,7 @@ exchange with the data plane, tolerating asynchrony and failures of
 any number of controllers. 
 
 Interestingly, our mechanisms are simple and can be implemented using the \emph{standard OpenFlow}
-protocol. 
+protocol (version 1.4). 
 %
 %By providing more complex and atomic transactions over the
 %switch configuration
@@ -618,7 +618,7 @@ are always identified by exact matches.
 
 \noindent\textbf{Bundling}
 
-Another important feature in OpenFlow is \emph{bundling}.
+Another important feature in OpenFlow is \emph{bundling} (as of OpenFlow version 1.4). \stefan{liron, is that correct?}
 A controller can send multiple $\FlowMod$ commands  equipped with
 the same \emph{bundle identifier}.
 These commands are buffered temporarily by
