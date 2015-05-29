@@ -278,7 +278,7 @@ First, in order to provide high availability,
 %as well as a minimal degree of
 %fault-tolerance,
 %[[PK fault-tolerance is necessary to provide hight availability?]]
-controllers should be redundant~\cite{onos}: a failure 
+controllers should be redundant~\cite{onix,onos,elasticon}: a failure 
 of one controller can be masked by other controllers.
 Second, it has also been proposed to distribute controllers \emph{spatially}, in order to handle latency-sensitive and
 communication-intensive
@@ -307,12 +307,12 @@ plane) and \emph{efficiently} (no undesired delays are imposed on the
 control application).
 \emph{Synchronizing}
 the distributed controllers and manipulating the network state \emph{consistently}
-are non-trivial tasks.
+are non-trivial tasks.~\cite{sharon}
 
 Consider, for example, the problem of
 consistent installation of new forwarding policies, stipulating routes
 that packets of different header spaces should follow across the
-network~\cite{network-update,roger-hotnets}.
+network~\cite{network-update,roger-hotnets,podc15}.
 Installing \emph{conflicting} forwarding rules, e.g., rules of the same priority defined over non-disjoint
 flow spaces may lead to pathological network behavior (loops,
 blackholes, routes bypassing a firewall, etc.).~\cite{hotnets14update,roger-hotnets}
@@ -1773,10 +1773,10 @@ Exploring the power of such features is left to future work.
 
 
 {
-\begin{footnotesize}
+%\begin{footnotesize}
 \bibliographystyle{abbrv}
 \bibliography{references}  % main.bib is the name of the Bibliography in this case
-\end{footnotesize}
+%\end{footnotesize}
 }
 
 \begin{comment}
