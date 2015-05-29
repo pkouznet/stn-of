@@ -278,16 +278,16 @@ First, in order to provide high availability,
 %as well as a minimal degree of
 %fault-tolerance,
 %[[PK fault-tolerance is necessary to provide hight availability?]]
-controllers should be redundant~\cite{onos}: a failure 
+controllers should be redundant~\cite{onix,stn,onos,elasticon}: a failure 
 of one controller can be masked by other controllers.
 Second, it has also been proposed to distribute controllers \emph{spatially}, in order to handle latency-sensitive and
 communication-intensive
 %control plane
 data plane
-events close to their origin~\cite{devoflow,kandoo}.
+events close to their origin~\cite{sharon,devoflow,kandoo,jukka,disco}.
 Third, larger SDNs are likely to be operated by multiple administrators~\cite{stn} or may even offer
 participatory interfaces where different users can install and trigger policy changes
-concurrently~\cite{participatory}.
+concurrently~\cite{participatory,opensdwn}.
 
 %[[PK not sure I see why talking about it here
 %[[
@@ -307,24 +307,24 @@ plane) and \emph{efficiently} (no undesired delays are imposed on the
 control application).
 \emph{Synchronizing}
 the distributed controllers and manipulating the network state \emph{consistently}
-are non-trivial tasks.
+are non-trivial tasks.~\cite{cpc,sharon,cap-theorem}
 
 Consider, for example, the problem of
 consistent installation of new forwarding policies, stipulating routes
 that packets of different header spaces should follow across the
-network~\cite{network-update,roger-hotnets}.
+network~\cite{network-update,podc15,roger-hotnets,correct,stn}.
 Installing \emph{conflicting} forwarding rules, e.g., rules of the same priority defined over non-disjoint
 flow spaces may lead to pathological network behavior (loops,
 blackholes, routes bypassing a firewall, etc.).~\cite{hotnets14update,roger-hotnets}
 Similarly, installing diverging load-balancing policies may,
-when combined, \emph{increase} the load.
+when combined, \emph{increase} the load~\cite{log-cent}.
 To render things more difficult, controllers may also fail,
 even before their updates have been completed.
 
 The concurrent computing literature offers
-a wide range of synchronization abstractions.
+a wide range of synchronization abstractions~\cite{HS08-book}.
 E.g., the popular \emph{transactional
-  memory} abstraction~\cite{tm-book} provides a collection of
+  memory} abstraction~\cite{stm-st95,tm-book} provides a collection of
 concurrent processes with the ability of aggregating sequences of
 shared-memory operations in atomic \emph{transactions} with
 all-or-nothing semantics.
@@ -359,8 +359,8 @@ coordinating controllers via a control plane
 out-of-band network, in the presence of asynchrony and failures.
 Indeed, the inherent costs  of such protocols are often considered too high, both in
 terms of the necessary computability assumptions about the underlying
-system~\cite{FLP85}, and the amount of communication
-complexity~\cite{Lam06}.
+system~\cite{FLP85,CHT96,cap-theorem}, and the amount of communication
+complexity~\cite{Lam98,Lam06}.
 In contrast, our \emph{in-band} solution allows the
 controllers to solve fundamental agreement tasks in just one message
 exchange with the data plane, tolerating asynchrony and failures of
@@ -404,13 +404,13 @@ solve several important synchronization problems.
 We describe an implementation of the fundamental
 \emph{compare-and-set} (CAS) primitive,
 which in turn can be used to solve consensus and
-implement a generic replicated control plane service~\cite{Her91} in a consistent and
+implement a generic replicated control plane service~\cite{Her91,Lam98} in a consistent and
 fault-tolerant way: a mainstream building block in
-modern system design.
+modern system design~\cite{bigtable,spanner,zookeeper}.
 We also discuss a simple CAS-based concurrent policy-update mechanism,
 and also use our synchronization abstraction to provide
 the missing link for the read-modify-write object
-postulated in~\cite{stn}. \petr{We do not seem to discuss the latter?}
+postulated in~\cite{cpc}. \petr{We do not seem to discuss the latter?}
 
 
 %Finally, we also show that interesting synchronization mechanisms may be included
@@ -470,7 +470,7 @@ Software-defined networking decouples the \emph{control plane}, software
 controllers that configure the network, from the \emph{data plane}, the
 devices that implement the network.
 %
-In OpenFlow, the \emph{de facto} standard SDN protocol
+In OpenFlow~\cite{of-spec}, the \emph{de facto} standard SDN protocol
 today, the data plane consists of \emph{OpenFlow switches}.
 In a nutshell, the configuration of an OpenFlow switch is a set of
 \emph{rules}.
@@ -918,7 +918,7 @@ maintain higher priority levels.
 Alternatively, we could leverage the standard ability of maintaining multiple
 flow tables at an OpenFlow switch, and use a separate flow table for
 the meta-configuration,  making sure that the
-\emph{pipelining} mechanism will never involve this
+\emph{pipelining} mechanism~\cite{of-spec} will never involve this
 flow table.
 
 
@@ -1360,7 +1360,7 @@ if it aborts (the controller fails in the CAS), it remains to read the
 memory to get the input of the winner and decide on it.
 }
 and allows us
-to implement any generic replicated state machine~\cite{Her91}
+to implement any generic replicated state machine~\cite{Her91,Lam98}
 in the control plane,  in the \emph{wait-free} manner, i.e., tolerating
 asynchrony and failure of any number of controllers.
 As such, CAS can also be used to implement STN~\cite{stn},
@@ -1382,7 +1382,7 @@ by providing the missing synchronization object.
 
 Our mechanism can also be used as a generic template to
 implement concurrent policy compositions of a user-specific
-$\textsc{\ufunc}()$ function~\cite{stn}.
+$\textsc{\ufunc}()$ function~\cite{cpc}.
 That is, let us consider a simple policy update protocol that
 allows a set of  controllers to concurrently update switch policies, i.e., sets of
 %[[PK policies have been defined in Background]]
@@ -1451,7 +1451,7 @@ fails and takes no effect.
 
 %Note that in Algorithm~\ref{alg:simple-update}, policies identifiers
 %grow without bound.
-%However, as was observed in~\cite{stn}, the number of currently
+%However, as was observed in~\cite{cpc}, the number of currently
 %used identifiers can be made proportional to the number of concurrent
 %controllers.
 %
@@ -1699,7 +1699,7 @@ conflict-free sequential history, but, additionally,  we expect that each
 \emph{path} witnesses only a prefix of this history, consisting of all
 requests that were committed before the path was initiated.
 %
-The transactional interface exported by the STN abstraction is inspired by the
+The transactional interface exported by the CPC abstraction is inspired by the
 work on speculative concurrency control using software transactional memory
 (STM)~\cite{stm-st95}.
 %, thus the  term \emph{software transactional networking}.
@@ -1984,7 +1984,7 @@ bundle control messages.
 
 We first show that they can be used to replace the read-modify-write
 primitives voluntarily assumed in the recent implementation of a
-recent proposal for a consistent composition system for forwarding policies~\cite{stn}.
+recent proposal for a consistent composition system for forwarding policies~\cite{cpc}.
 We then use these transactions directly to implement a lightweight
 forwarding policy composition system that requires no additional
 synchronization on the control plane.
@@ -2001,7 +2001,7 @@ bundle control messages.
 
 We first show that they can be used to replace the read-modify-write
 primitives voluntarily assumed in the recent implementation of a
-recent proposal for a consistent composition system for forwarding policies~\cite{stn}.
+recent proposal for a consistent composition system for forwarding policies~\cite{cpc}.
 We then use these transactions directly to implement a lightweight
 forwarding policy composition system that requires no additional
 synchronization on the control plane.
