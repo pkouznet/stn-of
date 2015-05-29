@@ -199,7 +199,7 @@ framework for control planes  based on the well-known concept of
 A transaction aggregates a sequence
 of control messages and specific synchronization primitives,
 providing all-or-nothing semantics.
-We show that a powerful transactional interface can be implemented \emph{inband}, using 
+We argue that a powerful transactional interface should and can be implemented \emph{inband}, using 
 standard OpenFlow commands on the data-plane configuration.
 %Indeed, recent OpenFlow versions already come with useful but primitive
 %features, in particular \emph{bundling} and \emph{rule-overlap checks}.
@@ -211,7 +211,7 @@ standard OpenFlow commands on the data-plane configuration.
 %can include complex notions of conflicts (beyond flow overlap checks),
 %as well as computations and multiple controller interactions.
 We discuss how to use our synchronization framework to implement
-a replicated control-plane service, consistent policy composition, and load-balancing.
+ consistent policy compositions and replicated control-plane services.
 \end{abstract}
 
 \category{C.2.2}{Computer-Communication Networks}{Network Protocols}
@@ -220,7 +220,7 @@ a replicated control-plane service, consistent policy composition, and load-bala
 
 %\terms{Algorithms}
 
-\keywords{Software-Defined Networking, Distributed Control Plane, In-band Mechanisms}
+\keywords{Software-Defined Networking, Distributed Control Planes, In-band Mechanisms}
 
 %\vspace{1cm}
 
@@ -257,6 +257,7 @@ a replicated control-plane service, consistent policy composition, and load-bala
 %
 
 \section{Introduction}\label{sec:intro}
+
 By consolidating and outsourcing the control over the dataplane switches to a logically
 centralized controller, Software-Defined Networks (SDNs)
 simplify network management and facilitate faster innovations:
@@ -275,13 +276,13 @@ First, in order to provide high availability,
 %as well as a minimal degree of
 %fault-tolerance,
 %[[PK fault-tolerance is necessary to provide hight availability?]]
-controllers should be redundant~\cite{onix,stn,onos}: a failure
+controllers should be redundant~\cite{onix,stn,onos,elasticon}: a failure 
 of one controller can be masked by other controllers.
 Second, it has also been proposed to distribute controllers \emph{spatially}, in order to handle latency-sensitive and
 communication-intensive
 %control-plane
 data-plane
-events close to their origin~\cite{devoflow,kandoo,jukka,disco}.
+events close to their origin~\cite{sharon,devoflow,kandoo,jukka,disco}.
 Third, larger SDNs are likely to be operated by multiple administrators~\cite{stn} or may even offer
 participatory interfaces where different users can install and trigger policy changes
 concurrently~\cite{participatory}.
@@ -309,10 +310,10 @@ are non-trivial tasks.~\cite{cpc,sharon,cap-theorem}
 Consider, for example, the problem of
 consistent installation of new forwarding policies, stipulating routes
 that packets of different header spaces should follow across the
-network~\cite{network-update,roger-hotnets,correct,stn}.
+network~\cite{network-update,podc15,roger-hotnets,correct,stn}.
 Installing \emph{conflicting} forwarding rules, e.g., rules of the same priority defined over non-disjoint
 flow spaces may lead to pathological network behavior (loops,
-blackholes, etc.)~\cite{cpc}.
+blackholes, routes bypassing a firewall, etc.).~\cite{hotnets14update,roger-hotnets}
 Similarly, installing diverging load-balancing policies may,
 when combined, \emph{increase} the load~\cite{log-cent}.
 To render things more difficult, controllers may also fail,
@@ -339,8 +340,7 @@ all-or-nothing semantics.
 This paper applies the principle of atomicity in concurrent computing
 to distributed SDN control planes.
 %
-Extending the recent work on Software Transactional
-Networking~\cite{stn}, we propose synchronization constructs that
+In particular, we propose synchronization constructs which
 allow a controller to represent multiple configuration commands on
 the data plane as an atomic transaction.
 %
@@ -350,17 +350,9 @@ defined in a general, application-specific manner, the transaction appears to be
 Otherwise, the transaction is aborted in its entirety and does not
 affect neither traffic nor other controllers.
 
-
-%By providing more complex and atomic transactions over the
-%switch configuration
-%space, several synchronization problems can be resolved.
-%This paper investigates the implementation of a transactional interface
-%(\`{a} la STN~\cite{stn}) modified concurrently by multiple controllers.
-%\petr{"interface modified concurrently" does not sound right -> "accessed concurrently"?}
-
-We show that powerful synchronization constructs can be implemented
-directly \emph{in OpenFlow}, i.e., using the \emph{de facto} standard SDN
-protocol. This allows us to efficiently alleviate the problems related to
+We promote to implement our synchronization constructs \emph{inband},
+on the OpenFlow switch.
+An inband implementation allows us to efficiently alleviate the problems related to
 coordinating controllers via a control-plane
 out-of-band network, in the presence of asynchrony and failures.
 Indeed, the inherent costs  of such protocols are often considered too high, both in
@@ -370,12 +362,28 @@ complexity~\cite{Lam98,Lam06}.
 In contrast, our \emph{in-band} solution allows the
 controllers to solve fundamental agreement tasks in just one message
 exchange with the data plane, tolerating asynchrony and failures of
-any number of controllers.
+any number of controllers. 
 
-In our implementation, a part of the data-plane configuration space is
+Interestingly, our mechanisms can be implemented using the \emph{standard OpenFlow} 
+protocol, and do not require any extensions as assumed and postulated in recent literature (e.g.,
+STN~\cite{stn} or NetPaxos~\cite{netpaxos}). 
+Our work may hence also contribute to the ongoing discussion of what can be implemented
+in-band in today's OpenFlow protocol~\cite{compute,reclaim},
+as well as to possible high-level concurrency objects and 
+language abstractions.~\cite{pyretic}
+
+
+%By providing more complex and atomic transactions over the
+%switch configuration
+%space, several synchronization problems can be resolved.
+%This paper investigates the implementation of a transactional interface
+%(\`{a} la STN~\cite{stn}) modified concurrently by multiple controllers.
+%\petr{"interface modified concurrently" does not sound right -> "accessed concurrently"?}
+
+Concretely, in our implementation, a part of the data plane configuration space is
 used as a shared memory storing information about  contention and
 conflicts between distributed controllers.
-A transaction can then contain standard OpenFlow control operation
+A transaction can then contain standard OpenFlow control operations
 as well as  \emph{synchronization primitives} operating on this shared
 memory.
 Our synchronization primitives allow the controllers to define complex notions
@@ -407,9 +415,6 @@ Finally, we use our synchronization abstraction to provide
 the missing link for the read-modify-write object
 postulated in~\cite{cpc}. \petr{We do not seem to discuss the latter?}
 
-We hope that our work can also contribute to the ongoing discussion of what can be implemented
-in-band in OpenFlow~\cite{compute,reclaim}, by taking a first look
-at the problem of synchronization.
 
 %Finally, we also show that interesting synchronization mechanisms may be included
 %in-band even without the bundle feature, and as a case study, show
@@ -442,9 +447,12 @@ In Section~\ref{sec:motivation}, we discuss the limitations of the OpenFlow
 primitives and motivate the need for transactions.
 We then present our approach in detail in Section~\ref{sec:main}, and discuss use cases in Section~\ref{sec:apps}.
 %Section~\ref{sec:compo} describes how to perform in-band composition.
-We review related literature in Section~\ref{sec:relwork}, and conclude
-in Section~\ref{sec:conclusion}. Some technical details are postponed
-to the Appendix.
+We 
+%review related literature in Section~\ref{sec:relwork}, and 
+conclude our paper
+in Section~\ref{sec:conclusion}.
+% Some technical details are postponed
+%to the Appendix.
 
 %we provide the theoretical
 %background on our approach. Section~\ref{sec:realization}
@@ -685,7 +693,7 @@ message  pointing out the aborted transactional operation.
 
 Algorithm~\ref{alg:commit} describes how to commit
 the bundle.
-\begin{algorithm}[h]
+\begin{algorithm}[t]
     \caption{$\textit{try-commit}()$}
     \label{alg:commit}
     \begin{algorithmic}[1]
@@ -790,7 +798,7 @@ unbalanced state. Note that, assuming that all these flows are
 completely independent, bundling and $\checko$ features do not really
 help here.
 
-\begin{algorithm}[h]
+\begin{algorithm}[t]
     \caption{$\textit{Naive Load Balancing}$}
     \label{alg:naive-lb}
 \begin{algorithmic}[1]
@@ -1182,7 +1190,7 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
 %And similarly for removes: transactions should not take effect if the corresponding
 %update contains rules which currently do not exist at the switch.
 
-\begin{algorithm}[H]
+\begin{algorithm}[t]
     \caption{$\textit{claim}(x)$}
     \label{alg:claim}
     \begin{algorithmic}[1]
@@ -1199,7 +1207,7 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
     \end{algorithmic}
 \end{algorithm}
 
-\begin{algorithm}[H]
+\begin{algorithm}[t]
     \caption{$\textit{\claimcheck}(x)$}
     \label{alg:check}
     \begin{algorithmic}[1]
@@ -1217,7 +1225,7 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
     \end{algorithmic}
 \end{algorithm}
 
-\begin{algorithm}[H]
+\begin{algorithm}[t]
     \caption{$\textit{unclaim}(x)$}
     \label{alg:unclaim}
     \begin{algorithmic}[1]
@@ -1253,7 +1261,7 @@ with an identical one.
 
 %HERE: we can read state by reading flow monitor => read configuraiton abstraction => state of claimer ID objects list of all claimed identifiers
 
-\begin{algorithm}[h]
+\begin{algorithm}[t]
     \caption{$\textit{write}(\addr,k)$}
     \label{alg:write}
     \begin{algorithmic}[1]
@@ -1270,7 +1278,7 @@ with an identical one.
     \end{algorithmic}
 \end{algorithm}
 
-\begin{algorithm}[h]
+\begin{algorithm}[t]
     \caption{$\textit{\compare}(\addr,k)$}
     \label{alg:compare}
     \begin{algorithmic}[1]
@@ -1316,7 +1324,7 @@ new)$ within the same bundle.
 \hide{
 As can be seen Algorithm \ref{alg:cas}, CAS is implemented by two commands. These commands should be sent as part of the same bundle
 
-\begin{algorithm}[h]
+\begin{algorithm}[t]
     \caption{$\textit{\cas}(\addr, old,new)$}
     \label{alg:cas}
     \begin{algorithmic}[1]
@@ -1409,7 +1417,7 @@ fails and takes no effect.
 %containing such operations always commit. \liron{I think we can ommit this paragraph entirely - no need for bundle when it is not written}
 
 
-\begin{algorithm}[h]
+\begin{algorithm}[t]
     \caption{Policy update with only CAS}
     \label{alg:simple-update}
     \begin{algorithmic}[1]
@@ -1467,7 +1475,7 @@ atomically check that our policy id is not blocked by another controller, to cha
 If one of the actions in the transaction fails we try again. There is no progress guaranty for each controller but there is one for the whole system - at least one of the controller will succeed in fulfilling its update requirements.
 }
 
-\begin{algorithm}[h]
+\begin{algorithm}[t]
     \caption{Advanced policy update}
     \label{alg:update}
     \begin{algorithmic}[1]
