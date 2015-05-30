@@ -340,7 +340,7 @@ all-or-nothing semantics.
 %classic distributed computing problems, such as consensus.
 %]]
 
-\hspace{1mm}
+\vspace{1mm}
 \noindent\textbf{Contributions.}
 This paper applies the principle of atomicity in concurrent computing
 to distributed SDN control planes.
@@ -369,8 +369,8 @@ controllers to solve fundamental agreement tasks in just one message
 exchange with the data plane, tolerating asynchrony and failures of
 any number of controllers. 
 
-Interestingly, our mechanisms are simple and can be implemented using the \emph{standard OpenFlow}
-protocol (version 1.4). 
+Interestingly, our mechanisms are simple and can be implemented using the standard \emph{OpenFlow}
+protocol (version 1.4~\cite{openflow}). 
 %
 %By providing more complex and atomic transactions over the
 %switch configuration
@@ -473,7 +473,7 @@ in Section~\ref{sec:conclusion}.
 
 %In this section, we recall the basic SDN principles, with a focus on
 %OpenFlow~\cite{of-spec}, the standard SDN protocol today.
-\hspace{1mm}
+\vspace{1mm}
 \noindent\textbf{Control and data planes.} Software-defined networking
 decouples the \emph{control plane}, software
 controllers that configure the network, from the \emph{data plane}, the
@@ -504,7 +504,7 @@ field for performing conditional operations on  its content.
 %with source IP addresses in the range \texttt{10.1.14.0}--\texttt{10.1.14.127}.
 
 A \emph{configuration} of an OpenFlow switch is represented as a
-a collection of \emph{flow tables}.
+collection of \emph{flow tables}.
 A flow table is a set of \emph{flow entries}, each containing a rule,
 with a match, an action, and a \emph{priority} level, and flow entries
 are ordered according to their priorities.
@@ -555,7 +555,7 @@ If no rule matches the packet, the packet is dropped.
 
 %\liron{I think that maybe the rest of this section should be explained by the following subsections, providing in depth description of the OpenFlow features.}
 %\liron{Another direction is to have a simplified explenation as now and to refference spesific sections of the standard in side our paper.}
-\hspace{1mm}
+\vspace{1mm}
 \noindent\textbf{Interaction between the planes: FlowMod commands}
 The flow tables installed on the switches across the data plane
 determine the network \emph{policy}.
@@ -629,7 +629,7 @@ are always identified by exact matches.
 %]]
 }
 
-\hspace{1mm}
+\vspace{1mm}
 \noindent\textbf{Bundling.}
 %
 Another important feature in OpenFlow is \emph{bundling}. %(as of OpenFlow version 1.4). \stefan{liron, is that correct?}
@@ -783,7 +783,7 @@ by simply aborting an operation, e.g., by supporting \emph{conditional modificat
 Let us consider two examples.
 
 %\begin{enumerate}
-\vspace{2mm}
+\vspace{1mm}
 \noindent \textbf{Example 1: Handling complex dependencies.} Let us consider two controllers
 in charge
 of \emph{load-balancing}, see Figure~\ref{fig:CAS-example} 
@@ -793,7 +793,7 @@ completely independent logical flow spaces (say, two flows with source IP addres
 respectively),
 may actually be dependent: the flows share the underlying physical network.
 Accordingly, if multiple controllers concurrently and independently
-update forwarding rules according to a naive load-balancing algorithm \`{a} la Algorithm~\ref{alg:naive-lb},
+update forwarding rules according to a na\"ive load-balancing algorithm \`{a} la Algorithm~\ref{alg:naive-lb},
 they may involuntarily
 unbalance the flow allocation.
 Simple flow space overlap checks cannot be used to detect
@@ -812,41 +812,44 @@ help here.
 %install their flows on the left link, which results in an undesirable
 %unbalanced state. 
 
+{\small
 \begin{algorithm}[t]
-    \caption{$\textit{Naive Flow Balancing}$}
+    \caption{$\textit{Na\"ive Flow Balancing}$}
     \label{alg:naive-lb}
 \begin{algorithmic}[1]
 
-    \Require \emph{new\_flows}: flow entries of the new flows, \emph{ports}: a list of switch output ports.
-    \State $policy \gets \textbf{read\_config}$
-    \State $update\_cmds \gets Calc\_LB\_update(policy)$ %(new\_flows, ports, policy)$    
-    \State $\textbf{send}\{update\_cmds\}$
+    \Require \emph{new\_flows}: flow entries of the new flows,
+    \emph{ports}: a list of switch output ports, 
+    \State $\textit{policy} \gets \textbf{read\_config}$
+    \State $\textit{update\_cmds} \gets \textit{lb\_update}(policy)$ %(new\_flows, ports, policy)$    
+    \State $\textbf{send}\{\textit{update\_cmds}\}$
 %    \State $\textbf{execute-atomic}\{update\_cmds\}$
     \Statex
 
-    \Statex \emph{\bf Function} $\textit{Calc\_LB\_update(policy)}$ % (new\_flows, ports, policy)}$
+    \Statex \emph{\bf Function} $\textit{lb\_update}(\textit{policy})$ % (new\_flows, ports, policy)}$
 
-	\State $flows\_per\_port \gets [0, 0, \ldots, 0]$
-	\For {$entry \in policy$}
-	    \State $port \gets entry.output\_port$
-	    \State $flows\_per\_port[port]++$
+	\State $\textit{flows\_per\_port} \gets [0, 0, \ldots, 0]$
+	\ForAll {$\textit{entry} \in \textit{policy}$}
+	    \State $\textit{port} \gets \textit{entry.output\_port}$
+	    \State $\textit{flows\_per\_port}[\textit{port}]++$
 	\EndFor
-	\State $new\_flow\_mod\_cmds \gets \{\}$
-	\For {$entry \in new\_flows$}
-	    \State $port \gets \arg\min_{p\in ports} flows\_per\_port[p]$
-	    \State $entry.output\_port \gets port$
-	    \State $flows\_per\_port[port]++$
-	    \State $cmd \gets FlowMod(add,f)$
-	    \State $new\_flow\_mod\_cmds.add(cmd)$
+	\State $\textit{new\_flow\_mod\_cmds} \gets \{\}$
+	\For {$\textit{entry} \in \textit{new\_flows}$}
+	    \State $\textit{port} \gets \arg\min_{p\in \textit{ports}} \textit{flows\_per\_port}[p]$
+	    \State $\textit{entry.output\_port} \gets \textit{port}$
+	    \State $\textit{flows\_per\_port}[\textit{port}]++$
+	    \State $\textit{cmd} \gets \textit{FlowMod}(add,f)$
+	    \State $\textit{new\_flow\_mod\_cmds}.\textit{add}(\textit{cmd})$
 	\EndFor
-	\Return $new\_flow\_mod\_cmds$
-    \State \emph{\bf EndFunction}
+	\Return $\textit{new\_flow\_mod\_cmds}$
+  %  \State \emph{\bf EndFunction}
 \end{algorithmic}
 \end{algorithm}
+}
 
 %\petr{postpone the explanation of the right part of the figure until we come to CAS?}
 
-\vspace{2mm}
+\vspace{1mm}
 \noindent\textbf{Example 2: Supporting modifications.}
 Consider the arguably very basic problem of \emph{modifying} previously installed forwarding rules
 in a consistent manner.
@@ -914,7 +917,8 @@ We now describe how our  meta-configuration space at
 an OpenFlow switch can be implemented and manipulated using our
 synchronization framework.
 
-\noindent\textbf{Configuration space}
+\vspace{1mm}
+\noindent\textbf{Configuration space.}
 %
 We distinguish two parts of the configuration space of a switch:
 the ``normal'' configuration which determines the network policy and
@@ -938,8 +942,8 @@ flow table.
 
 
 %\petr{How to make sure that traffic is not affected by the ``meta'' part?}
-
-\noindent\textbf{Synchronization}
+\vspace{1mm}
+\noindent\textbf{Synchronization.}
  %
 Our framework provides the controllers with the ability to execute
 sequences of \emph{operations} on the
@@ -978,7 +982,8 @@ which case it appears as executed sequentially, or \emph{abort}, in
 which none of its operations takes effect.
 }
 
-\noindent\textbf{Synchronization primitives}
+\vspace{1mm}
+\noindent\textbf{Synchronization primitives.}
 %
 \hide{
 
@@ -996,10 +1001,9 @@ controllers to synchronize.
 \petr{"As we will see,..." - looks funny compared with "As we will see ..." at the end of Sec 2}
 \subsection{Synchronization Objects}\label{sec:t-if}
 }
-
-Following the work on consistent policy
-updates~\cite{network-update,stn}, we focus on the consistent use of  \emph{policy
-identifiers}.
+%
+We focus first on the consistent use of  \emph{policy identifiers},
+an important notion in consistent policy updates~\cite{network-update,stn}. 
 Intuitively, a controller should
 equip each to-be-installed policy with a distinct
 identifier,
@@ -1109,7 +1113,8 @@ transactions, no future transaction can be affected.
 
 \end{comment}
 
-\noindent\textbf{Implementation}\label{sec:t-impl}
+\vspace{1mm}
+\noindent\textbf{Implementation.} %\label{sec:t-impl}
 %
 We now describe how to implement our transactional
 abstractions using standard OpenFlow features.
@@ -1123,7 +1128,7 @@ First we translate  $op_1,\ldots,op_k$ into a sequence of FlowMod
 commands. If $op_i$ is already a FlowMod command, the translation is
 trivial. If $op_i$ is a synchronization primitive, we employ 
 Algorithm~\ref{alg:claim} for $\{\textit{claim}$, 
-Algorithm~\ref{alg:checkclaim} for $\textit{checkclaim}$, 
+Algorithm~\ref{alg:check} for $\textit{checkclaim}$, 
 Algorithm~\ref{alg:unclaim}
 for $\textit{unclaim}$,
 Algorithm~\ref{alg:write} for $\textit{write}$ and
@@ -1177,8 +1182,9 @@ In addition we use "op" as shortened form to a field that indicates whether the 
 %]]
 }
 
-\noindent\textbf{The id-claimer}
-
+\vspace{1mm}
+\noindent\textbf{The id-claimer.}
+%
 In Algorithms \ref{alg:claim}-\ref{alg:unclaim},
 the match part of the constructed commands represents a concatenation
 of two claimed identifiers.
@@ -1215,20 +1221,22 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
 %And similarly for removes: transactions should not take effect if the corresponding
 %update contains rules which currently do not exist at the switch.
 
+{\small
+
 \begin{algorithm}[t]
     \caption{$\textit{claim}(x)$}
     \label{alg:claim}
     \begin{algorithmic}[1]
     \Require \emph{self} as the calling controller id.
 %    \Ensure
-    		\State $value \gets x\concat x$
-    		\State $mask \gets self\concat \texttt{1$\ldots$1}$
-	    	\State $match \gets (value,mask)$
+    		\State $\textit{value} \gets x\concat x$
+    		\State $\textit{mask} \gets \textit{self}\concat \texttt{1$\ldots$1}$
+	    	\State $\textit{match} \gets (\textit{value},\textit{mask})$
     		%\State $cookie \gets x\concat self$
-    		\State $action \gets 1$
-    		\State $flag \gets 0$
-    		\State $cmd\gets \emph{FlowMod}(match, op = \add, flag, action) $
-			\Return $cmd$
+    		\State $\textit{action} \gets 1$
+    		\State $\textit{flag} \gets 0$
+    		\State $\textit{cmd}\gets \textit{FlowMod}(match, op = \add, \textit{flag}, \textit{action}) $
+			\Return $\textit{cmd}$
     \end{algorithmic}
 \end{algorithm}
 
@@ -1238,15 +1246,15 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
     \begin{algorithmic}[1]
     \Require \emph{self} as the calling controller identifier.
 %    \Ensure
-    		\State $value \gets x\concat x$
-    		\State $mask \gets self\concat \texttt{1$\ldots$1}$
-    		\State $match \gets (value,mask)$
+    		\State $\textit{value} \gets x\concat x$
+    		\State $\textit{mask} \gets self\concat \texttt{1$\ldots$1}$
+    		\State $\textit{match} \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
-    		\State $action \gets 2$
-    		\State $flag \gets \texttt{ofpff\_\checko}$
-    		\State $cmd1\gets \emph{FlowMod}(match, op = \add, flag, action) $
-    		\State $cmd2\gets \emph{FlowMod}(match, op = \dele) $
-			\Return $cmd1$,$cmd2$
+    		\State $\textit{action} \gets 2$
+    		\State $\textit{flag} \gets \texttt{ofpff\_\checko}$
+    		\State $\textit{cmd1}\gets \textit{FlowMod}(\textit{match}, op = \add, \textit{flag}, \textit{action}) $
+    		\State $\textit{cmd2}\gets \textit{FlowMod}(\textit{match}, op = \dele) $
+			\Return $\textit{cmd1}$,$\textit{cmd2}$
     \end{algorithmic}
 \end{algorithm}
 
@@ -1256,18 +1264,20 @@ similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemente
     \begin{algorithmic}[1]
     \Require \emph{self} as the calling controller id.
 %    \Ensure
-    		\State $value \gets x\concat x$
-    		\State $mask \gets self\concat \texttt{1$\ldots$1}$
+    		\State $\textit{value} \gets x\concat x$
+    		\State $\textit{mask} \gets self\concat \texttt{1$\ldots$1}$
     		%\State $cookie \gets x\concat self$
-    		\State $match \gets (value,mask)$
-    		\State $cmd\gets \emph{FlowMod}(match, op=\dele) $
+    		\State $\textit{match} \gets (\textit{value},\textit{mask})$
+    		\State $\textit{cmd}\gets \textit{FlowMod}(\textit{match}, op=\dele) $
     	
 			
 			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
+}
 
-\noindent\textbf{Write and compare}
+\vspace{1mm}
+\noindent\textbf{Write and compare.}
 The memory \memwrite and \compare
  operations can be implemented using similar techniques.
  As can be seen in Algorithms \ref{alg:write}-\ref{alg:compare},
@@ -1339,7 +1349,7 @@ replaces it with $\textit{new}$ and returns $\true$ (the CAS
 the invoking transaction).
 It is straightforward to implement the CAS operation by executing
 $\textit{\compare}(\addr, old)$ followed by $\textit{\memwrite}(\addr,
-new)$ within the same bundle.
+new)$ within the {\execatomic} construct.
 
 %[[PK said it in the text
 \hide{
@@ -1438,30 +1448,31 @@ fails and takes no effect.
 %``singleton'' (consisting of one operation only)  transactions
 %containing such operations always commit. \liron{I think we can ommit this paragraph entirely - no need for bundle when it is not written}
 
-
+{\small
 \begin{algorithm}[t]
     \caption{Policy update with only CAS}
     \label{alg:simple-update}
     \begin{algorithmic}[1]
-    \Require unsafe policy update function \textsc{\ufunc}, policy id $\addr$
+    \Require policy update function \textsc{\ufunc}, policy id address $\paddr$
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
- 			\State $\pid,policy\gets$ \textbf{read-config} %switch configuration
- 			\State $update\_cmds\gets \textsc{\ufunc}(policy)$
+ 			\State $\pid,\textit{policy}\gets$ \textbf{read-config} %switch configuration}
+ 			\State $\textit{update\_cmds}\gets \textsc{\ufunc}(policy)$
  			\startTxn
 	 			\State $CAS(\paddr,\pid,\pid+1)$,
-	 			\State $update\_cmds$ %conditioned on $metadata=my\_a$
+	 			\State $\textit{update\_cmds}$ %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
      		%\State $res \gets $ commit transaction
-     	\Until{$res=\ack$}
+     	\Until{$\textit{res}=\ack$}
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
-			\Return
+			\Return $\textit{res}$
 
     \end{algorithmic}
 \end{algorithm}
+}
 
 %Note that in Algorithm~\ref{alg:simple-update}, policies identifiers
 %grow without bound.
@@ -1484,11 +1495,11 @@ A controller claims the current policy identifier, chooses a new id
 from a finite set of identifiers,
 and then checks that the new policy id is not claimed by another controller.
 Note that in Algorithm \ref{alg:update}, the meta-configuration is
-used to store $pid$ and id-claimer.
+used to store $\textit{pid}$ and id-claimer.
 \petr{The description is not very clear.}
 
 In other words, Algorithm~\ref{alg:simple-update} can also be used
-to render our naive load-balancing algorithm (Algorithm~\ref{alg:naive-lb}) from Section~\ref{sec:motivation}
+to render our na\"ive load-balancing scheme (Algorithm~\ref{alg:naive-lb} in Section~\ref{sec:motivation})
 consistent, without any modifications.
 
 
@@ -1501,39 +1512,40 @@ atomically check that our policy id is not blocked by another controller, to cha
 If one of the actions in the transaction fails we try again. There is no progress guaranty for each controller but there is one for the whole system - at least one of the controller will succeed in fulfilling its update requirements.
 }
 
+{\small
 \begin{algorithm}[t]
     \caption{Advanced policy update}
     \label{alg:update}
     \begin{algorithmic}[1]
-        \Require unsafe policy update function \textsc{\ufunc}, a predefined switch (memory) address for policy id: $\paddr$, a predefined id space $C$.
+        \Require policy update function \textsc{\ufunc}, policy id address $\paddr$, id space $C$.
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
 		 	\State $\pid,claims,policy\gets$ \textbf{read-config} %switch configuration
  			\State $\textbf{execute}\{claim(\pid)\}$
- 			\State $\pid 2,claims,policy\gets$ \textbf{read-config} %switch configuration
+ 			\State $\pid 2,\textit{claims},\textit{policy}\gets$ \textbf{read-config} %switch configuration
  			\If {$\pid\neq \pid 2$}
-	 			\State $\textbf{execute} \{unclaim(\pid)\}$
+	 			\State $\textbf{execute} \{\textit{unclaim}(\pid)\}$
  				\State {\bf continue} (\textbf{restart} loop)
  			\EndIf
- 			\State $my\_id\gets$ choose a number from $C\setminus claims$
- 			\State $update\_cmds\gets \textsc{\ufunc}(policy)$
+ 			\State $\textit{my\_id}\gets$ choose a number from $C\setminus claims$
+ 			\State $\textit{update\_cmds}\gets \textsc{\ufunc}(policy)$
  			\startTxn
  				\State $\claimcheck(my\_id)$,
 	 			\State $CAS(\paddr, \pid,my\_id)$,
-	 			\State $update\_cmds$ %conditioned on $metadata=my\_a$
+	 			\State $\textit{update\_cmds}$ %conditioned on $metadata=my\_a$
 	 			%\State update policy selector to $my\_a$
  			\endTxn
-	 		\State $\textbf{execute} \{unclaim(\pid)\}$
+	 		\State $\textbf{execute} \{\textit{unclaim}(\pid)\}$
      		%\State $res \gets $ commit transaction
      	\Until{$res=\ack$}
      	%\doWhile{$res=False$}
 %   \vspace{3mm}
-			\Return
+			\Return $\textit{res}$
 
     \end{algorithmic}
 \end{algorithm}
-
+}
 
 
 %\noindent\textbf{One-Shot Update} FIXME: desribe how to implement one-shot update
