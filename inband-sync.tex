@@ -129,7 +129,8 @@
 %\title{Coordinating Distributed SDN Controllers:\\On the Consensus Power of OPenFlow}
 
 %[[PK sorry for stubborness :)
-\title{On the Synchronization Power of the OpenFlow Data Plane}
+%\title{On the Synchronization Power of the OpenFlow Data Plane}
+\title{Network Concurrency Control Done In Band}
 %\\ {\Large Towards Atomic Transactions In-Band}}
 %]]
 
@@ -139,7 +140,7 @@
 
 
 \author{
-Liron Schiff\thanks{Supported by the European Research Council (ERC) Starting Grant no. 259085 and by the Israel Science Foundation Grant no.~1386/11.} $^1$,
+Liron Schiff$^1$, % \thanks{Supported by the European Research Council (ERC) Starting Grant no. 259085 and by the Israel Science Foundation Grant no.~1386/11.} $^1$,
 Stefan Schmid$^2$, Petr Kuznetsov$^3$ \\
 \small $^1$ Tel Aviv University, Israel; $^2$ TU Berlin \& T-Labs,
 Germany; $^3$ T\'el\'ecom ParisTech, France
@@ -211,7 +212,7 @@ standard OpenFlow commands on the data plane configuration.
 %can include complex notions of conflicts (beyond flow overlap checks),
 %as well as computations and multiple controller interactions.
 We discuss how to use our synchronization framework to implement
- consistent policy compositions and replicated control plane services.
+ consistent policy composition and fault-tolerant control-plane applications.
 \end{abstract}
 
 \begin{comment}
