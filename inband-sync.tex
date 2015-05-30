@@ -473,9 +473,9 @@ in Section~\ref{sec:conclusion}.
 
 %In this section, we recall the basic SDN principles, with a focus on
 %OpenFlow~\cite{of-spec}, the standard SDN protocol today.
-
-\noindent\textbf{Control and data planes}
-Software-defined networking decouples the \emph{control plane}, software
+\hspace{1mm}
+\noindent\textbf{Control and data planes.} Software-defined networking
+decouples the \emph{control plane}, software
 controllers that configure the network, from the \emph{data plane}, the
 devices that implement the network.
 %
@@ -491,19 +491,20 @@ packets (e.g., forward them to a specific port).
 
 More precisely, the match part of a rule is
 a ternary pattern over packet \emph{header} fields.
-The pattern is represented as a \emph{value} and a \emph{mask}. \liron{we need to discuss about this, I am not sure this description is accurate.}
+The pattern is represented as a \emph{value} and a \emph{mask}. 
+%\liron{we need to discuss about this, I am not sure this description is accurate.}
 In the mask, certain header fields, e.g., TCP or UDP port numbers or destination and source
 addresses, can be \emph{wildcarded}, stipulating that their content does
 not affect the match.
-Certain fields, such as \emph{ipv4\_src }, \emph{ipv4\_dst}, \emph{metadata}, can be arbitrarily
+Certain fields, such as \emph{ipv4\_src}, \emph{ipv4\_dst}, \emph{metadata}, can be arbitrarily
 bitmasked.
-In our implementations, we are going to use bitmasking of the metadata
+In our implementations, we are going to use bitmasking of the \emph{metadata}
 field for performing conditional operations on  its content.
-For example, \texttt{ipv4\_src=10.1.14.0, ff.ff.ff.f0} matches all packets
-with source IP addresses in the range \texttt{10.1.14.0}--\texttt{10.1.14.127}.
+%For example, \texttt{ipv4\_src=10.1.14.0, ff.ff.ff.f0} matches all packets
+%with source IP addresses in the range \texttt{10.1.14.0}--\texttt{10.1.14.127}.
 
 A \emph{configuration} of an OpenFlow switch is represented as a
-collection \emph{flow table}.
+a collection of \emph{flow tables}.
 A flow table is a set of \emph{flow entries}, each containing a rule,
 with a match, an action, and a \emph{priority} level, and flow entries
 are ordered according to their priorities.
@@ -554,7 +555,7 @@ If no rule matches the packet, the packet is dropped.
 
 %\liron{I think that maybe the rest of this section should be explained by the following subsections, providing in depth description of the OpenFlow features.}
 %\liron{Another direction is to have a simplified explenation as now and to refference spesific sections of the standard in side our paper.}
-
+\hspace{1mm}
 \noindent\textbf{Interaction between the planes: FlowMod commands}
 The flow tables installed on the switches across the data plane
 determine the network \emph{policy}.
@@ -580,16 +581,17 @@ Otherwise, the flow entry will be installed in addition to existing
 ones.
 A $\dele$ command simply removes an existing flow entry with the same
 match and priority,  or does nothing if such an entry is not present.
-\petr{Is this correct?}
+%\petr{Is this correct?}
 
 %but will be installed
 %\emph{in addition} to existing entries if they only
 %partially overlap (or define flowspace subsets or supersets).
 
-If rules with overlapping but not identical match fields have the same priority,
-inconsistencies can arise, since there is no clearly specified action
-that should be applied to a packet matching the two entries.
-In order to avoid such conflicts, a \emph{FlowMod} command can be equipped with a the $\checko$ flag:
+%If rules with overlapping but not identical match fields have the same priority,
+%inconsistencies can arise, since there is no clearly specified action
+%that should be applied to a packet matching the two entries.
+In order to avoid inconsistencies caused by different rules with
+overlapping match fields, a \emph{FlowMod} command can be equipped with a the $\checko$ flag:
 if the switch maintains a flow entry with an overlapping but not
 identical match part with the same priority but a different action,
  and if the two rules have the same priority, then
@@ -607,9 +609,11 @@ $\FlowMod(\match, op, \action, \flags)$, where
 %$\match$ denotes the match,
 $op$ is $\add$ or $\dele$, and $\flags$ are used, e.g.,  to activate the $\checko$
 feature.
-A standard \emph{FlowMod} message (and also the flow entries) may specify
-more parameters, which are however irrelevant for our implementation, and we suggest to
-use the default values.
+For simplicity, we omit other standard parameters, assuming them to carry
+default values.
+%A standard \emph{FlowMod} message (and also the flow entries) may specify
+%more parameters, which are however irrelevant for our implementation, and we suggest to
+%use the default values.
 
 To read the current configuration of a switch (the existing flow entries), the controller should send
 the OpenFlow \emph{add flow monitor} command with the \textsf{ofpt\_initial} optional flag.
@@ -625,9 +629,10 @@ are always identified by exact matches.
 %]]
 }
 
-\noindent\textbf{Bundling}
-
-Another important feature in OpenFlow is \emph{bundling} (as of OpenFlow version 1.4). \stefan{liron, is that correct?}
+\hspace
+\noindent\textbf{Bundling.}
+%
+Another important feature in OpenFlow is \emph{bundling}. %(as of OpenFlow version 1.4). \stefan{liron, is that correct?}
 A controller can send multiple $\FlowMod$ commands  equipped with
 the same \emph{bundle identifier}.
 These commands are buffered temporarily by
