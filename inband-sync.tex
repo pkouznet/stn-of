@@ -200,7 +200,8 @@ framework for control planes  based on the well-known concept of
 A transaction aggregates a sequence
 of control messages and specific synchronization primitives,
 providing all-or-nothing semantics.
-We argue that a powerful transactional interface should and can be implemented \emph{inband}, using 
+We argue that a powerful transactional interface should and can be
+implemented \emph{in-band}, using 
 standard OpenFlow commands on the data plane configuration.
 %Indeed, recent OpenFlow versions already come with useful but primitive
 %features, in particular \emph{bundling} and \emph{rule-overlap checks}.
@@ -266,11 +267,11 @@ centralized controller, Software-Defined Networks (SDNs)
 simplify network management and facilitate faster innovations:
 the (software) control plane can evolve independently from the
 (hardware) data plane.
-Moreover, OpenFlow, the standard SDN protocol today, introduces many generalizations,
-in terms of traffic engineering, definition of flows, as well as in-band network functionalities,
-by relying on a simple match-action paradigm which allows us to define
-forwarding rules based not only on Layer-2, but also Layer-3 and Layer-4 (and possibly beyond).
-
+%Moreover, OpenFlow, the standard SDN protocol today, introduces many generalizations,
+%in terms of traffic engineering, definition of flows, as well as in-band network functionalities,
+%by relying on a simple match-action paradigm which allows us to define
+%forwarding rules based not only on Layer-2, but also Layer-3 and Layer-4 (and possibly beyond).
+%
 While the perspective of \emph{logically centralized} control plane
 offered by SDN is intuitive and attractive,
 there is a wide consensus that
@@ -300,7 +301,7 @@ concurrently~\cite{participatory}.
 
 Today, we do not have a good understanding yet of how to realize
 such distributed control planes. The problem is essentially a
-distributed systems
+distributed-systems
 one: Multiple controllers may simultaneously try to
 install conflicting updates and we want to resolve these conflicts
 \emph{consistently} (no undesired behavior is observed on the data
@@ -327,7 +328,7 @@ a wide range of synchronization abstractions.
 E.g., the popular \emph{transactional
   memory} abstraction~\cite{tm-book} provides a collection of
 concurrent processes with the ability of aggregating sequences of
-shared-memory operations in atomic \emph{transactions} with
+shared-memory operations in \emph{atomic  transactions} with
 all-or-nothing semantics.
 
 %[[PK
@@ -339,7 +340,8 @@ all-or-nothing semantics.
 %classic distributed computing problems, such as consensus.
 %]]
 
-\noindent\textbf{Contributions}
+\hspace{1mm}
+\noindent\textbf{Contributions.}
 This paper applies the principle of atomicity in concurrent computing
 to distributed SDN control planes.
 %
@@ -347,15 +349,15 @@ In particular, we propose synchronization constructs which
 allow a controller to represent multiple configuration commands on
 the data plane as an atomic transaction.
 %
-If none of the transaction commands \emph{conflicts}  with the current
+If none of the transaction's commands \emph{conflicts}  with the current
 configuration, where conflicts can be
 defined in a general, application-specific manner, the transaction appears to be executed atomically.
-Otherwise, the transaction is aborted in its entirety and does not
+Otherwise, the transaction is \emph{aborted} in its entirety and does not
 affect neither traffic nor other controllers.
 
-We promote to implement our synchronization constructs \emph{inband},
-on the OpenFlow switch.
-An inband implementation allows us to efficiently alleviate the problems related to
+We promote to implement our synchronization constructs \emph{in-band},
+on the switch.
+An in-band implementation allows us to efficiently alleviate the problems related to
 coordinating controllers via a control plane
 out-of-band network, in the presence of asynchrony and failures.
 Indeed, the inherent costs  of such protocols are often considered too high, both in
@@ -378,17 +380,23 @@ protocol (version 1.4).
 %\petr{"interface modified concurrently" does not sound right -> "accessed concurrently"?}
 %
 Concretely, in our implementation, 
-as part of the data plane configuration space, 
-we propose to use a shared memory storing information about  contention and
-conflicts between distributed controllers.
+we use a part of the data-plane configuration space as a \emph{shared
+  memory}  that stores information about  contention and conflicts
+between the controllers.
 A transaction can then contain standard OpenFlow control operations
 as well as  \emph{synchronization primitives} operating on this shared
 memory.
-Our synchronization primitives allow the controllers to define complex notions
-of conflicts that can be used for coordinating configuration updates operating 
-over \emph{independent flow spaces}, but where dependencies are introduced
-in the mapping of the flows to the physical infrastructure. This is
-important, e.g., for load-balancing applications.
+Our synchronization primitives allow the controllers to define
+general notions of conflicts between configuration updates, 
+not restricted to simple conflicts on the overlapping flow spaces.
+In particular, we can define dependencies between mappings of
+independent flows to the physical infrastructure, which is important,
+e.g., for load-balancing applications.     
+%which can be used even for coordinating 
+%configuration updates operating 
+%over \emph{independent flow spaces}, but where dependencies are introduced
+%in the mapping of the flows to the physical infrastructure. This is
+%important, e.g., for load-balancing applications.
 
 %[[PK
 %This paper shows how to implement a powerful transactional interface
@@ -411,7 +419,7 @@ modern system design.
 We also discuss a simple CAS-based concurrent policy-update mechanism,
 and also use our synchronization abstraction to provide
 the missing link for the read-modify-write object
-postulated in~\cite{stn}. \petr{We do not seem to discuss the latter?}
+postulated in~\cite{stn}. %\petr{We do not seem to discuss the latter?}
 
 
 %Finally, we also show that interesting synchronization mechanisms may be included
@@ -1365,7 +1373,7 @@ to implement any generic replicated state machine~\cite{Her91}
 in the control plane,  in the \emph{wait-free} manner, i.e., tolerating
 asynchrony and failure of any number of controllers.
 As such, CAS can also be used to implement STN~\cite{stn},
-by providing the missing synchronization object.
+by providing the postulated \emph{read-modify-write} object.
 
 %which will be instrumental in the
 %next section.
