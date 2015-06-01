@@ -175,7 +175,8 @@ Germany; $^3$ T\'el\'ecom ParisTech, France
 Control planes of forthcoming Software-Defined Networks (SDNs)
 will be \emph{distributed}: to ensure availability and fault-tolerance,
 to improve load-balancing, and to reduce overheads,
-control modules operating on the data plane should be physically distributed.
+modules of the control plane %operating on the data plane 
+should be physically distributed.
 %a redundant control plane
 %can ensure a high availability, and a spatially distributed
 %control plane allows to handle time-critical dataplane
@@ -1343,18 +1344,18 @@ with an identical one.
 
 \section{Applications}\label{sec:apps}
 
-We believe that our synchronization mechanisms
-can be useful in many situations.
-For example, the pathological scenario described in
-Figure~\ref{fig:CAS-example} can be resolved easily if we put
-the policy update in our transactional $\execatomic$ construct together
- with a \emph{Compare-and-Set} (CAS) operation on the policy identifier.
-A $\cas(\addr,\textit{old},\textit{new})$ operation on a memory location $\addr$
+Our synchronization mechanisms can be useful in many situations.
+For example, it can be used to implement the fundamental
+\emph{Compare-and-Set} (CAS) operation. % on the policy identifier.
+When executed within a
+transaction, a $\cas(\addr,\textit{old},\textit{new})$ operation 
+on a memory location $\addr$
 checks if the content of $\addr$ is $\textit{old}$ and if so,
-replaces it with $\textit{new}$ and returns $\true$ (the CAS
-\emph{succeeds}), otherwise it returns $\false$ (the CAS
-\emph{fails} which causes an abort of
-the invoking transaction).
+replaces it with $\textit{new}$ %and returns $\true$ 
+(the CAS \emph{succeeds}), otherwise it 
+%returns $\false$ 
+causes an abort of the invoking transaction
+(the CAS \emph{fails}).
 It is straightforward to implement the CAS operation by executing
 $\textit{\compare}(\addr, old)$ followed by $\textit{\memwrite}(\addr,
 new)$ within the {\execatomic} construct.
@@ -1378,7 +1379,7 @@ As can be seen Algorithm \ref{alg:cas}, CAS is implemented by two commands. Thes
 }
 %]]
 
-More generally, CAS can be used to solve the fundamental
+CAS can be used to solve the fundamental
 problem of fault-tolerant \emph{consensus}~\cite{FLP85}
 \hide{%[[PK, feels like we do not really need this level of detail here
  in which the controllers
@@ -1414,9 +1415,17 @@ by providing the postulated \emph{read-modify-write} object.
 
 Our mechanism can also be used as a generic template to
 implement concurrent policy compositions of a user-specific
-$\textsc{\ufunc}()$ function~\cite{stn}, e.g., our load-balancing
-function $\textsc{lb\_update}$ (Example~1 in Section~\ref{sec:motivation}).
-That is, let us consider a simple policy update protocol that
+$\textsc{\ufunc}()$ function~\cite{stn}.
+This way, for example, by choosing our load-balancing
+function $\textsc{lb\_update}$ (Example~1 in
+Section~\ref{sec:motivation}), 
+the pathological scenario described in 
+Figure~\ref{fig:CAS-example} can be resolved.
+% if we put
+%the policy update in our transactional $\execatomic$ construct together
+% with a \emph{Compare-and-Set} (CAS) operation on the policy identifier.
+
+Let us first  consider a simple policy update protocol that
 allows a set of  controllers to concurrently update switch policies, i.e., sets of
 %[[PK policies have been defined in Background]]
 effective flow entries, under the
@@ -1520,7 +1529,7 @@ different policy (Lines~\ref{update:read-config1}-\ref{update:read-config2}).
 %Then it reads the configuration again in case the policy was changed just before claiming its id.
 %Then considering other claims the controller chooses
 Then the controller claims the first \emph{unused} id and computes the update commands to be executed (Line~\ref{update:compute}).
-Finally, within an atomic transaction (\textbf{execatomic}), it verifies whether the chosen policy id has not
+Finally, within an atomic transaction (\textbf{\execatomic}), it verifies whether the chosen policy id has not
 been claimed and that
 the policy has not been concurrently modified, and then updates the policy.
 %[[PK added a note to the id-claimer description
@@ -1786,8 +1795,8 @@ as well as to useful high-level concurrency objects and
 language abstractions.~\cite{pyretic}
 We also plan to release a small library with our synchronization primitives. 
 Moreover, we are investigating possible generalizations of our transactional guarantees,
-across multiple switches~\cite{stn}, as well as opportunities for a more fine-grained
-locking, improving concurrency. 
+across multiple switches~\cite{stn}, as well as opportunities for more fine-grained
+\emph{partial} updates that concern subsets of flow entries, thus improving concurrency. 
 
 %,
 %nor on
