@@ -1487,16 +1487,28 @@ It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we
 }
 %
 
+%Algorithm~\ref{alg:update} uses our id-claimer abstraction
+%to bound the number of policy identifiers.
+%Claiming a policy id prevents another controller from using it with a
+%different policy.
+%A controller claims the current policy identifier, chooses a new id
+%from a finite set of identifiers,
+%and then checks that the new policy id is not claimed by another controller.
+%Note that in Algorithm \ref{alg:update}, the meta-configuration is
+%used to store $\textit{pid}$ and id-claimer.
+%\petr{The description is not very clear.}
+
+{\color{red}
 Algorithm~\ref{alg:update} uses our id-claimer abstraction
 to bound the number of policy identifiers.
-Claiming a policy id prevents another controller from using it with a
+The controller begins by reading the current policy id and claiming it in order to prevent another controller from using it with a
 different policy.
-A controller claims the current policy identifier, chooses a new id
-from a finite set of identifiers,
-and then checks that the new policy id is not claimed by another controller.
+Then it reads the configuration again in case the policy was changed just before claiming its id.
+Then considering other claims the controller chooses an unused id for the update and computes the the update commands using the UPDATE function.
+Finally a transaction is made to verify that the chosen id is not claimed and that the policy wasn't changed by someone else, and to update the policy.
 Note that in Algorithm \ref{alg:update}, the meta-configuration is
-used to store $\textit{pid}$ and id-claimer.
-\petr{The description is not very clear.}
+used to store $\textit{pid}$ and id-claimer (the claims).
+}
 
 In other words, Algorithm~\ref{alg:simple-update} can also be used
 to render our na\"ive load-balancing scheme (Algorithm~\ref{alg:naive-lb} in Section~\ref{sec:motivation})
