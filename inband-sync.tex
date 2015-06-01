@@ -617,7 +617,7 @@ default values.
 
 To read the current configuration of a switch (the existing flow entries), the controller should send
 the OpenFlow \emph{add flow monitor} command with the \textsf{ofpt\_initial} optional flag.
-In this paper, we write \textit{read-config} for sending
+In this paper, we write \textbf{read-config} for sending
 this message, receiving a response, and returning the received configuration.
 
 \hide{
@@ -784,13 +784,13 @@ Let us consider two examples.
 
 %\begin{enumerate}
 \vspace{1mm}
-\noindent \textbf{Example 1: Handling complex dependencies.} Let us consider two controllers
+\noindent \textbf{Example~1: Handling complex dependencies.} Let us consider two controllers
 in charge
 of \emph{load-balancing}, see Figure~\ref{fig:CAS-example} 
 for a simplistic example with two links. 
 In such a scenarios, seemingly independent actions, defined over
-completely independent logical flow spaces (say, two flows with source IP address ranges $1*$ and $0*$,
-respectively),
+completely independent logical flow spaces (say, flows with
+originated in disjoint ranges of IP addresses),
 may actually be dependent: the flows share the underlying physical network.
 Accordingly, if multiple controllers concurrently and independently
 update forwarding rules according to a na\"ive load-balancing algorithm \`{a} la Algorithm~\ref{alg:naive-lb},
@@ -821,12 +821,12 @@ help here.
     \Require \emph{new\_flows}: flow entries of the new flows,
     \emph{ports}: a list of switch output ports, 
     \State $\textit{policy} \gets \textbf{read\_config}$
-    \State $\textit{update\_cmds} \gets \textit{lb\_update}(policy)$ %(new\_flows, ports, policy)$    
+    \State $\textit{update\_cmds} \gets \textsc{lb\_update}(policy)$ %(new\_flows, ports, policy)$    
     \State $\textbf{send}\{\textit{update\_cmds}\}$
 %    \State $\textbf{execute-atomic}\{update\_cmds\}$
     \Statex
 
-    \Statex \emph{\bf Function} $\textit{lb\_update}(\textit{policy})$ % (new\_flows, ports, policy)}$
+    \Statex \emph{\bf Function} $\textsc{lb\_update}(\textit{policy})$ % (new\_flows, ports, policy)}$
 
 	\State $\textit{flows\_per\_port} \gets [0, 0, \ldots, 0]$
 	\ForAll {$\textit{entry} \in \textit{policy}$}
@@ -850,7 +850,7 @@ help here.
 %\petr{postpone the explanation of the right part of the figure until we come to CAS?}
 
 \vspace{1mm}
-\noindent\textbf{Example 2: Supporting modifications.}
+\noindent\textbf{Example~2: Supporting modifications.}
 Consider the arguably very basic problem of \emph{modifying} previously installed forwarding rules
 in a consistent manner.
 In principle, a bundle allows to conditionally add new rules or remove
@@ -1212,7 +1212,12 @@ a conflict is detected iff $x_1=x_2$, as desired.
 Note that in order to save space, when checking for claims, also the deletion of the added tester flow entry is included,
 which however has no effect on claims and checks of other controllers; hence, the deletion command does not
 have to be sent as part of a bundle. Therefore, the \texttt{\claimcheck} operation is atomic by nature,
-similar to the \texttt{claim} and \texttt{unclaim} operations, and is implemented as essentially one command.
+similar to the \texttt{claim} and \texttt{unclaim} operations, and is
+implemented as essentially one command.
+
+By employing the \textbf{read-config} command, we may easily implement
+an additional operation that returns all currently claimed ids: it is
+sufficient to go over the rules matching every controller identifier.   
 
 %A container contains items: they represent the flow table entries (i.e., a match-action rules, plus e.g., counters belonging to the rule).
 %Items can be added and removed atomically and in bundles (e.g., to update the switch with
@@ -1406,7 +1411,8 @@ by providing the postulated \emph{read-modify-write} object.
 
 Our mechanism can also be used as a generic template to
 implement concurrent policy compositions of a user-specific
-$\textsc{\ufunc}()$ function~\cite{stn}.
+$\textsc{\ufunc}()$ function~\cite{stn}, e.g., our load-balancing
+function $\textsc{lb\_update}$ (Example~1 in Section~\ref{sec:motivation}).   
 That is, let us consider a simple policy update protocol that
 allows a set of  controllers to concurrently update switch policies, i.e., sets of
 %[[PK policies have been defined in Background]]
@@ -1500,20 +1506,22 @@ It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we
 
 {\color{red}
 Algorithm~\ref{alg:update} uses our id-claimer abstraction
-to bound the number of policy identifiers.
-The controller begins by reading the current policy id and claiming it in order to prevent another controller from using it with a
-different policy.
-Then it reads the configuration again in case the policy was changed just before claiming its id.
-Then considering other claims the controller chooses an unused id for the update and computes the the update commands using the UPDATE function.
-Finally a transaction is made to verify that the chosen id is not claimed and that the policy wasn't changed by someone else, and to update the policy.
-Note that in Algorithm \ref{alg:update}, the meta-configuration is
-used to store $\textit{pid}$ and id-claimer (the claims).
-}
+to bound the number of used policy identifiers.
+Here the controller first reads the current policy id and claims it in order to prevent another controller from using it with a
+different policy (lines~\ref{update:read-config1}-\ref{update:read-config2}).
+%Then it reads the configuration again in case the policy was changed just before claiming its id.
+%Then considering other claims the controller chooses 
+Then the controller claims the first \emph{unused} id and computes the update commands to be executed (line~\ref{update:compute}).
+Finally, within an atomic transaction (\textbf{execatomic}), it verifies that the chosen policy id is not claimed and that 
+the policy has not been concurrently modified, and updates the policy.
+%[[PK added a note to the id-claimer description
+%Note that in Algorithm \ref{alg:update}, the meta-configuration is
+%used to store $\textit{pid}$ and id-claimer (the claims).
 
-In other words, Algorithm~\ref{alg:simple-update} can also be used
+Algorithm~\ref{alg:simple-update} can therefore also be used
 to render our na\"ive load-balancing scheme (Algorithm~\ref{alg:naive-lb} in Section~\ref{sec:motivation})
-consistent, without any modifications.
-
+consistent, without any modifications in the update function.
+}
 
 \hide{
 We compute our new suggested policy by applying the update requests on
@@ -1533,15 +1541,15 @@ If one of the actions in the transaction fails we try again. There is no progres
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
-		 	\State $\pid,claims,policy\gets$ \textbf{read-config} %switch configuration
+		 	\State $\pid,claims,policy\gets$ \textbf{read-config} \label{update:read-config1} %switch configuration 
  			\State $\textbf{execute}\{claim(\pid)\}$
- 			\State $\pid 2,\textit{claims},\textit{policy}\gets$ \textbf{read-config} %switch configuration
+ 			\State $\pid 2,\textit{claims},\textit{policy}\gets$ \textbf{read-config} \label{update:read-config2} %switch configuration 
  			\If {$\pid\neq \pid 2$}
 	 			\State $\textbf{execute} \{\textit{unclaim}(\pid)\}$
  				\State {\bf continue} (\textbf{restart} loop)
  			\EndIf
  			\State $\textit{my\_id}\gets$ choose a number from $C\setminus claims$
- 			\State $\textit{update\_cmds}\gets \textsc{\ufunc}(policy)$
+ 			\State $\textit{update\_cmds}\gets \textsc{\ufunc}(policy)$ \label{update:compute}
  			\startTxn
  				\State $\claimcheck(my\_id)$,
 	 			\State $CAS(\paddr, \pid,my\_id)$,
@@ -1767,6 +1775,9 @@ approach is natural and attractive as it can avoid the
 complexities and limitations of distributed out-of-band agreement protocols.
 Moreover, our mechanisms are simple and can be implemented using the \emph{standard OpenFlow}
 protocol: they do not require any protocol/hardware extensions as postulated in recent literature~\cite{stn,netpaxos}.
+{\color{red}
+We also conjecture that they can be extended to implement atomic modifications of multiple switches.   
+}
 Our work may hence also contribute to the ongoing discussion of what can be implemented
 in-band in today's OpenFlow protocol~\cite{reclaim},
 as well as to useful high-level concurrency objects and
