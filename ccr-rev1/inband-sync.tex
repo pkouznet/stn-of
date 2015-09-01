@@ -187,7 +187,8 @@ should be physically distributed.
 However, %a distributed control plane also introduces
 %new challenges,
 in order to guarantee \emph{consistency} of network operation, actions
-performed on the data plane by different controllers may need to be \emph{synchronized},  which is a
+performed on the data plane by different controllers may need to 
+be \emph{synchronized},  which is a
  nontrivial task.
 %[[PK sounds contradicting to the fact that such systems already exist
 %However, not much is known today about how to implement
@@ -198,12 +199,24 @@ In this paper, we propose a synchronization
 framework for control planes  based on the well-known concept of
 \emph{transactions}.
 %
-A transaction aggregates a sequence
-of control messages and specific synchronization primitives,
-providing all-or-nothing semantics.
-We argue that a powerful transactional interface should and can be
-implemented \emph{in-band}, using
-standard OpenFlow commands on the data plane configuration.
+%A transaction aggregates a sequence
+%of control messages and specific synchronization primitives,
+%providing all-or-nothing semantics.
+In particular, we present a powerful interface 
+to implement transactions \emph{in-band}, on the 
+switch itself
+and using
+the data plane configuration as a shared memory.
+We argue that this in-band approach is attractive as 
+it keeps the failure scope local and 
+does not require additional 
+out-of-band coordination mechanisms.
+This allows us 
+to realize fundamental consensus primitives in the presence
+of controller failures, and we discuss applications
+for 
+ consistent policy composition and fault-tolerant control-planes.
+%
 %Indeed, recent OpenFlow versions already come with useful but primitive
 %features, in particular \emph{bundling} and \emph{rule-overlap checks}.
 %In particular, we present a
@@ -213,8 +226,14 @@ standard OpenFlow commands on the data plane configuration.
 %Our transactions
 %can include complex notions of conflicts (beyond flow overlap checks),
 %as well as computations and multiple controller interactions.
-We discuss how to use our synchronization framework to implement
- consistent policy composition and fault-tolerant control-plane applications.
+%
+Interestingly, 
+by leveraging the match-action
+paradigm to realize simple key-value stores, 
+we can implement our synchronization framework in
+today's standard Openflow protocol, 
+and we report on
+a proof-of-concept accordingly.
 \end{abstract}
 
 \begin{comment}
