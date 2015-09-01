@@ -81,7 +81,10 @@
 \newcommand{\false}{\textit{false}}
 
 
-
+\newcommand{\ones}[1]{1^{#1}}
+\newcommand{\zeros}[1]{0^{#1}}
+\newcommand{\claimmagic}{\textit{CLAIM}}
+\newcommand{\memmagic}{\textit{WRITE}}
 
 \algblock[<block>]{<start>}{<end>}
 \algblockdefx[Bundle]{startBundle}{endBundle} %
@@ -789,9 +792,9 @@ In defining the value and the mask,
 % of the math part,
 we
 use the notation $a\concat b$ to represent a concatenation of two
-$32$bit integers $a$ and $b$: $a\concat b := (a<<32)+b$.
-We also write \texttt{1$\ldots$1} for  a $32$bit
-string of $1$'s used in a mask.
+ integers $a$ and $b$: $a\concat b := (a<<s)+b$, where $s$ is the size of $b$ in bits.
+We also write \texttt{$\ones{s}$} (\texttt{$\zeros{s}$}) for  a $s$ bit 
+string of $1$'s ($0$'s).
 %
 The action part in these commands is defined as an integer, which in
 practice can be implemented by a \emph{set meta-data} instruction where the written value is that integer.
@@ -804,7 +807,7 @@ To simplify the presentation we set the FlowMod command field values with intege
 
 \item {\bf  Flag:} we often use the $\checko$ optional flag value to make the command execution dependent on switch state. In other cases, when the flag value remains zero, we omit the assignment.
 
-\item {\bf  Match:} we consider the match part of an entry to be a ternary string of bounded length, represented by binary strings (integers) named value and mask. In general, the match can be applied to any set of supported packet header fields. In our implementation, the $64$bit meta-data field alone is sufficient. We sometimes use the concatenation of two $32$bit integers, denoted by $a\concat b$, to form one match value or mask, where $a\concat b := (a<<32)+b$.
+\item {\bf  Match:} we consider the match part of an entry to be a ternary string of bounded length, represented by binary strings (integers) named value and mask. In general, the match can be applied to any set of supported packet header fields. In our implementation, the $64$bit meta-data field alone is sufficient. We sometimes use the concatenation of two integers, denoted by $a\concat b$, to form one match value or mask, where $a\concat b := (a<<s)+b$ and $s$ is the size of $b$ in bits.
 
 \item {\bf Action:} we consider the action part of an entry to be an integer, which in practice can be implemented by a \emph{set meta-data} instruction where the written value is that integer.
 
@@ -819,27 +822,27 @@ In addition we use "op" as shortened form to a field that indicates whether the 
 %
 In Algorithms \ref{alg:claim}-\ref{alg:unclaim},
 the match part of the constructed commands represents a concatenation
-of two claimed identifiers.
-In addition, every controller uses a unique mask part of the match
-defined as a distinct $32$bit controller identifier concatenated with
-\texttt{1$\ldots$1}.
+of claimed identifier with a distinct $16$bit controller identifier.
+%In addition, every controller uses a unique mask part of the match
+%defined as a distinct $32$bit controller identifier concatenated with
+%\texttt{1$\ldots$1}.
 This allows multiple controllers to claim the same identifier without
 overriding existing flow entries.
 %
 For example, for any two resource identifiers $x_1$ and $x_2$ and controller identifiers $c_1\neq c_2$,
-the match patterns $m_1=(x_1\concat x_1, c_1\concat \texttt{1$\ldots$1})$ and $ m_2=(x_2\concat x_2, c_2\concat \texttt{1$\ldots$1})$ are distinct,
+the match patterns $m_1=(c_1\concat x_1, \ones{48})$ and $ m_2=(c_2\concat x_2, \ones{48})$ are distinct,
 even if $x_1=x_2$.
 Therefore, they can both be used to claim and unclaim identifiers without affecting each other.
 
 In order to check if an identifier is claimed, a controller tries to add
 a new entry setting the flag \texttt{\checko}, and using a different
-action ($2$ instead of $1$),
-thereby inflicting a failure in case an entry with overlapping match value exists.
-If the check succeeds, we delete the entry.
-Considering $m_1$ and $m_2$ from the example above,
-with respective actions $a_1=1$ and $a_2=2$,  they overlap
-with different actions iff $x_1=x_2$. Therefore, if $m_1$ is used in the \claimcheck after $m_2$ was used in the claim operation,
-a conflict is detected iff $x_1=x_2$, as desired.
+match where the controller id is shifted $16$ bits to the left,
+thereby inflicting a failure in case an entry with the same claimed value exists.
+If the check succeeds, we delete the entry. In any case since the check entry contains the controller id, it doesn't conflicts with other check entries and there is no negative impact of delaying the deletion.
+%Considering $m_1$ and $m_2$ from the example above,
+%with respective actions $a_1=1$ and $a_2=2$,  they overlap
+%with different actions iff $x_1=x_2$. Therefore, if $m_1$ is used in the \claimcheck after $m_2$ was used in the claim operation,
+%a conflict is detected iff $x_1=x_2$, as desired.
 
 Note that in order to save space, when checking for claims, also the deletion of the added tester flow entry is included,
 which however has no effect on claims and checks of other controllers; hence, the deletion command does not
@@ -850,6 +853,7 @@ implemented as essentially one command.
 By employing the \textbf{read-config} command, we may easily implement
 an additional operation that returns all currently claimed ids: it is
 sufficient to go over the rules matching every controller identifier.
+In order to distinguish between claim entries and other policy entries we set the action part to be some magic value, $\claimmagic$.
 
 {\small
 
@@ -859,11 +863,11 @@ sufficient to go over the rules matching every controller identifier.
     \begin{algorithmic}[1]
     \Require \emph{self} as the calling controller id.
 %    \Ensure
-    		\State $\textit{value} \gets x\concat x$
-    		\State $\textit{mask} \gets \textit{self}\concat \texttt{1$\ldots$1}$
+    		\State $\textit{value} \gets self\concat x$
+    		\State $\textit{mask} \gets \ones{48}$
 	    	\State $\textit{match} \gets (\textit{value},\textit{mask})$
     		%\State $cookie \gets x\concat self$
-    		\State $\textit{action} \gets 1$
+    		\State $\textit{action} \gets \claimmagic$
     		\State $\textit{flag} \gets 0$
     		\State $\textit{cmd}\gets \textit{FlowMod}(match, op = \add, \textit{flag}, \textit{action}) $
 			\Return $\textit{cmd}$
@@ -876,11 +880,11 @@ sufficient to go over the rules matching every controller identifier.
     \begin{algorithmic}[1]
     \Require \emph{self} as the calling controller identifier.
 %    \Ensure
-    		\State $\textit{value} \gets x\concat x$
-    		\State $\textit{mask} \gets self\concat \texttt{1$\ldots$1}$
+    		\State $\textit{value} \gets self\concat \ones{16}\concat x$
+    		\State $\textit{mask} \gets \ones{16}\concat \zeros{16}\concat \ones{32}$
     		\State $\textit{match} \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
-    		\State $\textit{action} \gets 2$
+    		\State $\textit{action} \gets \claimmagic$
     		\State $\textit{flag} \gets \texttt{ofpff\_\checko}$
     		\State $\textit{cmd1}\gets \textit{FlowMod}(\textit{match}, op = \add, \textit{flag}, \textit{action}) $
     		\State $\textit{cmd2}\gets \textit{FlowMod}(\textit{match}, op = \dele) $
@@ -894,8 +898,8 @@ sufficient to go over the rules matching every controller identifier.
     \begin{algorithmic}[1]
     \Require \emph{self} as the calling controller id.
 %    \Ensure
-    		\State $\textit{value} \gets x\concat x$
-    		\State $\textit{mask} \gets self\concat \texttt{1$\ldots$1}$
+    		\State $\textit{value} \gets self\concat x$
+    		\State $\textit{mask} \gets \ones{48}$
     		%\State $cookie \gets x\concat self$
     		\State $\textit{match} \gets (\textit{value},\textit{mask})$
     		\State $\textit{cmd}\gets \textit{FlowMod}(\textit{match}, op=\dele) $
@@ -911,15 +915,16 @@ sufficient to go over the rules matching every controller identifier.
 The memory \memwrite and \compare
  operations can be implemented using similar techniques.
  As can be seen in Algorithms \ref{alg:write}-\ref{alg:compare},
-  the match part of the added flow entry is used as the memory address and the action as
-  the written value. Values written to the same address will replace one another,
-following the command definition to replace the old flow entry with a new one in case they
-share the same match parts.
+  the value part of the added flow entry match contains the memory address mask part contains
+  the written value. In order to rewrite a memory location, the old entry needs to be deleted and a new one need to be added atomically.
+  %Values written to the same address will replace one another,
+%following the command definition to replace the old flow entry with a new one in case they
+%share the same match parts.
 
 In order to check if a value is written at a given address,
 we try to add it the same way as in the \memwrite operation,
 but we also set the \texttt{\checko} flag. If the value is not there,
-our action differs from the action of the existing entry,
+our action differs from the existing entry, but still overlaps with it since only their masks differ,
 thereby inflicting a failure.
 In case the value is there, our flow entry replaces the existing flow entry
 with an identical one.
@@ -932,14 +937,20 @@ with an identical one.
     \begin{algorithmic}[1]
     %\Require  id $i$.
 %    \Ensure
-    		\State $value \gets \addr$
-    		\State $mask \gets  \texttt{1$\ldots$1}. \texttt{1$\ldots$1}$
+    		\State $value \gets \ones{32}\concat\addr$
+    		\State $mask \gets  \ones{32}$
     		\State $match \gets (value,mask)$
-    		%\State $cookie \gets x\concat self$
-    		\State $action \gets k$
-    		\State $flag \gets 0$
-    		\State $cmd\gets \emph{FlowMod}(match, op = \add, flag, action) $
-			\Return $cmd$
+    		\State $\textit{cmd1}\gets \textit{FlowMod}(\textit{match}, op = \dele) $
+    		
+  		   \State $value \gets \ones{32}\concat\addr$
+  		   \State $mask \gets  k\concat\ones{32}$
+  		   \State $match \gets (value,mask)$
+ 		    		%\State $cookie \gets x\concat self$
+ 		   \State $action \gets \memmagic$
+ 		   \State $flag \gets 0$
+		   \State $\textit{cmd2}\gets \textit{FlowMod}(\textit{match}, op = \add, \textit{flag}, \textit{action}) $
+		    		
+			\Return $\textit{cmd1}$,$\textit{cmd2}$
     \end{algorithmic}
 \end{algorithm}
 
@@ -949,11 +960,11 @@ with an identical one.
     \begin{algorithmic}[1]
     %\Require  id $i$.
 %    \Ensure
-    		\State $value \gets \addr$
-    		\State $mask \gets  \texttt{1$\ldots$1}.\texttt{1$\ldots$1}$
+    		\State $value \gets \ones{32}\concat\addr$
+    		\State $mask \gets  k\concat\ones{32}$
     		\State $match \gets (value,mask)$
     		%\State $cookie \gets x\concat self$
-    		\State $action \gets k$
+    		\State $action \gets \memmagic$
     		\State $flag \gets \texttt{ofpff\_\checko}$
     		\State $cmd\gets \emph{FlowMod}(match, op = \add, flag, action) $
 			\Return $cmd$
