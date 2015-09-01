@@ -344,8 +344,9 @@ To render things more difficult, controllers may also fail,
 even before their updates have been completed.
 
 The concurrent computing literature offers
-a wide range of synchronization abstractions.
-E.g., the popular \emph{transactional
+a wide range of synchronization abstractions
+to realize consistent distributed systems.
+In particular, the popular \emph{transactional
   memory} abstraction~\cite{tm-book} provides a collection of
 concurrent processes with the ability of aggregating sequences of
 shared-memory operations in \emph{atomic  transactions} with
@@ -394,7 +395,7 @@ as a \emph{transactional shared memory}.
 The shared memory of the data-plane configuration space 
 can store information about  contention and conflicts
 between the controllers.
-A transaction can then contain standard OpenFlow control operations
+A transaction can then contain standard control and update operations
 as well as  \emph{synchronization primitives} operating on this shared
 memory.
 We investigate useful synchronization abstractions and propose 
@@ -407,11 +408,6 @@ In particular, we can define dependencies between mappings of
 independent flows to the physical infrastructure, which is important,
 e.g., for load-balancing applications.
 
-
-We complement our conceptual contributions by
-demonstrating that our approach can readily be implemented
-in today's standard \emph{OpenFlow}
- protocol (version 1.4~\cite{openflow}).
 %
 %By providing more complex and atomic transactions over the
 %switch configuration
@@ -420,8 +416,6 @@ in today's standard \emph{OpenFlow}
 %(\`{a} la STN~\cite{stn}) modified concurrently by multiple controllers.
 %\petr{"interface modified concurrently" does not sound right -> "accessed concurrently"?}
 %
-In particular, we show that OpenFlow's match-action paradigm can be instrumented
-to realize simple key-value stores in the configuration space.
 
 %which can be used even for coordinating
 %configuration updates operating
@@ -439,18 +433,29 @@ to realize simple key-value stores in the configuration space.
 %synchronization problems of distributed control planes efficiently.
 %]]
 
+As a case study, and to demostrate the feasibility
+of our conceptual approach, we 
+consider the standard \emph{OpenFlow}
+ protocol (version 1.4~\cite{openflow}).
+ In particular, we show that OpenFlow's match-action paradigm can be instrumented
+to realize simple key-value stores in the configuration space.
+
 Using our abstraction, the controllers can
 solve several important synchronization problems.
-We describe an OpenFlow implementation of the fundamental
-\emph{compare-and-set} (CAS) primitive,
-which in turn can be used to solve consensus and
-implement a generic replicated control plane service~\cite{Her91} in a consistent and
+For example, we describe an OpenFlow implementation of the fundamental
+\emph{compare-and-set} (CAS) primitive.
+The atomic CAS operation is known to provide an infinite consensus number,
+and can for instance be used to 
+implement generic replicated control plane services~\cite{Her91} in a consistent and
 fault-tolerant way: a mainstream building block in
-modern system design.
-We also discuss a simple CAS-based concurrent policy-update mechanism,
-and use our synchronization abstraction to provide
+modern distributed system design (Chubby, Google Spanner, Amazon Webservices, etc.).
+We discuss a simple CAS-based concurrent policy-update mechanism,
+and present a generic template to implement concurrent policy
+compositions of a user-specic update functions.
+Our synchronization abstraction also provides
 the missing link for the read-modify-write object
 postulated in~\cite{stn}. %\petr{We do not seem to discuss the latter?}
+
 
 
 %Finally, we also show that interesting synchronization mechanisms may be included
@@ -478,11 +483,12 @@ postulated in~\cite{stn}. %\petr{We do not seem to discuss the latter?}
 
 \noindent\textbf{Organization}
 The rest of the paper is organized as follows.
-In Section~\ref{sec:background}, we review the basics of the  OpenFlow
-protocol and discuss the features which are relevant for our work.
-In Section~\ref{sec:motivation}, we highlight the limitations of the OpenFlow
-primitives and motivate the need for transactions.
-We present our approach in detail in Section~\ref{sec:main}, and
+In Section~\ref{sec:motivation}, we motivate the 
+transactional approach.
+We present our abstractions in more detail in Section~\ref{sec:main}.
+In Section~\ref{sec:background}, we discuss
+an OpenFlow implementation, 
+and we 
 discuss use cases in Section~\ref{sec:apps}.
 %Section~\ref{sec:compo} describes how to perform in-band composition.
 We
@@ -500,7 +506,303 @@ in Section~\ref{sec:conclusion}.
 %we conclude our work in
 %Section~\ref{sec:conclusion}.
 
-\section{Background: SDN and OpenFlow}\label{sec:background}
+\section{Motivation and Example}\label{sec:motivation}
+
+% generic way for multiple distributed controllers to safely update switch configuration with no need of any control plane
+
+A transactional distributed system offers all-or-nothing semantics, 
+and aborts transactions in case of conflicts. 
+For instance, in the context of SDNs, a transaction trying to add a forwarding rule whose
+domain overlaps with an existing rule of the same priority
+can constitute a conflict. 
+However, as we will argue, there are often conflicts which are less obvious,
+and go beyond simple range overlaps. 
+Moreover, sometimes it is desirable to react to conflicts in smarter ways than
+by simply aborting an operation, e.g., by supporting \emph{conditional modifications}.
+Let us consider two examples.
+
+%
+%But also bundling FlowMod commands with the check overlap feature ($\checko$)
+%comes with limitations: while it is possible
+% to \emph{abort} a bundle depending on certain conditions
+% in the \emph{overlapping
+% flow spaces}, oftentimes it is desirable to be able
+% to define more general conditions and notions of conflicts
+% under which an atomic update should not take effect.
+% \liron{replaced transaction in the last sentence with " atomic update"}
+%
+
+%Let us consider an example. 
+
+%\begin{enumerate}
+\vspace{1mm}
+\noindent \textbf{Example: Handling complex dependencies.} We consider two controllers
+in charge
+of \emph{load-balancing}, see Figure~\ref{fig:CAS-example}
+for a simplistic example with two links.
+In such a scenario, seemingly independent actions, defined over
+completely independent logical flow spaces (say, two different
+TCP micro-flows),
+%originated in disjoint ranges of IP addresses),
+may actually be dependent: the flows share the underlying physical network.
+Accordingly, if multiple controllers concurrently and independently
+update forwarding rules according to a na\"ive load-balancing algorithm,
+they may involuntarily
+unbalance the flow allocation.
+Simple flow space overlap checks cannot be used to detect
+such conflicts.
+
+%Consider the example in the left part of Figure~\ref{fig:CAS-example}. Two controllers,
+%$1$ and $2$ read the configuration, try to add two more flows to a switch
+%with two outgoing links, balancing the load.
+%Imagine that each of the controllers reads the switch configuration and
+%learns that currently one flow is forwarded to the left link and two
+%flows are forwarded to the right link.
+%Without synchronization, the two controllers naturally choose to
+%install their flows on the left link, which results in an undesirable
+%unbalanced state.
+
+%\petr{postpone the explanation of the right part of the figure until we come to CAS?}
+
+
+This paper proposes mechanisms to solve these synchronization problems 
+by using a minimal
+``meta-configuration'' space. That is, controllers store information
+on contention and conflicts between
+concurrently installed policy updates on the switch. Controllers can read and modify
+this meta-data by applying synchronization primitives.
+In the following section, we
+describe how this space can be organized and consistently maintained
+by multiple controllers despite of concurrency and conflicts.
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=.56\columnwidth]{loadbal-1.pdf}~\hspace{-.7cm}~\includegraphics[width=.56\columnwidth]{loadbal-2.pdf}\\
+\caption{\emph{Left:} Without synchronization, the two controllers naturally choose to
+install their flows on the left link, which results in an undesirable
+unbalanced state.
+ \emph{Right:}
+ With synchronization, i.e., by bundling the flow installation with a Compare-and-Set (CAS) primitive
+ depending on the policy id (\emph{pid}), this problem is avoided.}\label{fig:CAS-example}
+\end{figure}
+
+%[[PK not really discussed?
+%As we will see, we do not even need the bundle feature
+%to implement the powerful synchronization objects of our transactional interface.
+%However, the bundle feature can still be useful in the context of
+%consistent policy updates.
+
+%At first sight, a bundle seems to be a powerful concept
+%for the implementation of a transactional interface. However,
+%while the  bundle can indeed be seen as a ``mini-transaction'',
+%in itself it is not very useful. In fact, as we will discuss
+%in more detail in the next section, we will not make
+%use of the bundle in the implementation of our synchronization
+%objects, but will employ it for our case study
+%of consistent policy updates.%
+%
+%Before presenting our transactional interface and implementation,
+%let us first discuss the limitations of the OpenFlow features discussed above.
+
+%\section{The Container Object}\label{sec:vision}
+
+\section{In-Band Synchronization}\label{sec:main}
+
+In order to synchronize controllers, we propose
+to use a meta-configuration space at
+the switches which can be manipulated using our
+synchronization framework. 
+
+\vspace{1mm}
+\noindent\textbf{Configuration space.}
+%
+We distinguish two parts of the configuration space of a switch:
+the ``normal'' configuration which determines the network policy and
+is used to process the data plane traffic (e.g., forwarding rules),
+and the \emph{meta-configuration} that contains information used by the
+controllers to synchronize their actions.
+Flow entries in the meta-configuration can be referred to as shared
+memory locations, each provided with a distinct \emph{address}.
+
+The meta-configuration is implemented as a set of flow entries
+designed in a way that it does not affect the processing of data plane
+traffic. One way to achieve this, for example, is to set a low priority to
+the meta flow entries and ensure that the regular flow entries
+maintain higher priority levels. We will discuss other options later
+in the context of OpenFlow.
+
+
+%\petr{How to make sure that traffic is not affected by the ``meta'' part?}
+\vspace{1mm}
+\noindent\textbf{Synchronization.}
+ %
+We provide the controllers with the ability to execute
+sequences of \emph{operations} on the
+switch configuration in an \emph{atomic} (transactional) or \emph{non-atomic} mode.
+In the atomic mode, either \emph{all} operations in the sequence, henceforth simply
+called \emph{transaction},
+should be executed, or none (the transaction is rejected).
+In the non-atomic mode, no atomicity guarantees are provided.
+
+We introduce two constructs
+%$\textbf{bundle}\{\;\ldots\;\}\rightarrow res$ to refer to represent a
+$\exec\{op_1,\;\ldots\;op_k\}$ and $\execatomic\{op_1,\;\ldots\;op_k\}$
+which execute a sequence of commands $op_1,\ldots,op_k$ in
+a regular and atomic way, respectively.
+The construct $\execatomic\{op_1,\;\ldots\;op_k\}$  
+returns $\ack$ if and only if all commands in the sequence are performed successfully; otherwise
+$\error(\xid,\ecode)$ is returned, providing
+the identifier of the first command in the sequence that failed
+together with the corresponding error code.
+%Again, the bundle always returns a binary result: \emph{error} ($\bot$) or \emph{success} ($\top$).
+%\petr{Should also provide the reason why the bundle has failed?}
+
+
+
+\hide{
+Given this motivation, we now present a more powerful transactional interface.
+At a high level, we aim to export a
+transactional interface which allows each controller $i\in[N]$ ($N\geq
+2$) to perform multiple
+operations on the configuration of an OpenFlow switch as an atomic
+\emph{transaction}, inspired by the transactional-memory paradigm~\cite{stm-st95,tm-book}. A transaction may \emph{commit}, in
+which case it appears as executed sequentially, or \emph{abort}, in
+which none of its operations takes effect.
+}
+
+\vspace{1mm}
+\noindent\textbf{Synchronization primitives.}
+%
+\hide{
+
+Our approach is based on the distributed management of \emph{identifiers (IDs)} \petr{unclear what "identifiers" mean here}. In particular,
+we introduce two new synchronization objects (and describe their implementation in standard OpenFlow),
+which allow controllers to coordinate
+themselves based on these identifiers.
+
+As we will see, in the OpenFlow implementation of our mechanism,
+in addition to the ``normal'' configuration stored at the switch
+(e.g., forwarding rules according to network policies),
+controllers will maintain additional information
+in the switch configuration: this information is used by the
+controllers to synchronize.
+\petr{"As we will see,..." - looks funny compared with "As we will see ..." at the end of Sec 2}
+\subsection{Synchronization Objects}\label{sec:t-if}
+}
+%
+We focus first on the consistent use of  \emph{policy identifiers},
+an important notion in consistent policy updates~\cite{network-update,stn}.
+Intuitively, a controller should
+equip each to-be-installed policy with a distinct
+identifier,
+%[[PK do not want to say ``unique'': we also need to motivate claimer-id]]
+and the installation should succeed only if the identifier of the
+currently installed policy has not changed since the last time the
+controller read it.
+
+Therefore, we provide the following transactional operations.
+A $\textit{write}(\addr,k)$ operation sets the content at memory location
+$\addr$ to $k$.
+%
+%For  example, the offset $\addr$ may correspond to the policy identifier (\emph{pid}),
+%  but our approach is more general.
+%
+A $\textit{\compare}(\addr,k)$ operation \emph{aborts} the transaction
+if and only if the content at
+$\addr$ is \emph{not} $k$.
+Intuitively, by combining compare and write with a set of regular
+FlowMod commands in a transaction we can make sure that the
+configuration is changed and the current policy identifier is updated
+only if the check operation \emph{succeeds} (does not abort).
+
+To make sure that policy identifiers do not grow without bound~\cite{stn}, we
+also provide an \emph{id-claimer} object.
+The object implements a weak type
+of locking by allowing a controller to claim a \emph{resource identifier} in a
+given set, release an identifier,  and check if a given identifier
+is currently claimed by any controller.
+%While In theory one can use the memory abstraction to implement the resource claimer,
+%however we found it far more simple and efficient to consider the resource claimer as base object.
+%
+More precisely, the id-claimer object exports three operations \emph{claim},
+\emph{unclaim} and \emph{\claimcheck} with the following sequential
+semantics:
+%The container synchronization object introduced in this paper
+%is essentially a transactional memory abstraction which can be implemented
+%in standard OpenFlow switches.
+%Before presenting the technical details in the next section,%
+%we give a brief overview.
+
+%The postulated container object can store an arbitrary number of \emph{items}.
+%As we will see, these items correspond to flow entries on the OpenFlow switch.
+%The same item may even exist multiple times in the container (i.e., the container
+%is a multi-set).
+%The container
+%provides two main functions:
+\begin{itemize}
+\item With $\textit{claim}(k)$,
+%  $k\in\Nat$,
+a controller %$i\in[N]$
+\emph{claims}  identifier $k$.
+
+\item With $\textit{unclaim}(k)$, %$k\in\Nat$,
+the controller %$i\in[N]$
+  \emph{unclaims} identifier $k$.
+An identifier $k$ is called \emph{claimed} at a given point of an
+execution if there is a controller that has performed $\textit{claim}(k)$
+but has not yet performed  $\textit{unclaim}(k)$.
+
+\item If $k$ is currently claimed by any controller,
+$\textit{\claimcheck}(k)$ %, $k\in\Nat$,
+aborts the current transaction.
+%returns $\textit{true}$ if and
+%  only if $k$ is not currently claimed by any controller; if
+%  $\textit{false}$ is returned, we say that the check operation
+%  \emph{fails} (which causes an abort of the transaction invoking it).
+
+\end{itemize}
+
+%As we will see, the bundle feature is not required to implement these semantics.
+%Also note that memory read operations correspond to reading the switch
+%configuration, and are simple as they do not affect the execution of the transaction
+%(unlike the $\textit{\compare}$ operation). \petr{read operations "do not affect the execution of the transaction" appears strange, given that a transaction, if committed, "appears to execute sequentially". Something seems wrong here...}
+
+
+\begin{comment}
+\subsection{Interface}\label{sec:t-if}
+
+\liron{this subsection doesn't flow well for me}
+
+We assume that transactions may comprise operations on the flow table
+of an SDN switch. Our transactional abstraction exports the
+$\textbf{bundle}\{\;\ldots\;\}$ construct
+containing a sequence of transactional
+operations and may \emph{commit} and return responses to all its operations
+or \emph{abort} (so that none of its operation takes effect).
+We guarantee that in every execution, all committed
+transactions constitute a \emph{legal} sequential
+order~\cite{Pap79-serial}, i.e., every transaction appears as executed
+sequentially. On the progress side, we ensure that a
+transaction $T$ is only allowed to abort if either another
+transaction updated a flow table entry read by $T$
+or if one of $T$'s operations (\textit{check} or CAS) fails.
+We employ the \emph{deferred-update} semantics:
+no transaction can affect other transactions before it commits.
+In particular, if a controller crashes before committing its
+transactions, no future transaction can be affected.
+%Note that
+%, assuming such a transactional memory,
+%a $\emph{contains}(x)$ operation can be implemented as a transaction
+%composed of $\textit{cond-add}(x)$ followed by $\textit{cond-delete}(x)$.
+%A \emph{set} abstraction is a special instance of a multi-set that is
+%only modified with \textit{cond-add} and \textit{cond-delete}
+%operations (this way the set only contains at most one copy of a given
+%item).
+
+\end{comment}
+
+\section{Case Study: OpenFlow}\label{sec:background}
 %\petr{ the 1st sentence does not belong here}\liron{I think it serves as a motivation for the section, but it fines by me to remove it}
 
 %In this section, we recall the basic SDN principles, with a focus on
@@ -776,380 +1078,7 @@ the bundle.
 %\end{figure*}
 
 
-\section{Limitations and Motivation}\label{sec:motivation}
 
-% generic way for multiple distributed controllers to safely update switch configuration with no need of any control plane
-
-At first sight, bundling \emph{FlowMod} commands with  the $\checko$
-flag already provides a useful synchronization mechanism.
-Indeed, its ``mini-transaction'' nature allows a controller
-to install multiple flow entries in an atomic way.
-%[[PK we did not say what reads and writes are...
-%At first sight, the OpenFlow bundle feature seems to provide everything
-%we need to implement our transactional interface \petr{did we say what we need already?}: the bundle
-% defines a sequence of read and write operations
-% on the switch state which is executed atomically.
-%]]
-However, as is,
-%while the bundle can indeed be seen as a ``mini-transaction'',
-bundling has important limitations, as we will argue in the following.
-%\petr{unclear what "reads and writes" are here, not discussed before. How openflow can be used to implement reads and writes?}
-
-First, %if employed without any additional features,
-except for some limited constraint types (such as
-overlapping flow spaces or insufficient free space),
-a bundle does not provide any means to modify the switch configuration
-based on application-specific conditions, which depend on the
-current configuration,
-However, as we will argue, support for more generic conditions under which configuration
-updates
-should or should not take place, is often desirable.
-%
-%But also bundling FlowMod commands with the check overlap feature ($\checko$)
-%comes with limitations: while it is possible
-% to \emph{abort} a bundle depending on certain conditions
-% in the \emph{overlapping
-% flow spaces}, oftentimes it is desirable to be able
-% to define more general conditions and notions of conflicts
-% under which an atomic update should not take effect.
-% \liron{replaced transaction in the last sentence with " atomic update"}
-%
-Second, sometimes it is desirable to react to conflicts in smarter ways than
-by simply aborting an operation, e.g., by supporting \emph{conditional modifications}.
-Let us consider two examples.
-
-%\begin{enumerate}
-\vspace{1mm}
-\noindent \textbf{Example~1: Handling complex dependencies.} Let us consider two controllers
-in charge
-of \emph{load-balancing}, see Figure~\ref{fig:CAS-example}
-for a simplistic example with two links.
-In such a scenario, seemingly independent actions, defined over
-completely independent logical flow spaces (say, two different
-TCP micro-flows),
-%originated in disjoint ranges of IP addresses),
-may actually be dependent: the flows share the underlying physical network.
-Accordingly, if multiple controllers concurrently and independently
-update forwarding rules according to a na\"ive load-balancing algorithm \`{a} la Algorithm~\ref{alg:naive-lb},
-they may involuntarily
-unbalance the flow allocation.
-Simple flow space overlap checks cannot be used to detect
-such conflicts.
-Note that, assuming that all these flows are
-completely independent, bundling and $\checko$ features do not really
-help here.
-
-%Consider the example in the left part of Figure~\ref{fig:CAS-example}. Two controllers,
-%$1$ and $2$ read the configuration, try to add two more flows to a switch
-%with two outgoing links, balancing the load.
-%Imagine that each of the controllers reads the switch configuration and
-%learns that currently one flow is forwarded to the left link and two
-%flows are forwarded to the right link.
-%Without synchronization, the two controllers naturally choose to
-%install their flows on the left link, which results in an undesirable
-%unbalanced state.
-
-{\small
-\begin{algorithm}[t]
-    \caption{$\textit{Na\"ive Flow Balancing}$}
-    \label{alg:naive-lb}
-\begin{algorithmic}[1]
-
-    \Require \emph{new\_flows}: flow entries of the new flows,
-    \emph{ports}: a list of switch output ports,
-    \State $\textit{policy} \gets \textbf{read\_config}$
-    \State $\textit{update\_cmds} \gets \textsc{lb\_update}(policy)$ %(new\_flows, ports, policy)$
-    \State $\textbf{send}\{\textit{update\_cmds}\}$
-%    \State $\textbf{execute-atomic}\{update\_cmds\}$
-    \Statex
-
-    \Statex \emph{\bf Function} $\textsc{lb\_update}(\textit{policy})$ % (new\_flows, ports, policy)}$
-
-	\State $\textit{flows\_per\_port} \gets [0, 0, \ldots, 0]$
-	\ForAll {$\textit{entry} \in \textit{policy}$}
-	    \State $\textit{port} \gets \textit{entry.output\_port}$
-	    \State $\textit{flows\_per\_port}[\textit{port}]++$
-	\EndFor
-	\State $\textit{new\_flow\_mod\_cmds} \gets \{\}$
-	\For {$\textit{entry} \in \textit{new\_flows}$}
-	    \State $\textit{port} \gets \arg\min_{p\in \textit{ports}} \textit{flows\_per\_port}[p]$
-	    \State $\textit{entry.output\_port} \gets \textit{port}$
-	    \State $\textit{flows\_per\_port}[\textit{port}]++$
-	    \State $\textit{cmd} \gets \textit{FlowMod}(add,f)$
-	    \State $\textit{new\_flow\_mod\_cmds}.\textit{add}(\textit{cmd})$
-	\EndFor
-	\Return $\textit{new\_flow\_mod\_cmds}$
-  %  \State \emph{\bf EndFunction}
-\end{algorithmic}
-\end{algorithm}
-}
-
-%\petr{postpone the explanation of the right part of the figure until we come to CAS?}
-
-\vspace{1mm}
-\noindent\textbf{Example~2: Supporting modifications.}
-Consider the arguably very basic problem of \emph{modifying} previously installed forwarding rules
-in a consistent manner.
-In principle, a bundle allows us to conditionally add new rules or remove
-old rules, and, using the flow space overlap
-check feature $\checko$, to abort the transaction if potentially conflicting
-rules were already there. However, it is not obvious how
-to use the bundle to
-modify \emph{existing} rules, especially if the modification depends on
-specific conditions.
-In other words, the bundle and overlap check only help
-for the \emph{conditional creation} of rules, not their \emph{modification}.
-
-\vspace{2mm}
-\noindent\textbf{Our Approach.}
-This paper proposes mechanisms to solve these two examples,
-by using a minimal
-``meta-configuration'' space. That is, controllers store information
-on contention and conflicts between
-concurrently installed policy updates on the switch. Controllers can read and modify
-this meta-data by applying synchronization primitives.
-In the following section, we
-describe how this space can be organized and consistently maintained
-by multiple controllers despite of concurrency and conflicts.
-
-We will later come back to these examples, and show that Algorithm~\ref{alg:naive-lb}
-can actually be used without any modifications within our framework.
-Consistent load-balancing can also be achieved using our atomic Compare-and-Set instruction based on policy ids (pids),
-see Figure~\ref{fig:CAS-example} (\emph{right}).
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=.56\columnwidth]{loadbal-1.pdf}~\hspace{-.7cm}~\includegraphics[width=.56\columnwidth]{loadbal-2.pdf}\\
-\caption{\emph{Left:} Without synchronization, the two controllers naturally choose to
-install their flows on the left link, which results in an undesirable
-unbalanced state.
- \emph{Right:}
- With synchronization, i.e., by bundling the flow installation with a Compare-and-Set (CAS) primitive
- depending on the policy id (\emph{pid}), this problem is avoided.}\label{fig:CAS-example}
-\end{figure}
-
-%[[PK not really discussed?
-%As we will see, we do not even need the bundle feature
-%to implement the powerful synchronization objects of our transactional interface.
-%However, the bundle feature can still be useful in the context of
-%consistent policy updates.
-
-%At first sight, a bundle seems to be a powerful concept
-%for the implementation of a transactional interface. However,
-%while the  bundle can indeed be seen as a ``mini-transaction'',
-%in itself it is not very useful. In fact, as we will discuss
-%in more detail in the next section, we will not make
-%use of the bundle in the implementation of our synchronization
-%objects, but will employ it for our case study
-%of consistent policy updates.%
-%
-%Before presenting our transactional interface and implementation,
-%let us first discuss the limitations of the OpenFlow features discussed above.
-
-%\section{The Container Object}\label{sec:vision}
-
-\section{Synchronization Abstractions}\label{sec:main}
-
-We now describe how our  meta-configuration space at
-an OpenFlow switch can be implemented and manipulated using our
-synchronization framework.
-
-\vspace{1mm}
-\noindent\textbf{Configuration space.}
-%
-We distinguish two parts of the configuration space of a switch:
-the ``normal'' configuration which determines the network policy and
-is used to process the data plane traffic (e.g., forwarding rules),
-and the \emph{meta-configuration} that contains information used by the
-controllers to synchronize their actions.
-Flow entries in the meta-configuration can be referred to as shared
-memory locations, each provided with a distinct \emph{address}.
-
-The meta-configuration is implemented as a set of flow entries
-designed in a way that it does not affect the processing of data plane
-traffic. One way to achieve this is to set a low priority to
-the meta flow entries and ensure that the regular flow entries
-maintain higher priority levels.
-Alternatively, we could leverage the possibility to maintain multiple
-flow tables at an OpenFlow switch, and use a separate flow table for
-the meta-configuration,  making sure that the
-\emph{pipelining} mechanism will never involve this
-flow table.
-
-
-
-%\petr{How to make sure that traffic is not affected by the ``meta'' part?}
-\vspace{1mm}
-\noindent\textbf{Synchronization.}
- %
-Our framework provides the controllers with the ability to execute
-sequences of \emph{operations} on the
-switch configuration in an \emph{atomic} (transactional) or \emph{non-atomic} mode.
-In the atomic mode, either \emph{all} operations in the sequence, henceforth simply
-called \emph{transaction},
-should be executed, or none (the transaction is rejected).
-In the non-atomic mode, no atomicity guarantees are provided.
-An operation here can be a regular FlowMod command or a synchronization
-primitive, which, as we
-show below, translates into a sequence of FlowMod commands operating on the
-switch meta-configuration.
-
-We introduce two constructs
-%$\textbf{bundle}\{\;\ldots\;\}\rightarrow res$ to refer to represent a
-$\exec\{op_1,\;\ldots\;op_k\}$ and $\execatomic\{op_1,\;\ldots\;op_k\}$
-which execute a sequence of commands $op_1,\ldots,op_k$ in
-a regular and atomic way, respectively.
-The construct $\execatomic\{op_1,\;\ldots\;op_k\}$  
-returns $\ack$ if and only if all commands in the sequence are performed successfully; otherwise
-$\error(\xid,\ecode)$ is returned, providing
-the identifier of the first command in the sequence that failed
-together with the corresponding error code.
-%Again, the bundle always returns a binary result: \emph{error} ($\bot$) or \emph{success} ($\top$).
-%\petr{Should also provide the reason why the bundle has failed?}
-
-
-
-\hide{
-Given this motivation, we now present a more powerful transactional interface.
-At a high level, we aim to export a
-transactional interface which allows each controller $i\in[N]$ ($N\geq
-2$) to perform multiple
-operations on the configuration of an OpenFlow switch as an atomic
-\emph{transaction}, inspired by the transactional-memory paradigm~\cite{stm-st95,tm-book}. A transaction may \emph{commit}, in
-which case it appears as executed sequentially, or \emph{abort}, in
-which none of its operations takes effect.
-}
-
-\vspace{1mm}
-\noindent\textbf{Synchronization primitives.}
-%
-\hide{
-
-Our approach is based on the distributed management of \emph{identifiers (IDs)} \petr{unclear what "identifiers" mean here}. In particular,
-we introduce two new synchronization objects (and describe their implementation in standard OpenFlow),
-which allow controllers to coordinate
-themselves based on these identifiers.
-
-As we will see, in the OpenFlow implementation of our mechanism,
-in addition to the ``normal'' configuration stored at the switch
-(e.g., forwarding rules according to network policies),
-controllers will maintain additional information
-in the switch configuration: this information is used by the
-controllers to synchronize.
-\petr{"As we will see,..." - looks funny compared with "As we will see ..." at the end of Sec 2}
-\subsection{Synchronization Objects}\label{sec:t-if}
-}
-%
-We focus first on the consistent use of  \emph{policy identifiers},
-an important notion in consistent policy updates~\cite{network-update,stn}.
-Intuitively, a controller should
-equip each to-be-installed policy with a distinct
-identifier,
-%[[PK do not want to say ``unique'': we also need to motivate claimer-id]]
-and the installation should succeed only if the identifier of the
-currently installed policy has not changed since the last time the
-controller read it.
-
-Therefore, we provide the following transactional operations.
-A $\textit{write}(\addr,k)$ operation sets the content at memory location
-$\addr$ to $k$.
-%
-%For  example, the offset $\addr$ may correspond to the policy identifier (\emph{pid}),
-%  but our approach is more general.
-%
-A $\textit{\compare}(\addr,k)$ operation \emph{aborts} the transaction
-if and only if the content at
-$\addr$ is \emph{not} $k$.
-Intuitively, by combining compare and write with a set of regular
-FlowMod commands in a transaction we can make sure that the
-configuration is changed and the current policy identifier is updated
-only if the check operation \emph{succeeds} (does not abort).
-
-To make sure that policy identifiers do not grow without bound~\cite{stn}, we
-also provide an \emph{id-claimer} object.
-The object implements a weak type
-of locking by allowing a controller to claim a \emph{resource identifier} in a
-given set, release an identifier,  and check if a given identifier
-is currently claimed by any controller.
-%While In theory one can use the memory abstraction to implement the resource claimer,
-%however we found it far more simple and efficient to consider the resource claimer as base object.
-%
-More precisely, the id-claimer object exports three operations \emph{claim},
-\emph{unclaim} and \emph{\claimcheck} with the following sequential
-semantics:
-%The container synchronization object introduced in this paper
-%is essentially a transactional memory abstraction which can be implemented
-%in standard OpenFlow switches.
-%Before presenting the technical details in the next section,%
-%we give a brief overview.
-
-%The postulated container object can store an arbitrary number of \emph{items}.
-%As we will see, these items correspond to flow entries on the OpenFlow switch.
-%The same item may even exist multiple times in the container (i.e., the container
-%is a multi-set).
-%The container
-%provides two main functions:
-\begin{itemize}
-\item With $\textit{claim}(k)$,
-%  $k\in\Nat$,
-a controller %$i\in[N]$
-\emph{claims}  identifier $k$.
-
-\item With $\textit{unclaim}(k)$, %$k\in\Nat$,
-the controller %$i\in[N]$
-  \emph{unclaims} identifier $k$.
-An identifier $k$ is called \emph{claimed} at a given point of an
-execution if there is a controller that has performed $\textit{claim}(k)$
-but has not yet performed  $\textit{unclaim}(k)$.
-
-\item If $k$ is currently claimed by any controller,
-$\textit{\claimcheck}(k)$ %, $k\in\Nat$,
-aborts the current transaction.
-%returns $\textit{true}$ if and
-%  only if $k$ is not currently claimed by any controller; if
-%  $\textit{false}$ is returned, we say that the check operation
-%  \emph{fails} (which causes an abort of the transaction invoking it).
-
-\end{itemize}
-
-%As we will see, the bundle feature is not required to implement these semantics.
-%Also note that memory read operations correspond to reading the switch
-%configuration, and are simple as they do not affect the execution of the transaction
-%(unlike the $\textit{\compare}$ operation). \petr{read operations "do not affect the execution of the transaction" appears strange, given that a transaction, if committed, "appears to execute sequentially". Something seems wrong here...}
-
-
-\begin{comment}
-\subsection{Interface}\label{sec:t-if}
-
-\liron{this subsection doesn't flow well for me}
-
-We assume that transactions may comprise operations on the flow table
-of an SDN switch. Our transactional abstraction exports the
-$\textbf{bundle}\{\;\ldots\;\}$ construct
-containing a sequence of transactional
-operations and may \emph{commit} and return responses to all its operations
-or \emph{abort} (so that none of its operation takes effect).
-We guarantee that in every execution, all committed
-transactions constitute a \emph{legal} sequential
-order~\cite{Pap79-serial}, i.e., every transaction appears as executed
-sequentially. On the progress side, we ensure that a
-transaction $T$ is only allowed to abort if either another
-transaction updated a flow table entry read by $T$
-or if one of $T$'s operations (\textit{check} or CAS) fails.
-We employ the \emph{deferred-update} semantics:
-no transaction can affect other transactions before it commits.
-In particular, if a controller crashes before committing its
-transactions, no future transaction can be affected.
-%Note that
-%, assuming such a transactional memory,
-%a $\emph{contains}(x)$ operation can be implemented as a transaction
-%composed of $\textit{cond-add}(x)$ followed by $\textit{cond-delete}(x)$.
-%A \emph{set} abstraction is a special instance of a multi-set that is
-%only modified with \textit{cond-add} and \textit{cond-delete}
-%operations (this way the set only contains at most one copy of a given
-%item).
-
-\end{comment}
 
 \vspace{1mm}
 \noindent\textbf{Implementation.} %\label{sec:t-impl}
@@ -1832,19 +1761,28 @@ assumed by STM implementations.
 \section{Conclusion}\label{sec:conclusion}
 
 This paper initiated the study of mechanisms which allow distributed controllers
-to synchronize their possibly concurrent actions. We believe that our in-band
-approach is natural and attractive as it can avoid the
-complexities and limitations of distributed out-of-band agreement protocols.
+to synchronize their possibly concurrent actions. We believe that our centralized in-band
+approach is natural and attractive, as it avoids the
+complexities and limitations of distributed out-of-band agreement protocols, which may also
+introduce additional points of potential failures.
 Moreover, our mechanisms are simple and can be implemented using the \emph{standard OpenFlow}
 protocol: they do not require any protocol/hardware extensions as postulated in recent literature~\cite{stn,netpaxos}.
 Our work may hence also contribute to the ongoing discussion of what can be implemented
 in-band in today's OpenFlow protocol~\cite{reclaim},
 as well as to useful high-level concurrency objects and
 language abstractions.~\cite{pyretic}
-We also plan to release a small library with our synchronization primitives. 
-Moreover, we are investigating possible generalizations of our transactional guarantees,
-across multiple switches~\cite{stn}, as well as opportunities for more fine-grained
-\emph{partial} updates that concern subsets of flow entries, thus improving concurrency. 
+In general, we understand our paper as a first step, and more
+research is required to investigate and compare useful
+inband synchronization abstractions, also in terms of performance.
+%In the long run, we seek to develop in-band mechanisms
+%which allow us to seemlessly transition between single controller and
+%multiple controller mode. 
+
+
+%We also plan to release a small library with our synchronization primitives. 
+%Moreover, we are investigating possible generalizations of our transactional guarantees,
+%across multiple switches~\cite{stn}, as well as opportunities for more fine-grained
+%\emph{partial} updates that concern subsets of flow entries, thus improving concurrency. 
 
 %,
 %nor on
