@@ -337,7 +337,7 @@ that packets of different header spaces should follow across the
 network~\cite{network-update,roger-hotnets,podc15}.
 Installing \emph{conflicting} forwarding rules, e.g., rules of the same priority defined over non-disjoint
 flow spaces may lead to pathological network behavior (loops,
-blackholes, routes bypassing a firewall, etc.).~\cite{hotnets14update,roger-hotnets}
+blackholes, routes bypassing a firewall, etc.)~\cite{hotnets14update,roger-hotnets}.
 Similarly, installing diverging load-balancing policies may,
 when combined, \emph{increase} the load.
 To render things more difficult, controllers may also fail,
@@ -382,15 +382,36 @@ coordinating controllers via a control plane
 out-of-band network, in the presence of asynchrony and failures.
 Indeed, the inherent costs  of such protocols are often considered too high, both in
 terms of the necessary computability assumptions about the underlying
-system~\cite{FLP85}, and the amount of communication
+system~\cite{FLP85}, and the high communication
 complexity~\cite{Lam06}.
 In contrast, our \emph{in-band} solution allows the
 controllers to solve fundamental agreement tasks in just one message
 exchange with the data plane, tolerating asynchrony and failures of
 any number of controllers.
 
-Interestingly, our mechanisms are simple and can be implemented using the standard \emph{OpenFlow}
-protocol (version 1.4~\cite{openflow}).
+The key idea of our approach is to use the switch configuration space
+as a \emph{transactional shared memory}. 
+The shared memory of the data-plane configuration space 
+can store information about  contention and conflicts
+between the controllers.
+A transaction can then contain standard OpenFlow control operations
+as well as  \emph{synchronization primitives} operating on this shared
+memory.
+We investigate useful synchronization abstractions and propose 
+a simple interface which revolves around policy identifiers (IDs)
+which can be claimed and released atomically and hence consistently. 
+More generally, our synchronization primitives allow the controllers to define
+general notions of conflicts between configuration updates,
+not restricted to simple conflicts on the overlapping flow spaces.
+In particular, we can define dependencies between mappings of
+independent flows to the physical infrastructure, which is important,
+e.g., for load-balancing applications.
+
+
+We complement our conceptual contributions by
+demonstrating that our approach can readily be implemented
+in today's standard \emph{OpenFlow}
+ protocol (version 1.4~\cite{openflow}).
 %
 %By providing more complex and atomic transactions over the
 %switch configuration
@@ -399,19 +420,9 @@ protocol (version 1.4~\cite{openflow}).
 %(\`{a} la STN~\cite{stn}) modified concurrently by multiple controllers.
 %\petr{"interface modified concurrently" does not sound right -> "accessed concurrently"?}
 %
-Concretely, in our implementation,
-we use a part of the data-plane configuration space as a \emph{shared
-  memory}  that stores information about  contention and conflicts
-between the controllers.
-A transaction can then contain standard OpenFlow control operations
-as well as  \emph{synchronization primitives} operating on this shared
-memory.
-Our synchronization primitives allow the controllers to define
-general notions of conflicts between configuration updates,
-not restricted to simple conflicts on the overlapping flow spaces.
-In particular, we can define dependencies between mappings of
-independent flows to the physical infrastructure, which is important,
-e.g., for load-balancing applications.
+In particular, we show that OpenFlow's match-action paradigm can be instrumented
+to realize simple key-value stores in the configuration space.
+
 %which can be used even for coordinating
 %configuration updates operating
 %over \emph{independent flow spaces}, but where dependencies are introduced
@@ -428,9 +439,9 @@ e.g., for load-balancing applications.
 %synchronization problems of distributed control planes efficiently.
 %]]
 
-We then show that, using our abstraction, the controllers can
+Using our abstraction, the controllers can
 solve several important synchronization problems.
-We describe an implementation of the fundamental
+We describe an OpenFlow implementation of the fundamental
 \emph{compare-and-set} (CAS) primitive,
 which in turn can be used to solve consensus and
 implement a generic replicated control plane service~\cite{Her91} in a consistent and
