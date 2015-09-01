@@ -140,10 +140,10 @@
 
 
 \author{
-Liron Schiff$^1$, % \thanks{Supported by the European Research Council (ERC) Starting Grant no. 259085 and by the Israel Science Foundation Grant no.~1386/11.} $^1$,
-Stefan Schmid$^2$, Petr Kuznetsov$^3$ \\
-\small $^1$ Tel Aviv University, Israel; $^2$ TU Berlin \& T-Labs,
-Germany; $^3$ T\'el\'ecom ParisTech, France
+Liron Schiff$^1$  \quad % \thanks{Supported by the European Research Council (ERC) Starting Grant no. 259085 and by the Israel Science Foundation Grant no.~1386/11.} $^1$,
+Stefan Schmid$^2$ \quad Petr Kuznetsov$^3$ \\
+\small $^1$ Tel Aviv University, Israel \quad $^2$ TU Berlin \& T-Labs,
+Germany \quad $^3$ T\'el\'ecom ParisTech, France
 }
 
 %\institute{}
@@ -264,8 +264,8 @@ concurrent processes with the ability of aggregating sequences of
 shared-memory operations in \emph{atomic  transactions} with
 all-or-nothing semantics.
 
-\vspace{1mm}
-\noindent\textbf{Contributions.}
+%\vspace{1mm}
+%\noindent\textbf{Contributions.}
 This paper applies the principle of atomicity in concurrent computing
 to distributed SDN control planes.
 %
@@ -329,14 +329,14 @@ fault-tolerant way: a mainstream building block in
 modern distributed system design (Chubby, Google Spanner, Amazon Webservices, etc.).
 We discuss a simple CAS-based concurrent policy-update mechanism,
 and present a generic template to implement concurrent policy
-compositions of a user-specic update functions.
+compositions of a user-specific update functions.
 Our synchronization abstraction also provides
 the missing link for the read-modify-write object
 postulated in~\cite{stn}. %\petr{We do not seem to discuss the latter?}
 
 
-\noindent\textbf{Organization}
-The rest of the paper is organized as follows.
+%\noindent\textbf{Organization}
+The remainder of the paper is organized as follows.
 In Section~\ref{sec:motivation}, we motivate the 
 transactional approach.
 We present our abstractions in more detail in Section~\ref{sec:main}.
@@ -356,18 +356,16 @@ and aborts transactions in case of conflicts.
 For instance, in the context of SDNs, a transaction trying to add a forwarding rule whose
 domain overlaps with an existing rule of the same priority
 can constitute a conflict. 
-However, as we will argue, there are often conflicts which are less obvious,
-and go beyond simple range overlaps. 
+However, as we will argue, 
+there exist many applications with less obvious conflicts, which go 
+beyond simple range overlaps. 
 Moreover, sometimes it is desirable to react to conflicts in smarter ways than
 by simply aborting an operation, e.g., by supporting \emph{conditional modifications}.
-Let us consider two examples.
 
-
-\vspace{1mm}
-\noindent \textbf{Example: Handling complex dependencies.} We consider two controllers
+Let us consider an example.
+Imagine two controllers
 in charge
-of \emph{load-balancing}, see Figure~\ref{fig:CAS-example}
-for a simplistic example with two links.
+of \emph{load-balancing}, see Figure~\ref{fig:CAS-example}.
 In such a scenario, seemingly independent actions, defined over
 completely independent logical flow spaces (say, two different
 TCP micro-flows),
@@ -380,15 +378,8 @@ Simple flow space overlap checks cannot be used to detect
 such conflicts.
 
 
-This paper proposes mechanisms to solve these synchronization problems 
-by using a minimal
-``meta-configuration'' space. That is, controllers store information
-on contention and conflicts between
-concurrently installed policy updates on the switch. Controllers can read and modify
-this meta-data by applying synchronization primitives.
-In the following section, we
-describe how this space can be organized and consistently maintained
-by multiple controllers despite of concurrency and conflicts.
+This paper proposes mechanisms to solve such more general 
+synchronization problems.
 
 
 \begin{figure}[t]
@@ -405,9 +396,16 @@ unbalanced state.
 \section{In-Band Synchronization}\label{sec:main}
 
 In order to synchronize controllers, we propose
-to use a meta-configuration space at
-the switches which can be manipulated using our
-synchronization framework. 
+to use a minimal
+``meta-configuration'' space on the switch,
+to store information
+on contention and conflicts between
+concurrently installed policy updates. Controllers can read and modify
+this meta-data by applying synchronization primitives.
+In the following section, we
+describe how this space can be organized and consistently maintained
+by multiple controllers despite of concurrency and conflicts.
+
 
 \vspace{1mm}
 \noindent\textbf{Configuration space.}
@@ -422,10 +420,14 @@ memory locations, each provided with a distinct \emph{address}.
 
 The meta-configuration is implemented as a set of flow entries
 designed in a way that it does not affect the processing of data plane
-traffic. One way to achieve this, for example, is to set a low priority to
-the meta flow entries and ensure that the regular flow entries
-maintain higher priority levels. We will discuss other options later
-in the context of OpenFlow.
+traffic. 
+We will later discuss later how this can be achieved, for example in 
+today's Openflow.
+
+%One way to achieve this, for example, is to set a low priority to
+%the meta flow entries and ensure that the regular flow entries
+%maintain higher priority levels. We will discuss other options later
+%in the context of OpenFlow.
 
 
 %\petr{How to make sure that traffic is not affected by the ``meta'' part?}
@@ -455,8 +457,7 @@ together with the corresponding error code.
 \vspace{1mm}
 \noindent\textbf{Synchronization primitives.}
 %
-
-We focus first on the consistent use of  \emph{policy identifiers},
+We aim to enforce a consistent use of  \emph{policy identifiers},
 an important notion in consistent policy updates~\cite{network-update,stn}.
 Intuitively, a controller should
 equip each to-be-installed policy with a distinct
@@ -473,7 +474,8 @@ A $\textit{\compare}(\addr,k)$ operation \emph{aborts} the transaction
 if and only if the content at
 $\addr$ is \emph{not} $k$.
 Intuitively, by combining compare and write with a set of regular
-FlowMod commands in a transaction we can make sure that the
+switch update commands 
+in a transaction (such as FlowMod in OpenFlow)  we can make sure that the
 configuration is changed and the current policy identifier is updated
 only if the check operation \emph{succeeds} (does not abort).
 
@@ -515,7 +517,7 @@ As a case study, in this section, we show how to implement
 our transactional approach using today's standard SDN protocol,
  OpenFlow. 
 
-\subsection{Background on OpenFlow}
+\subsection{Background}
 
 The configuration of an OpenFlow switch is a set of
 \emph{rules}.
@@ -713,7 +715,7 @@ bundle, thereby respecting dependencies between bundle commands.
 
 \subsection{Implementation} 
 
-At first sight, bundling \emph{FlowMod} commands with  the $\checko$
+At first sight, it may seem that bundling \emph{FlowMod} commands with  the $\checko$
 flag already provides a useful synchronization mechanism.
 Indeed, its ``mini-transaction'' nature allows a controller
 to install multiple flow entries in an atomic way.
@@ -729,7 +731,7 @@ current configuration,
 However, as we have for example seen in our load-balancing
 example, a support for more generic conditions under which configuration
 updates
-should or should not take place, is often desirable.
+should or should not take place, is essential.
 Moreover, it is sometimes desirable to react to conflicts in smarter ways than
 by simply aborting an operation, e.g., by supporting \emph{conditional modifications}.
 
@@ -773,7 +775,7 @@ bundle message with the corresponding bundle identifier, and complete it
 with a bundle commit message.
 Then we wait until the
 corresponding responses are received.
-If an error message is return,
+If an error message is returned,
 it is forwarded to the control application,
 otherwise it is $\ack$ed.
 
@@ -961,30 +963,35 @@ with an identical one.
 
 \subsection{Proof-of-Concept}
 
+To investigate the feasibility of our approach,
+we implemented a proof-of-concept of our algorithms
+as a python library which wraps ovs-ofctl, 
+a well-known command line tool for monitoring and administering OpenFlow switches. 
+The code is made available together with this paper.
 
-As a proof of concept, we implemented the algorithms as a python library that wraps ovs-ofctl - a well known command line tool for monitoring and administering OpenFlow switches. 
-We evaluated the framework using a series of tests that used our low-level abstractions as well as the transactional policy update algorithm.
+We experimented with the low-level abstractions as well as the 
+transactional policy update algorithm of our proof-of-concept, using
+different workloads. 
+The tests were conducted using a software switch, Open vSwitch (version 2.4.0) and virtual network simulator, Mininet.
 
-We used three processes to make 3000 concurrent policy updates, each update consists of replacing a single rule with another one and we verified that all transactions completed correctly. The tests were conducted using a software switch, Open vSwitch (version 2.4.0) and virtual network simulator, Mininet.
-This framework can be used as synchronization tool by itself and we also work on to implementing it as as integral part of existing controllers such as Ryu. 
+For instance, we experimented with a setting where three processes
+(controllers) issue thousands of concurrent policy updates
+to the switch, where 
+each update consists in replacing a single rule with another one.
+When verifying the transactions, we could confirm that 
+despite the concurrency, all transactions have been successfully completed.
+Of course, due to the concurrency, multiple transactions also needed to abort,
+due to conflicts. 
+ 
+While our framework can be used as synchronization tool itself, we 
+currently also work on implementing it as an integral part of existing controllers 
+such as Ryu. 
 
 
 \section{Applications}\label{sec:apps}
 
-We now describe sample scenarios of how of our synchronization mechanisms
-can be used for control applications. We aim at two applications: the
-simple load-balancing scheme we discussed as an example in the beginning,
-and a more sophisticated forwarding policy
-composition, but we begin with implementing a fundamental higher-level
-\emph{Compare-and-Set} (CAS) primitive. We then sketch show to use CAS, along with
-     {\exec} and {\execatomic} constructs, in our two control applications.   
-
-%Our synchronization mechanisms can be useful in many situations.
-
-\vspace{1mm}
-\noindent\textbf{Compare-and-Set.}
-%For example, we can implement the fundamental
-%\emph{Compare-and-Set} (CAS) primitive. % on the policy identifier.
+Given our mechanisms, we can easily implement
+powerful synchronization primitives such at compare-and-set:
 When executed within a
 transaction, a $\cas(\addr,\textit{old},\textit{new})$ operation 
 on a memory location $\addr$
@@ -998,64 +1005,8 @@ It is straightforward to implement the CAS operation by executing
 $\textit{\compare}(\addr, old)$ followed by $\textit{\memwrite}(\addr,
 new)$ within the {\execatomic} construct.
 
-%[[PK said it in the text
-\hide{
-As can be seen Algorithm \ref{alg:cas}, CAS is implemented by two commands. These commands should be sent as part of the same bundle
-
-\begin{algorithm}[t]
-    \caption{$\textit{\cas}(\addr, old,new)$}
-    \label{alg:cas}
-    \begin{algorithmic}[1]
-    %\Require  id $i$.
-%    \Ensure
-
-    		\State $cmd1\gets \textsc{\compare}(\addr, old) $
-    		\State $cmd2\gets \textsc{\memwrite}(\addr, new) $
-			\Return $cmd1,cmd2$
-    \end{algorithmic}
-\end{algorithm}
-}
-%]]
-
-
-{\small
-\begin{algorithm}[t]
-\caption{$\textit{Na\"ive Flow Balancing}$}
-\label{alg:naive-lb}
-\begin{algorithmic}[1]
-
-\Require \emph{new\_flows}: flow entries of the new flows,
-\emph{ports}: a list of switch output ports,
-\State $\textit{policy} \gets \textbf{read\_config}$
-\State $\textit{update\_cmds} \gets \textsc{lb\_update}(policy)$ %(new\_flows, ports, policy)$
-\State $\textbf{send}\{\textit{update\_cmds}\}$
-% \State $\textbf{execute-atomic}\{update\_cmds\}$
-\Statex
-
-\Statex \emph{\bf Function} $\textsc{lb\_update}(\textit{policy})$ % (new\_flows, ports, policy)}$
-
-\State $\textit{flows\_per\_port} \gets [0, 0, \ldots, 0]$
-\ForAll {$\textit{entry} \in \textit{policy}$}
-\State $\textit{port} \gets \textit{entry.output\_port}$
-\State $\textit{flows\_per\_port}[\textit{port}]++$
-\EndFor
-\State $\textit{new\_flow\_mod\_cmds} \gets \{\}$
-\For {$\textit{entry} \in \textit{new\_flows}$}
-\State $\textit{port} \gets \arg\min_{p\in \textit{ports}} \textit{flows\_per\_port}[p]$
-\State $\textit{entry.output\_port} \gets \textit{port}$
-\State $\textit{flows\_per\_port}[\textit{port}]++$
-\State $\textit{cmd} \gets \textit{FlowMod}(add,f)$
-\State $\textit{new\_flow\_mod\_cmds}.\textit{add}(\textit{cmd})$
-\EndFor
-\Return $\textit{new\_flow\_mod\_cmds}$
-% \State \emph{\bf EndFunction}
-\end{algorithmic}
-\end{algorithm}
-}
-
-
-\vspace{1mm}
-\noindent\textbf{Load balancing.}
+Let us now revisit our load-balancing application
+from the beginning of the paper.
 A simple strategy to balance load in our 2-link example
 is given in Algorithm~\ref{alg:naive-lb}.
 However, this algorithm fails in the presence of
@@ -1064,7 +1015,10 @@ bundling and $\checko$ features are used:
 the flows are defined over ``independent'' 
 flow spaces. 
 
-Our mechanism can also be used as a generic template to
+As we show in the following, our mechanisms can be used 
+to render such algorithms concurrent.
+In particular, we can implement a
+generic template to
 implement concurrent policy compositions of a user-specific
 $\textsc{\ufunc}()$ function~\cite{stn}.
 This way, for example, by choosing our load-balancing
@@ -1075,7 +1029,7 @@ Figure~\ref{fig:CAS-example} can be resolved.
 %the policy update in our transactional $\execatomic$ construct together
 % with a \emph{Compare-and-Set} (CAS) operation on the policy identifier.
 
-Let us first  consider a simple policy update protocol that
+Let us consider a simple policy update protocol that
 allows a set of  controllers to concurrently update switch policies, i.e., sets of
 %[[PK policies have been defined in Background]]
 effective flow entries, under the
@@ -1146,29 +1100,7 @@ consistent, without any modifications in the update function.
 \end{algorithm}
 }
 
-%Note that in Algorithm~\ref{alg:simple-update}, policies identifiers
-%grow without bound.
-%However, as was observed in~\cite{stn}, the number of currently
-%used identifiers can be made proportional to the number of concurrent
-%controllers.
-%
-\hide{
-It takes a set of rules $U$ (not yet a policy)and proceeds as follows: first, we seek to
- obtain a unique \emph{id}. FIXME: to be continued...
- \textbf{LS: I am not sure if I need to tell every step of the story or maybe it best to explain the main dif from the previous one similarly to what I just wrote next}.
-}
-%
 
-%Algorithm~\ref{alg:update} uses our id-claimer abstraction
-%to bound the number of policy identifiers.
-%Claiming a policy id prevents another controller from using it with a
-%different policy.
-%A controller claims the current policy identifier, chooses a new id
-%from a finite set of identifiers,
-%and then checks that the new policy id is not claimed by another controller.
-%Note that in Algorithm \ref{alg:update}, the meta-configuration is
-%used to store $\textit{pid}$ and id-claimer.
-%\petr{The description is not very clear.}
 
 Algorithm~\ref{alg:update} is a more efficient alternative 
 to Algorithm~\ref{alg:simple-update}. It uses our id-claimer abstraction
@@ -1176,15 +1108,10 @@ to bound the number of used policy identifiers.
 Here, the controller first reads the current policy id and claims to prevent another controller from using it 
 for a
 different policy (Lines~\ref{update:read-config1}-\ref{update:read-config2}).
-%Then it reads the configuration again in case the policy was changed just before claiming its id.
-%Then considering other claims the controller chooses
 Then the controller claims the first \emph{unused} id and computes the update commands to be executed (Line~\ref{update:compute}).
 Finally, within an atomic transaction (\textbf{\execatomic}), it verifies whether the chosen policy id has not
 been claimed and that
 the policy has not been concurrently modified, and then updates the policy.
-%[[PK added a note to the id-claimer description
-%Note that in Algorithm \ref{alg:update}, the meta-configuration is
-%used to store $\textit{pid}$ and id-claimer (the claims).
 
 {\small
 \begin{algorithm}[t]
