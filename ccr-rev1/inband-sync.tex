@@ -336,17 +336,17 @@ postulated in~\cite{stn}. %\petr{We do not seem to discuss the latter?}
 
 
 %\noindent\textbf{Organization}
-The remainder of the paper is organized as follows.
-In Section~\ref{sec:motivation}, we motivate the 
-transactional approach.
-We present our abstractions in more detail in Section~\ref{sec:main}.
-In Section~\ref{sec:background}, we discuss
-an OpenFlow implementation, 
-and we 
-discuss use cases in Section~\ref{sec:apps}.
-We
-conclude our paper
-in Section~\ref{sec:conclusion}.
+%The remainder of the paper is organized as follows.
+%In Section~\ref{sec:motivation}, we motivate the 
+%transactional approach.
+%We present our abstractions in more detail in Section~\ref{sec:main}.
+%In Section~\ref{sec:background}, we discuss
+%an OpenFlow implementation, 
+%and we 
+%discuss use cases in Section~\ref{sec:apps}.
+%We
+%conclude our paper
+%in Section~\ref{sec:conclusion}.
 
 
 \section{Motivation and Example}\label{sec:motivation}
@@ -538,8 +538,8 @@ bitmasked.
 In our implementations, we are going to use bitmasking of the \emph{metadata}
 field for performing conditional operations based on  its content.
 %[[PK put the example back in response of review 2
-For example, \texttt{ipv4\_src=10.1.14.0, ff.ff.ff.f0} matches all packets
-with source IP addresses in the range \texttt{10.1.14.0}--\texttt{10.1.14.127}.
+For example, \texttt{ipv4\_src=10.1.14.0/ff.ff.ff.f0} matches all packets
+with source IP addresses in the range \texttt{10.1.14.0}--\texttt{10.1.14.15}.
 %]]
 
 A \emph{configuration} of an OpenFlow switch is represented as a
@@ -632,10 +632,10 @@ match and priority,  or does nothing if such an entry is not present.
 %inconsistencies can arise, since there is no clearly specified action
 %that should be applied to a packet matching the two entries.
 In order to avoid inconsistencies caused by different rules with
-overlapping match fields, a \emph{FlowMod} command can be equipped with a the $\checko$ flag:
+overlapping match fields, a \emph{FlowMod} command can be equipped with 
+the $\checko$ flag:
 if the switch maintains a flow entry with an overlapping but not
-identical match part with the same priority but a different action,
- and if the two rules have the same priority, then
+identical match part with the same priority, then
 \emph{FlowMod} will fail.
 The $\checko$ flag in a \emph{FlowMod} command helps resolving simple
 conflicts between controllers, and will be instrumental
@@ -961,32 +961,6 @@ with an identical one.
 \end{algorithm}
 
 
-\subsection{Proof-of-Concept}
-
-To investigate the feasibility of our approach,
-we implemented a proof-of-concept of our algorithms
-as a python library which wraps ovs-ofctl, 
-a well-known command line tool for monitoring and administering OpenFlow switches. 
-The code is made available together with this paper.
-
-We experimented with the low-level abstractions as well as the 
-transactional policy update algorithm of our proof-of-concept, using
-different workloads. 
-The tests were conducted using a software switch, Open vSwitch (version 2.4.0) and virtual network simulator, Mininet.
-
-For instance, we experimented with a setting where three processes
-(controllers) issue thousands of concurrent policy updates
-to the switch, where 
-each update consists in replacing a single rule with another one.
-When verifying the transactions, we could confirm that 
-despite the concurrency, all transactions have been successfully completed.
-Of course, due to the concurrency, multiple transactions also needed to abort,
-due to conflicts. 
- 
-While our framework can be used as synchronization tool itself, we 
-currently also work on implementing it as an integral part of existing controllers 
-such as Ryu. 
-
 
 \section{Applications}\label{sec:apps}
 
@@ -1147,6 +1121,33 @@ the policy has not been concurrently modified, and then updates the policy.
     \end{algorithmic}
 \end{algorithm}
 }
+
+
+\section{Proof-of-Concept}
+
+To investigate the feasibility of our approach,
+we implemented a proof-of-concept of our algorithms
+as a python library which wraps ovs-ofctl, 
+a well-known command line tool for monitoring and administering OpenFlow switches. 
+The code is made available together with this paper.
+
+We experimented with the low-level abstractions as well as the 
+transactional policy update algorithm of our proof-of-concept, using
+different workloads. 
+The tests were conducted using a software switch, Open vSwitch (version 2.4.0) and virtual network simulator, Mininet.
+
+For instance, we experimented with a setting where three processes
+(controllers) issue thousands of concurrent policy updates
+to the switch, where 
+each update consists in replacing a single rule with another one.
+When verifying the transactions, we could confirm that 
+despite the concurrency, all transactions have been successfully completed.
+Of course, due to the concurrency, multiple transactions also needed to abort,
+due to conflicts. 
+ 
+While our framework can be used as synchronization tool itself, we 
+currently also work on implementing it as an integral part of existing controllers 
+such as Ryu. 
 
 
 \section{Conclusion}\label{sec:conclusion}
