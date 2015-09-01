@@ -178,15 +178,15 @@ framework for control planes  based on the well-known concept of
 In particular, we present a powerful interface 
 to implement transactions \emph{in-band}, on the 
 switch itself
-and using
-the data plane configuration as a shared memory.
+and using part of
+the data plane configuration space as a shared memory.
 We argue that this in-band approach is attractive as 
 it keeps the failure scope local and 
 does not require additional 
 out-of-band coordination mechanisms.
 This allows us 
-to realize fundamental consensus primitives in the presence
-of controller failures, and we discuss applications
+to implement fundamental consensus primitives in the presence
+of controller failures, and we discuss their applications
 for 
  consistent policy composition and fault-tolerant control-planes.
 Interestingly, 
@@ -287,7 +287,8 @@ on the switch.
 An in-band implementation allows us to efficiently alleviate the problems related to
 coordinating controllers via a control plane
 out-of-band network, in the presence of asynchrony and failures.
-Indeed, the inherent costs  of such protocols are often considered too high, both in
+Indeed, the inherent costs  of such conventional \emph{out-of-band} 
+protocols are often considered too high, both in
 terms of the necessary computability assumptions about the underlying
 system~\cite{FLP85}, and the high communication
 complexity~\cite{Lam06}.
@@ -381,7 +382,7 @@ Simple flow space overlap checks cannot be used to detect
 such conflicts.
 
 
-This paper proposes mechanisms to solve such more general 
+This paper proposes mechanisms to solve these and more general 
 synchronization problems.
 
 
@@ -730,8 +731,8 @@ except for some limited constraint types (such as
 overlapping flow spaces or insufficient free space),
 a bundle does not provide any means to modify the switch configuration
 based on application-specific conditions, which depend on the
-current configuration,
-However, as we have for example seen in our load-balancing
+current configuration.
+However, as we have seen in our load-balancing
 example, a support for more generic conditions under which configuration
 updates
 should or should not take place, is essential.
@@ -838,7 +839,7 @@ In order to check if an identifier is claimed, a controller tries to add
 a new entry setting the flag \texttt{\checko}, and using a different
 match where the controller id is shifted $16$ bits to the left,
 thereby inflicting a failure in case an entry with the same claimed value exists.
-If the check succeeds, we delete the entry. In any case since the check entry contains the controller id, it doesn't conflicts with other check entries and there is no negative impact of delaying the deletion.
+If the check succeeds, we delete the entry. In any case since the check entry contains the controller id, it does not conflict with other check entries and there is no negative impact of delaying the deletion.
 %Considering $m_1$ and $m_2$ from the example above,
 %with respective actions $a_1=1$ and $a_2=2$,  they overlap
 %with different actions iff $x_1=x_2$. Therefore, if $m_1$ is used in the \claimcheck after $m_2$ was used in the claim operation,
@@ -994,8 +995,7 @@ new)$ within the {\execatomic} construct.
 Let us now revisit our load-balancing application
 from the beginning of the paper.
 A simple strategy to balance load in our 2-link example
-is given in Algorithm~\ref{alg:naive-lb}.
-However, this algorithm fails in the presence of
+ fails in the presence of
 multiple controllers, even if 
 bundling and $\checko$ features are used:
 the flows are defined over ``independent'' 
@@ -1033,7 +1033,7 @@ with $\pid+1$.
 The latter ensures that if, concurrently, a new policy (with a different identifier) has been installed, the update
 fails and takes no effect.
 Algorithm~\ref{alg:simple-update} can therefore also be used
-to render our na\"ive load-balancing Algorithm~\ref{alg:naive-lb}
+to render a na\"ive, single-controller load-balancing algorithm
 consistent, without any modifications in the update function.
 
 % \liron{the term composition doesn't make sense now with the new user update function... }
@@ -1146,14 +1146,15 @@ The code is made available together with this paper.
 We experimented with the low-level abstractions as well as the 
 transactional policy update algorithm of our proof-of-concept, using
 different workloads. 
-The tests were conducted using a software switch, Open vSwitch (version 2.4.0) and virtual network simulator, Mininet.
+The tests were conducted using a software switch, Open vSwitch (version 2.4.0) and
+a virtual network simulator, Mininet.
 
 For instance, we experimented with a setting where three processes
 (controllers) issue thousands of concurrent policy updates
 to the switch, where 
 each update consists in replacing a single rule with another one.
 When verifying the transactions, we could confirm that 
-despite the concurrency, all transactions have been successfully completed.
+despite the concurrency, 100 \% of the transactions have been successfully completed.
 Of course, due to the concurrency, multiple transactions also needed to abort,
 due to conflicts. 
  
