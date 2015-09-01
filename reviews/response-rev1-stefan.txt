@@ -1,0 +1,274 @@
+Dear Dina, dear reviewers:
+
+thank you very much for your time and good feedback!
+
+We revised our paper according to your suggestions. In particular, we re-structured the paper significantly to 
+better differentiate between the conceptual and the OpenFlow specific parts, and we emphasize more
+and earlier the aplications. We also performed some experiments of our transactional interface, and briefly report
+on the results. Essentially, the experiments confirmed the feasibility and correctness of our algorithms for the
+OpenFlow case: they showed that despite the high degree of concurrency, 100% of the transactions eventually complete
+in a consistent manner. 
+
+In the following, we discuss the changes in more detail.
+
+We hope that the new version meets your expectations, and are happy to take any further feedback.
+
+With kind regards,
+
+Liron, Petr, Stefan
+
+
+Reviewer 1
+==========
+
+> Overall, the work seems useful and correct.
+> My main concern is scope.
+> The paper is essentially a note on OpenFlow hacking, and thus might be
+> of limited interest to many CCR readers. However, OpenFlow and similar
+> SDN approaches have seen sufficient adoption and research interest in
+> recent years that there is utility in this paper appearing in a venue with
+> broad reach.
+
+Thank you very much for your feedback. Indeed, we hope and believe that
+our work is of relevance beyond specific Openflow versions. In our revision,
+we aim to put the fundamental aspects and the benefit of inband synchronization
+into a broader context. Having that said, in our revision we also report
+in more detail on our proof-of-concept implementation based on POX.
+
+> A lesser concern is novelty. With the addition of atomic bundles to
+> OpenFlow, it's not completely surprising that the atomic CAS operation
+> can be implemented, but there is definite value in having it spelled out
+> cleanly.
+
+We agree, and believe that the implementations with and without bundles
+is a non-trivial step forward.
+
+> I found the brief argument for inband
+> control vs outofband control unconvincing. There are many highperformance
+> systems that use consensus, and a full architectural
+> comparison of the two approaches to
+> SDN is beyond the scope of this paper. I certainly believe that inband
+> control is a useful and interesting design choice, but not just because of
+> FLP. It also seems almost certain that a full system would require outofband
+> coordination between controllers: a full transactional system needs
+> application specific ways of resolving conflicts, which will require
+> coordination.
+
+We agree. With this paper, we aim to show feasibility of inband synchronization, 
+and we offer a simple interface of synchronization primitives. While inband mechanisms
+may reduce the round-trip times and reduce the number of elements a protocol relies upon,
+further research is needed to fully answer the out-of-band vs inband
+debate.  
+
+> I also found 2nd example of the limitations of bundles confusing. A
+> simple concrete example would be greatly helpful, and strength the
+> argument.
+
+We reorganized the paper, and hope that the contributions are now
+put into perspective better.
+
+> Typos/corrections:
+> p.1 col. 2 para. (Contributions): 2nd "conflicts" => "a conflict"
+
+Done, thanks.
+
+> "does not affect" => "affects neither"
+
+Thanks.
+
+> " " para. 3: "promote" => "propose" (?)
+
+Thanks.
+
+> p. 3 col. 2 para (Configuration space): "provided a total addressing scheme" sentence is confusing.
+
+We changed this part, thank you.
+
+
+Reviewer 2
+==========
+
+> The idea of the paper is really nice and I believe it can be used in
+> practice. However, the presentation of the paper needs major work it
+> feels to be switching between highlevel
+> overview versus lowlevel details is
+> background section necessary? Cannot you introduce details like
+> bundles, overlap_checking and actual OpenFlow flags progressively and
+> on examples?
+> maybe start with another example with controllers updating
+> overlapping flows. Then explain ability to do overlap_check. Then
+> introduce loadbalancing example and the need for external
+> synchronization. Transactions/bundles are kindof
+> orthogonal and could
+> be explained after you state that you want executeatomic{ops} and
+> that there is a native support for it in OpenFlow if ops are OF commands.
+> Figure 1 time axis is too inconspicous
+> when you described execute{op1,...} and executeatomic{
+> op1, ...} I was totally confused what is the definition good for. Only later on I
+> realized that operations there are actually not OpenFlow operations but
+> your custom synchronization primitives. Please, clarify that in the text.
+> what does "mask=1...1" mean? Is it a) exact match or b) everything
+> wildcarded? From analysing algorithm 5 I believe it is a)
+
+This is a very good suggestion, and in our revision, we restructured the paper. 
+We hope that the new structure puts the contribution into perspective better.
+
+> Do the algorithms 24 really need to use value=x.x?
+> Cannot it be "0..0 . x" ? Or "1...1 . x"? Or for an arbitrary fixed
+> constant "c.x" ? Maybe elaborate in the text on that point because it
+> looks like magic to me.
+> In any case, you should explain more why "x masked by self1"
+> overlaps with "x masked by self2" exactly iff self1 != self2
+
+Thanks, we tried to clarify this.
+
+> On my first reading I missed that claim() operation can actually allow
+> more controllers to claim the same value. Please clarify in the text.
+> What is the value of such operation? Actually, it looks like a kindof
+> "read lock". following the thought, additionally to claim() and unclaim(), could you
+> have algorithms for exclusive lock() and unlock()? Maybe even explain it
+> sooner than claim() so that people can think about wellknown
+> semantic first.
+
+Thank you, we revised this part and tried to clarify.
+
+> There looks to be an inconsistency of what happens with check_overlap
+> flag for the exactly same rule:
+> You say "a FlowMod command can be equipped with a the check
+> overlap flag: if the switch maintains a flow entry with an overlapping but
+> not identical match part with the same priority but a different action,
+> and if the two rules have the same priority, then FlowMod will fail."
+> OF 1.4 spec says "For add requests (OFPFC_ADD) with the
+> OFPFF_CHECK_OVERLAP flag set, the switch must first check for any
+> overlapping flow entries in the requested table. Two flow entries overlap
+> if a single packet may match
+> both, and both entries have the same priority. If an overlap conflict
+> exists between an existing flow entry and the add request, the switch
+> must refuse the addition and respond with an ofp_error_msg with
+> OFPET_FLOW_MOD_FAILED type and OFPFMFC_OVERLAP code."
+> the consequence is that I believe your explanation allows for no error
+> if we add exactly the same rule but the spec requires an error. How do
+> real switches implement this? Does this affect the validity of your
+> algorithms?
+
+We elaborated more on these technical parts, and also now include a short
+discussion of a proof-of-concept implementation.
+
+> in Algorithm 6 you seems to be assuming that same match with same
+> actions won't cause an error but same match different actions will. This
+> is neither consistent with your explanation of overlap check nor the spec
+
+We agree that this part was confusing, and changed the description now.
+
+> Algorithm 3 I believe commands cmd1 and cmd2 must be either
+> bundled together with guaranteed ordering or separated by a barrier,
+> otherwise the switch might reorder them and render the cleanup
+
+FIXME
+
+> Why is Algorithm 8 "more efficient alternative to Algorithm 7" ? It
+> looks to be doing much more work
+
+Indeed, the algorithm seems to be longer, and we now clarified what we mean by more efficient.
+
+Reviewer 3
+==========
+
+> This is a intriguing little article that shows that a recent version of
+> OpenFlow (which version?!) has the raw ingredients needed to implement a very general
+> transactional interface for updating flow tables. It is obvious that this is
+> an accident. The OpenFlow primitives that the article uses actually have a
+> very narrow interface, but the paper uses them in a clever way to build very
+> general transactions: a transaction is an atomic sequence of flowtable
+> writes and assertions. i.e., the writes succeed or fail atomically only if all the
+> assertions are true.
+> This article is primarily a theoretical exercise and doesn't address
+> performance concerns:
+> Do real switches have the space to use all these extra rules for
+> coordination?
+> Do switches actually implement the features of OpenFlow used by this article
+> (i.e., check_overlap, bundles, arbitrary bitmasking of the METADATA field,
+> etc.) and do they implement them fast?
+> Being optimistic, I think that the real value of this article may be to
+> show that OpenFlow might as well provide a more general transactional interface.
+> Without any empirical evidence, I doubt that the scheme proposed in the article
+> will actually work in practice.
+
+We indeed understand our article as a first step, and a proof of concept.
+However, much more work is needed to evaluate its performance and scalability,
+and we aim to do this in our future research. Nevertheless, our mechanisms
+can readily be implemented in today's Openflow protocol. In our revision,
+we also report on such an implementation.
+
+> A deeper issue that this article doesn't address is whether this kind of
+> abstraction is even desirable. A simpler abstraction may be to have one
+> controller for a small set of switches and have the controllers coordinate
+> with each other.
+> Transactions are a powerful primitive, but apart from the simple load
+> balancer in Algorithm 1, the paper doesn't delve into how applications should be
+> built to take advantage of the transactional primitive. I think this is what
+> the article sorely lacks. Without it, the article just shows off cool hack.
+
+This is a very good point. While it is difficult to prove that our abstraction
+is the best or even the right one, we believe that our approach represents a meaningful
+first step. Moreover, we believe that our contribution goes beyond an "openflow hack".
+By restructuring the paper, we seek to put our contribution into a more general
+and broader perspective.
+
+> MINOR
+> pg 1 col 1: "perspective of [a] logically centralized"
+
+Thanks, done.
+
+> pg 1 col 1: "a distributedsystems one: [multiple]"
+
+Fixed.
+
+> pg 1 col 2: perhaps paper article
+
+Fixed.
+
+> pg 1 col 2: "We [propose] to implement our"
+
+Fixed.
+
+> pg 3 col 1: "as we will argue, asupport for more generic" (delete a)
+
+Fixed.
+
+> pg 3 col 2: "a bundle allows to conditionally"
+
+Fixed.
+
+> In Example 1, why not have the two controllers communicate
+> Example 2 says bundling and checkoverlap don't help modify. But, Section 2
+> says that the semantics of addflow is to modify if a flow with exactly
+> the same priority and match exist
+
+In our revision, we restructured these parts and hope we found
+a omre intuitive way to put this into perspective.
+
+EDITOR
+======
+
+> Dear authors,
+> Thank you for your submission. The reviews for this paper raise several
+> important questions and provide good feedback. We hope they will help
+> in improving the paper. Beyond addressing the technical questions and
+> presentationrelated
+> issues mentioned in the reviews, a revised version
+> of the paper should include:
+> Examples
+> showing how transactions can be used by control
+> applications. This will make the paper storyline richer.
+> Experiments
+> with actual switches to give readers some confidence that
+> the proposed transactions can be efficiently implemented.
+> Regards. Area Editor.
+
+Thank you for your good comments. In our revision, we restructured
+the paper and also elaborate more on the proof of concept implementation,
+which shows the feasibility of our approach. Of course, for an extensive
+study of the performance and overheads, more work is needed. However,
+we hope that our article provides a worthwhile first step and
+contribution for the community.
