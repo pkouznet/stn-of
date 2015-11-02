@@ -32,8 +32,8 @@ Reviewer 1
 Thank you very much for your feedback. Indeed, we hope and believe that
 our work is of relevance beyond specific Openflow versions. In our revision,
 we aim to put the fundamental aspects and the benefit of inband synchronization
-into a broader context. Having that said, in our revision we also report
-in more detail on our proof-of-concept implementation.
+into a broader context, and restructured the article accordingly. Having that said, in our revision we also report
+in more detail on our proof-of-concept implementation and some preliminary experiments.
 
 > A lesser concern is novelty. With the addition of atomic bundles to
 > OpenFlow, it's not completely surprising that the atomic CAS operation
@@ -58,7 +58,7 @@ We agree. With this paper, we aim to show feasibility of inband synchronization,
 and we offer a simple interface of synchronization primitives. While inband mechanisms
 may reduce the round-trip times and reduce the number of elements a protocol relies upon,
 further research is needed to fully answer the out-of-band vs inband
-debate.  
+debate. In the revision, we tried to better define the scope and discuss the limitations of our work. 
 
 > I also found 2nd example of the limitations of bundles confusing. A
 > simple concrete example would be greatly helpful, and strength the
@@ -164,7 +164,7 @@ We agree that this part was confusing, and changed the description now.
 > bundled together with guaranteed ordering or separated by a barrier,
 > otherwise the switch might reorder them and render the cleanup
 
-Clarified.
+FIXME
 
 > Why is Algorithm 8 "more efficient alternative to Algorithm 7" ? It
 > looks to be doing much more work
@@ -246,7 +246,7 @@ Fixed.
 > the same priority and match exist
 
 In our revision, we restructured these parts and hope we found
-a more intuitive way to put this into perspective.
+a omre intuitive way to put this into perspective.
 
 EDITOR
 ======
