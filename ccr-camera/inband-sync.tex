@@ -32,6 +32,7 @@
 \definecolor{shadecolor}{rgb}{0.9,0.9,0.9}
 \definecolor{mygreen}{rgb}{0,0.5,0}
 \definecolor{mygrey}{rgb}{0.5,0.5,0.5}
+\definecolor{mypurple}{rgb}{1,0,1}
 
 %\usepackage{algorithm}
 %\usepackage[noend]{algorithmic}
@@ -68,7 +69,7 @@
 \newcommand{\checko}{\texttt{check\_overlap}\xspace}
 \newcommand{\ufunc}{update} %apply\_update
 \newcommand{\stefan}[1]{\textit{\textcolor{red}{[stefan]: #1}}} % Comments
-\newcommand{\liron}[1]{\textit{\textcolor{mygreen}{[liron]: #1}}} % Comments
+\newcommand{\liron}[1]{\textit{\textcolor{mypurple}{[liron]: #1}}} % Comments
 \newcommand{\petr}[1]{\textit{\textcolor{blue}{[petr]: #1}}} % Comments
 
 \newcommand{\error}{\texttt{error}}
@@ -292,7 +293,7 @@ system~\cite{FLP85}, and the high communication
 complexity~\cite{Lam06}.
 In contrast, our \emph{in-band} solution allows the
 controllers to solve fundamental agreement tasks in just one message
-exchange with the data plane, tolerating asynchrony and failures of
+exchange \liron{--------why one? ---------}  with the data plane, tolerating asynchrony and failures of
 any number of controllers.
 
 The key idea of our approach is to use the switch configuration space
@@ -311,13 +312,13 @@ general notions of conflicts between configuration updates,
 not restricted to simple conflicts on the overlapping flow spaces.
 In particular, we can define dependencies between mappings of
 independent flows to the physical infrastructure, which is important,
-e.g., for load-balancing applications.
+e.g., for load-balancing applications. \liron{I think this is a bit hard to understand}
 
 As a case study, and to demostrate the feasibility
 of our conceptual approach, we 
 consider the standard \emph{OpenFlow}
  protocol (version 1.4~\cite{openflow}). \stefan{liron can we say that
- for example novikit supports all these features?}
+ for example novikit supports all these features?}\liron{No. Novikit support OF 1.3 and therefore lacks support for bundles.}
  In particular, we show that OpenFlow's match-action paradigm can be instrumented
 to realize simple key-value stores in the configuration space.
 
@@ -393,7 +394,7 @@ install their flows on the left link, which results in an undesirable
 unbalanced state.
  \emph{Right:}
  With synchronization, i.e., by bundling the flow installation with a Compare-and-Set (CAS) primitive
- depending on the policy id (\emph{pid}), this problem is avoided.}\label{fig:CAS-example}
+ depending on the policy id (\emph{\pid}), this problem is avoided.}\label{fig:CAS-example}
 \end{figure}
 
 \section{In-Band Synchronization}\label{sec:main}
@@ -830,13 +831,16 @@ This allows multiple controllers to claim the same identifier without
 overriding existing flow entries.
 %
 For example, for any two resource identifiers $x_1$ and $x_2$ and controller identifiers $c_1\neq c_2$,
-the match patterns $m_1=(c_1\concat x_1, \ones{48})$ and $ m_2=(c_2\concat x_2, \ones{48})$ are distinct,
+the match patterns
+%$m_1=(c_1\concat x_1, \ones{48})$ and $ m_2=(c_2\concat x_2, \ones{48})$ 
+$m_1=(*^{16}\concat c_1\concat x_1)$ and $ m_2=(*^{16}\concat c_2\concat x_2)$ 
+are distinct,
 even if $x_1=x_2$.
 Therefore, they can both be used to claim and unclaim identifiers without affecting each other.
 
 In order to check if an identifier is claimed, a controller tries to add
 a new entry setting the flag \texttt{\checko}, and using a different
-match where the controller id is shifted $16$ bits to the left,
+match, $m$, where the controller id, $c$, is shifted $16$ bits to the left, i.e., $m=( c_1\concat *^{16}\concat x_1)$,
 thereby inflicting a failure in case an entry with the same claimed value exists.
 If the check succeeds, we delete the entry. In any case since the check entry contains the controller id, it does not conflict with other check entries and there is no negative impact of delaying the deletion.
 %Considering $m_1$ and $m_2$ from the example above,
@@ -853,7 +857,7 @@ implemented as essentially one command.
 By employing the \textbf{read-state} command, we may easily implement
 an additional operation that returns all currently claimed ids: it is
 sufficient to go over the rules matching every controller identifier.
-In order to distinguish between claim entries and other policy entries we set the action part to be some magic value, $\claimmagic$.
+In order to distinguish between claim entries and other policy entries, returned by  \textbf{read-state}, we set the action part to be some magic value, $\claimmagic$.
 
 {\small
 
@@ -863,13 +867,13 @@ In order to distinguish between claim entries and other policy entries we set th
     \begin{algorithmic}[1]
     \Require \emph{self} as the calling controller id.
 %    \Ensure
-    		\State $\textit{value} \gets self\concat x$
-    		\State $\textit{mask} \gets \ones{48}$
+    		\State $\textit{value} \gets \zeros{16}\concat self\concat x$
+    		\State $\textit{mask} \gets \zeros{16}\concat\ones{16}\concat\ones{32}$
 	    	\State $\textit{match} \gets (\textit{value},\textit{mask})$
     		%\State $cookie \gets x\concat self$
     		\State $\textit{action} \gets \claimmagic$
-    		\State $\textit{flag} \gets 0$
-    		\State $\textit{cmd}\gets \textit{FlowMod}(match, op = \add, \textit{flag}, \textit{action}) $
+    		%\State $\textit{flag} \gets 0$
+    		\State $\textit{cmd}\gets \textit{FlowMod}(match, op = \add, \textit{action}) $
 			\Return $\textit{cmd}$
     \end{algorithmic}
 \end{algorithm}
@@ -898,8 +902,8 @@ In order to distinguish between claim entries and other policy entries we set th
     \begin{algorithmic}[1]
     \Require \emph{self} as the calling controller id.
 %    \Ensure
-    		\State $\textit{value} \gets self\concat x$
-    		\State $\textit{mask} \gets \ones{48}$
+    		\State $\textit{value} \gets \zeros{16}\concat self\concat x$
+    		\State $\textit{mask} \gets \zeros{16}\concat\ones{16}\concat\ones{32}$
     		%\State $cookie \gets x\concat self$
     		\State $\textit{match} \gets (\textit{value},\textit{mask})$
     		\State $\textit{cmd}\gets \textit{FlowMod}(\textit{match}, op=\dele) $
@@ -914,21 +918,26 @@ In order to distinguish between claim entries and other policy entries we set th
 \noindent\textbf{Write and compare.}
 The memory \memwrite and \compare
  operations can be implemented using similar techniques.
+ \liron{
  As can be seen in Algorithms \ref{alg:write}-\ref{alg:compare},
-  the value part of the added flow entry match contains the memory address and the mask part contains
-  the written value. In order to rewrite a memory location, the old entry needs to be deleted and a new one need to be added atomically.
+  the value part of the added flow entry match contains the memory address, $addr$, and the mask part contains
+  the written value $k$. More specifically, we use a ternary match string of the form $k'\concat \addr$, where $k'$ is result os replacing every zero bit in $k$ with a wildcard ($*$).}
+  In order to rewrite a memory location, the old entry needs to be deleted and a new one need to be added atomically.
   %Values written to the same address will replace one another,
 %following the command definition to replace the old flow entry with a new one in case they
 %share the same match parts.
-Similarly to claim entries, we set the action to a magic value, $\memmagic$, in order to distinguish them from policy entries.
+Similarly to claim entries, we set the action to a magic value, $\memmagic$, in order to distinguish them from policy entries returned by \textbf{read-state}.
+
 
 In order to check if a value is written at a given address,
 we try to add it the same way as in the \memwrite operation,
 but we also set the \texttt{\checko} flag. If the value is not there,
-our action differs from the existing entry, but still overlaps with it since only their masks differ,
+our action differs from the existing entry, but still overlaps with it since only their masks differ \liron{(different mixtures of ones and wildcards in the $k'$ part)},
 thereby inflicting a failure.
 In case the value is there, our flow entry replaces the existing flow entry
 with an identical one.
+
+\liron{Note that comparing an uninitialized address always succeeds and also writes to it the compared value. Initializing required addresses can be safely performed by an a-priori comparison with zero.}
 
 %HERE: we can read state by reading flow monitor => read configuraiton abstraction => state of claimer ID objects list of all claimed identifiers
 
@@ -939,7 +948,7 @@ with an identical one.
     %\Require  id $i$.
 %    \Ensure
     		\State $value \gets \ones{32}\concat\addr$
-    		\State $mask \gets  \ones{32}$
+    		\State $mask \gets  \zeros{32}\concat\ones{32}$
     		\State $match \gets (value,mask)$
     		\State $\textit{cmd1}\gets \textit{FlowMod}(\textit{match}, op = \dele) $
     		
@@ -948,8 +957,8 @@ with an identical one.
   		   \State $match \gets (value,mask)$
  		    		%\State $cookie \gets x\concat self$
  		   \State $action \gets \memmagic$
- 		   \State $flag \gets 0$
-		   \State $\textit{cmd2}\gets \textit{FlowMod}(\textit{match}, op = \add, \textit{flag}, \textit{action}) $
+ 		   %\State $flag \gets 0$
+		   \State $\textit{cmd2}\gets \textit{FlowMod}(\textit{match}, op = \add,  \textit{action}) $
 		    		
 			\Return $\textit{cmd1}$,$\textit{cmd2}$
     \end{algorithmic}
@@ -985,7 +994,7 @@ way where numbers continuously increase, it is straight-forward to use a modulo
 scheme. While in our case 32-bit numbers are used, 
 the flow table width (number of bits which can be matched in parallel)
 of modern switches is 40-bits and more.}
- 
+ \liron{I think we should say something like: "... of modern switches can get as high as a few hundreds'. }
 \section{Applications}\label{sec:apps}
 
 Given our mechanisms, we can easily implement
@@ -1034,7 +1043,7 @@ condition that these rules can be \emph{composed} with the currently installed
 policy.
 Algorithm~\ref{alg:simple-update} uses the bundle feature to update
 the switch configuration, where the configuration contains both the
-policy and a meta-configuration memory address $\paddr$ that holds the \emph{policy identifier (pid)} .
+policy and a meta-configuration memory address $\paddr$ that holds the \emph{policy identifier (\pid)} .
 In the algorithm, the controller first reads the currently installed
 policy together with its {\pid},  applies the
 $\textsc{\ufunc}()$ function to the current policy which results in a
@@ -1054,11 +1063,11 @@ consistent, without any modifications in the update function.
 
 %[[PK clear from the algorithm?]]
 % and use them in order to make sure that the new policy, with id
-%$pid+1$, replaces the (what considered as) current policy, with id
-%$pid$.
+%$\pid+1$, replaces the (what considered as) current policy, with id
+%$\pid$.
 %Considering the policies identifiers, we send the policy update
 %commands as part of a bundle that also tries to perform
-%$CAS(pid,pid+1)$, thereby insuring that the commands are
+%$CAS(\pid,\pid+1)$, thereby insuring that the commands are
 %performed iff the current policy is still there and preventing other
 %controllers to replace the new policy with another without observing it.
 
@@ -1152,7 +1161,7 @@ To investigate the feasibility of our approach,
 we implemented a proof-of-concept of our algorithms
 as a python library which wraps ovs-ofctl, 
 a well-known command line tool for monitoring and administering OpenFlow switches. 
-\stefan{The code is made publicly available at TODO LIRON.}
+\stefan{The code is made publicly available at TODO LIRON.}\liron{https://github.com/lironsc/of-sync-lib}
 
 We experimented with the low-level abstractions as well as the 
 transactional policy update algorithm of our proof-of-concept, using
