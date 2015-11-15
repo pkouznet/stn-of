@@ -265,7 +265,7 @@ a wide range of synchronization abstractions
 to realize consistent distributed systems.
 In particular, the popular 
 %[[PK it is incorrect to only cite the book for the TM notion]]
-\emph{transactional  memory} abstraction~\cite{HM93,stm-st95,tm-book} 
+\emph{transactional  memory} abstraction (cf. a survey in~\cite{tm-book}). 
 %]]
 provides a
 collection of
@@ -291,7 +291,7 @@ affects neither traffic nor other controllers.
 We propose to implement our synchronization constructs \emph{in-band},
 on the data-plane switch.
 An in-band implementation allows us to efficiently alleviate the problems related to
-coordinating controllers via a control plane
+coordinating controllers via a control-plane
 out-of-band network, in the presence of asynchrony and failures.
 Indeed, the inherent costs  of such conventional \emph{out-of-band} 
 protocols are often considered too high, both in
@@ -543,9 +543,9 @@ An identifier $k$ is called \emph{claimed} at a given point of an
 execution if there is a controller that has performed $\textit{claim}(k)$
 but has not yet performed  $\textit{unclaim}(k)$.
 
-\item If $k$ is currently claimed by any controller,
-$\textit{\claimcheck}(k)$ %, $k\in\Nat$,
-aborts the current transaction.
+\item With $\textit{\claimcheck}(k)$, the controller checks if $k$ is
+  currently claimed by any controller, and if so, the current transaction is
+  aborted.
 
 \end{itemize}
 
@@ -589,7 +589,7 @@ A flow table is a set of \emph{flow entries}, each containing a rule,
 with a match, an action, and a \emph{priority} level, and flow entries
 are ordered according to their priorities.
 In the simplest setting, a switch maintains one flow table (table 0).
-A data plane packet arriving at a switch is first checked against
+A data-fplane packet arriving at a switch is first checked against
 the rule with the highest priority and in table $0$.
 If the header of the packet fits the match fields of that rule,
 a default \emph{instruction} associates the packet with the corresponding action.
@@ -600,9 +600,9 @@ priorities, and if no matching rule is found, the packet is dropped.
 \hide{
 Furthermore, an OpenFlow switch may maintain multiple flow tables
 forming a \emph{pipeline}.
-Data plane packets are checked against flow entries in the pipelined
+Data-plane packets are checked against flow entries in the pipelined
 tables to determine the set of actions the switch should perform on the packet.
-A data plane packet arriving at a switch is first checked against
+A data-plane packet arriving at a switch is first checked against
 the rule with the highest priority and in table $0$.
 If the header of the packet fits the match fields of that rule,
 a default \emph{instruction} associates the packet the corresponding action.
@@ -672,15 +672,18 @@ match and priority,  or does nothing if such an entry is not present.
 %If rules with overlapping but not identical match fields have the same priority,
 %inconsistencies can arise, since there is no clearly specified action
 %that should be applied to a packet matching the two entries.
+%[[PK shortened
 In order to avoid inconsistencies caused by different rules with
 overlapping match fields, a \emph{FlowMod} command can be equipped with 
-the $\checko$ flag:
+the $\checko$ flag which will be instrumental
+in implementing our synchronization abstractions:
 if the switch maintains a flow entry with an overlapping but not
 identical match part with the same priority, then
-\emph{FlowMod} will fail.
-The $\checko$ flag in a \emph{FlowMod} command helps resolving simple
-conflicts between controllers, and will be instrumental
-in implementing our synchronization abstractions.
+the \emph{FlowMod} command will fail.
+%The $\checko$ flag in a \emph{FlowMod} command helps resolving simple
+%conflicts between controllers, and will be instrumental
+%in implementing our synchronization abstractions.
+%]]
 
 %[[PK not sure this is the right place
 %implement synchronization objects which form
@@ -701,6 +704,8 @@ To read the current configuration of a switch (the existing flow entries), the c
 the OpenFlow \emph{add flow monitor} command with the \textsf{ofpt\_initial} optional flag.
 In this paper, we write \textbf{read-state} for sending
 this message, receiving a response, and returning the received configuration.
+\petr{Is it atomic? Should we say that the command returns a ``snapshot'' of the
+  configuration?}
 
 \vspace{1mm}
 \noindent\textbf{Bundling.}
@@ -720,7 +725,7 @@ the bundle are rejected and an error
 message is sent to the controller that issued them.
 %If multiple \emph{FlowMod} messages with the $\checko$ flag are sent as a single bundle,
 The error message contains $\xid$, the identifier of the first failed command in the
-bundle, and $\ecode$, the \emph{error code} corresponding to the failure.
+bundle, and $\ecode$, the identifier of the failure.
 
 A bundle begins with a  \texttt{ofpt\_bundle\_control} message of type
 \texttt{ofpbct\_open\_request} (creating the bundle), wraps
@@ -741,13 +746,13 @@ type \texttt{ofpbct\_commit\_request} (committing the bundle).
 %Again, the bundle always returns a binary result: \emph{error} ($\bot$) or \emph{success} ($\top$).
 
 %When properly configured,
-The bundle execution is considered \emph{controller-atomic}
+The bundle execution is \emph{controller-atomic}
 in the sense that all controllers can only observe switch
 configurations \emph{before} or \emph{after} the
 bundle commands are executed.
 We set the flag \texttt{ofpbf\_atomic},
 making bundles \emph{packet-atomic},
-in the sense that every data plane packet is processed by a configuration
+in the sense that every data-plane packet is processed by a configuration
 before or after the bundle, and not by a configuration resulting from
 an incomplete bundle execution.
 We also set the flag \texttt{ofpbf\_ordered},  to make sure that the
@@ -903,9 +908,18 @@ implemented as essentially one command.
 By employing the \textbf{read-state} command, we may easily implement
 an additional operation that returns all currently claimed ids: it is
 sufficient to go over the rules matching every controller identifier.
-In order to distinguish between claim entries and other policy entries, returned by  \textbf{read-state}, we set the action part to be some magic value, $\claimmagic$.
+In order to distinguish between claim entries and other policy
+entries, returned by  \textbf{read-state},
+%[[PK ``some magic value'' sounds magic... 
+we set the action part to
+be a unique designated value, $\claimmagic$.
+%]]
+\petr{Action part of what? Does it relate to the
+  read-state command? Maybe change order: first talk about claim-magic
+and then about read-state?}
 
-{\small
+
+{\footnotesize
 
 \begin{algorithm}[t]
     \caption{$\textit{claim}(x)$}
@@ -1126,7 +1140,7 @@ consistent, without any modifications in the update function.
 %``singleton'' (consisting of one operation only)  transactions
 %containing such operations always commit. \liron{I think we can ommit this paragraph entirely - no need for bundle when it is not written}
 
-{\small
+{\footnotesize
 \begin{algorithm}[t]
     \caption{Policy update with only CAS}
     \label{alg:simple-update}
