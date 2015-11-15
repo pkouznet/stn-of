@@ -21,6 +21,9 @@
 %\usepackage[pdftex]{graphicx}
 %\DeclareGraphicsRule{*}{mps}{*}{<++>}
 
+%to balance columns on the last page
+\usepackage{balance}
+
 
 %\usepackage[caption=true,font=footnotesize]{subfig}
 %\usepackage{xspace} 	% Guesses whether a space is needed when invoked
@@ -176,29 +179,29 @@ performed on the data plane by different controllers may need to
 be \emph{synchronized},  which is a
  nontrivial task.
 In this paper, we propose a synchronization
-framework for control planes  based on the well-known concept of
-\emph{transactions}.
-In particular, we make the case for 
-implementing transactions \emph{in-band}, on the 
-switch itself.
+framework for control planes  based on atomic
+transactions, 
+%In particular, we make the case for 
+implemented \emph{in-band}, on the 
+data-plane switches.
 We argue that this in-band approach is attractive as 
 it keeps the failure scope local and 
 does not require additional 
 out-of-band coordination mechanisms.
 It allows us to realize fundamental consensus primitives in the presence
 of controller failures, and we discuss their applications
-for 
- consistent policy composition and fault-tolerant control-planes.
+for consistent policy composition and fault-tolerant control-planes.
 Interestingly, 
-using part of
+by using part of
 the data plane configuration space as a shared memory
-and by leveraging 
- the match-action
-paradigm to realize simple key-value stores, 
+and leveraging  the match-action
+paradigm, 
+%[[PK key-valued stores are not really discussed?
+%to realize simple key-value stores, 
 we can implement our synchronization framework in
 today's standard OpenFlow protocol, 
 and we report on
-a proof-of-concept accordingly.
+our proof-of-concept implementation.
 \end{abstract}
 
 \category{C.2.2}{Computer-Communication Networks}{Network Protocols}
@@ -212,7 +215,7 @@ a proof-of-concept accordingly.
 
 \section{Introduction}\label{sec:intro}
 
-By consolidating and outsourcing the control over the dataplane switches to a logically
+By consolidating and outsourcing the control over the data-plane switches to a logically
 centralized controller, Software-Defined Networks (SDNs)
 simplify network management and facilitate faster innovations:
 the (software) control plane can evolve independently from the
@@ -260,8 +263,12 @@ even before their updates have been completed.
 The concurrent computing literature offers
 a wide range of synchronization abstractions
 to realize consistent distributed systems.
-In particular, the popular \emph{transactional
-  memory} abstraction~\cite{tm-book} provides a collection of
+In particular, the popular 
+%[[PK it is incorrect to only cite the book for the TM notion]]
+\emph{transactional  memory} abstraction~\cite{HM93,stm-st95,tm-book} 
+%]]
+provides a
+collection of
 concurrent processes with the ability of aggregating sequences of
 shared-memory operations in \emph{atomic  transactions} with
 all-or-nothing semantics.
@@ -282,7 +289,7 @@ Otherwise, the transaction is \emph{aborted} in its entirety and
 affects neither traffic nor other controllers.
 
 We propose to implement our synchronization constructs \emph{in-band},
-on the switch.
+on the data-plane switch.
 An in-band implementation allows us to efficiently alleviate the problems related to
 coordinating controllers via a control plane
 out-of-band network, in the presence of asynchrony and failures.
@@ -293,51 +300,77 @@ system~\cite{FLP85}, and the high communication
 complexity~\cite{Lam06}.
 In contrast, our \emph{in-band} solution allows the
 controllers to solve fundamental agreement tasks in just one message
-exchange \liron{--------why one? ---------}  with the data plane, tolerating asynchrony and failures of
+exchange 
+%[[PK we mean consensus/CAS here, where one message exchange is indeed used
+%\liron{--------why one? ---------}  
+%]]
+with the data plane, tolerating asynchrony and failures of
 any number of controllers.
 
-The key idea of our approach is to use the switch configuration space
-as a \emph{transactional shared memory}. 
-The shared memory of the data-plane configuration space 
-can store information about  contention and conflicts
+The key idea of our approach is to use the data-plane switch configuration space
+as a \emph{transactional shared memory}.
+%[[PK reads a bit strange
+%The shared memory of the data-plane configuration space  
+In addition to the actual data-plane configuration, the memory can store information about  contention and conflicts
 between the controllers.
+%]]
 A transaction can then contain standard control and update operations
 as well as  \emph{synchronization primitives} operating on this shared
 memory.
-We investigate useful synchronization abstractions and propose 
-a simple interface which revolves around policy identifiers (IDs)
-which can be claimed and released atomically and hence consistently. 
-More generally, our synchronization primitives allow the controllers to define
+%[[PK policy IDs come out of the blue, very hard to digest 
+%We 
+%%investigate useful synchronization abstractions and 
+%propose 
+%a simple interface which revolves around network policy identifiers 
+%%[[PK IDs are not used below?
+%%(IDs)
+%%]]
+%which can be claimed and released atomically and hence consistently. 
+%[[PK simplified a bit
+%More generally, 
+The synchronization primitives allow the controllers to define
 general notions of conflicts between configuration updates,
-not restricted to simple conflicts on the overlapping flow spaces.
-In particular, we can define dependencies between mappings of
-independent flows to the physical infrastructure, which is important,
-e.g., for load-balancing applications. \liron{I think this is a bit hard to understand}
+covering simple routing conflicts 
+%conflicts on the overlapping flow spaces 
+as well as more sophisticated multi-flow dependencies appearing in load-balancing applications.   
+%In particular, we can define dependencies between mappings of
+%independent flows to the physical infrastructure, which is important,
+%e.g., for load-balancing applications. 
+%\liron{I think this i s a bit hard to understand}
+%]]
 
 As a case study, and to demostrate the feasibility
 of our conceptual approach, we 
 consider the standard \emph{OpenFlow}
- protocol (version 1.4~\cite{openflow}). \stefan{liron can we say that
- for example novikit supports all these features?}\liron{No. Novikit support OF 1.3 and therefore lacks support for bundles.}
- In particular, we show that OpenFlow's match-action paradigm can be instrumented
-to realize simple key-value stores in the configuration space.
-
-Using our abstraction, the controllers can
-solve several important synchronization problems.
+ protocol (version 1.4~\cite{openflow}). 
+%\stefan{liron can we say that
+% for example novikit supports all these features?}\liron{No. Novikit support OF 1.3 and therefore lacks support for bundles.}
+% In particular, 
+%PK ``key-value store'' come out of the blue...
+We show that OpenFlow's match-action paradigm can be instrumented
+to realize 
+%simple key-value stores in the configuration space.
+%
+%\petr{Did not get the flow here: what is ``our abstraction'' here?
+a simple transactional abstraction that allows 
+the controllers to solve several important synchronization problems.
 For example, we describe an OpenFlow implementation of the fundamental
 \emph{compare-and-set} (CAS) primitive.
 The atomic CAS operation is known to provide an infinite consensus number,
-and can for instance be used to 
-implement generic replicated control plane services~\cite{Her91} in a consistent and
-fault-tolerant way: a mainstream building block in
-modern distributed system design (Chubby, Google Spanner, Amazon Webservices, etc.).
+and can, for instance, be used to 
+implement a generic consistent and fault-tolerant replicated 
+%[[PK why control-plane here: does not fit the Chubby et al. mentioned later.
+%control-plane 
+service~\cite{Her91} 
+%in a consistent and fault-tolerant way: 
+a mainstream building block in
+modern distributed systems (Chubby, Google Spanner, Amazon Webservices, etc.).
 We discuss a simple CAS-based concurrent policy-update mechanism,
 and present a generic template to implement concurrent policy
 compositions of a user-specific update functions.
 Our synchronization abstraction also provides
 the missing link for the read-modify-write object
 postulated in CPC and STN~\cite{stn,infocom15}. %\petr{We do not seem to discuss the latter?}
-
 
 %\noindent\textbf{Organization}
 %The remainder of the paper is organized as follows.
@@ -389,7 +422,7 @@ synchronization problems.
 \begin{figure}[t]
 \centering
 \includegraphics[width=.56\columnwidth]{loadbal-1.pdf}~\hspace{-.7cm}~\includegraphics[width=.56\columnwidth]{loadbal-2.pdf}\\
-\caption{\emph{Left:} Without synchronization, the two controllers naturally choose to
+\caption{\small \emph{Left:} Without synchronization, the two controllers naturally choose to
 install their flows on the left link, which results in an undesirable
 unbalanced state.
  \emph{Right:}
@@ -399,12 +432,16 @@ unbalanced state.
 
 \section{In-Band Synchronization}\label{sec:main}
 
-In order to synchronize controllers, we propose
-to use a minimal
-``meta-configuration'' space on the switch,
-to store information
+%[[PK how do we know ``minimal''?
+In order to synchronize controllers, 
+we propose to use a part of the configuration space of the data-plane
+switch for storing  a 
+%minimal
+``meta-data'', containing information
 on contention and conflicts between
-concurrently installed policy updates. Controllers can read and modify
+concurrently installed policy updates. 
+%]]
+Controllers can read and modify
 this meta-data by applying synchronization primitives.
 In the following section, we
 describe how this space can be organized and consistently maintained
@@ -416,7 +453,7 @@ by multiple controllers despite of concurrency and conflicts.
 %
 We distinguish two parts of the configuration space of a switch:
 the ``normal'' configuration which determines the network policy and
-is used to process the data plane traffic (e.g., forwarding rules),
+is used to process the data-plane traffic (e.g., forwarding rules),
 and the \emph{meta-configuration} that contains information used by the
 controllers to synchronize their actions.
 Flow entries in the meta-configuration can be referred to as shared
@@ -449,9 +486,9 @@ In the non-atomic mode, no atomicity guarantees are provided.
 We introduce two constructs
 %$\textbf{bundle}\{\;\ldots\;\}\rightarrow res$ to refer to represent a
 $\exec\{op_1,\;\ldots\;op_k\}$ and $\execatomic\{op_1,\;\ldots\;op_k\}$
-which execute a sequence of commands $op_1,\ldots,op_k$ in
+which perform a sequence of commands $op_1,\ldots,op_k$ in
 a regular and atomic way, respectively.
-The construct $\execatomic\{op_1,\;\ldots\;op_k\}$  
+In particular, the construct $\execatomic\{op_1,\;\ldots\;op_k\}$  
 returns $\ack$ if and only if all commands in the sequence are performed successfully; otherwise
 $\error(\xid,\ecode)$ is returned, providing
 the identifier of the first command in the sequence that failed
@@ -471,15 +508,15 @@ and the installation should succeed only if the identifier of the
 currently installed policy has not changed since the last time the
 controller read it.
 
-Therefore, we provide the following transactional operations.
+Therefore, we provide the following (transactional) operations.
 A $\textit{write}(\addr,k)$ operation sets the content at memory location
 $\addr$ to $k$.
 A $\textit{\compare}(\addr,k)$ operation \emph{aborts} the transaction
 if and only if the content at
 $\addr$ is \emph{not} $k$.
 Intuitively, by combining compare and write with a set of regular
-switch update commands 
-in a transaction (such as FlowMod in OpenFlow)  we can make sure that the
+switch update commands (e.g., FlowMod in OpenFlow) 
+in a transaction  we can make sure that the
 configuration is changed and the current policy identifier is updated
 only if the check operation \emph{succeeds} (i.e., does not abort).
 
@@ -724,27 +761,36 @@ flag already provides a useful synchronization mechanism.
 Indeed, its ``mini-transaction'' nature allows a controller
 to install multiple flow entries in an atomic way.
 However, as is,
-bundling has important limitations, as we will argue in the following.
+bundling has important limitations. %, as we will argue in the following.
 
 First, %if employed without any additional features,
 except for some limited constraint types (such as
 overlapping flow spaces or insufficient free space),
-a bundle does not provide any means to modify the switch configuration
-based on application-specific conditions, which depend on the
-current configuration.
-However, as we have seen in our load-balancing
-example, a support for more generic conditions under which configuration
-updates
-should or should not take place, is essential.
-Moreover, it is sometimes desirable to react to conflicts in smarter ways than
-by simply aborting an operation, e.g., by supporting \emph{conditional modifications}.
+the bundle construct \emph{per se} 
+does not provide any means to modify the switch configuration
+based on application-specific conditions.
+%[[PK overlapping flow spaces also depend on the switch configuration...
+%, which depend on the
+%current configuration.
+%]]
+But, as we have seen in our load-balancing
+example, supporting such conditions 
+%under which configuration updates should or should not take place, 
+might be essential.
+Second, it is sometimes desirable to react to conflicts in smarter ways than
+by simply aborting an operation, e.g., by providing \emph{conditional modifications}.
 
-Nevertheless, we now show that OpenFlow can be used 
-to realize our transactional
-abstractions. Concretely, the OpenFlow match-action paradigm can be used
-to implement a key-value store.
-The OpenFlow
-configuration space can be realized using low-priority rules.
+%[[PK Why ``nevertheless''? 
+%Nevertheless, 
+We now show that the OpenFlow match-action paradigm 
+can be used  to realize a transactional synchronization abstraction
+with the desired functionality. 
+%Concretely, the OpenFlow match-action paradigm can be used
+%to implement a key-value store.
+%]]
+The 
+%OpenFlow 
+meta-configuration can be realized using low-priority rules.
 Alternatively, we can leverage the possibility to maintain multiple
 flow tables at an OpenFlow switch, and use a separate flow table for
 the meta-configuration,  making sure that the
