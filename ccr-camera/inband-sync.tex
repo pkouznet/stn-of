@@ -872,14 +872,14 @@ In addition we use "op" as shortened form to a field that indicates whether the 
 \vspace{1mm}
 \noindent\textbf{The id-claimer.}
 %
-In Algorithms \ref{alg:claim}-\ref{alg:unclaim},
+In Algorithms~\ref{alg:claim}-\ref{alg:unclaim},
 the match part of the constructed commands represents a concatenation
 of claimed identifier with a distinct $16$bit controller identifier.
 %In addition, every controller uses a unique mask part of the match
 %defined as a distinct $32$bit controller identifier concatenated with
 %\texttt{1$\ldots$1}.
 This allows multiple controllers to claim the same identifier without
-overriding existing flow entries.
+overriding existing flow entries (Algorithm~\ref{alg:claim}).
 %
 For example, for any two resource identifiers $x_1$ and $x_2$ and controller identifiers $c_1\neq c_2$,
 the match patterns
@@ -888,38 +888,63 @@ $m_1=(*^{16}\concat c_1\concat x_1)$ and $ m_2=(*^{16}\concat c_2\concat x_2)$
 are distinct,
 even if $x_1=x_2$.
 Therefore, they can both be used to claim and unclaim identifiers without affecting each other.
+In order to distinguish between claim entries and other policy
+entries, %[[PK ``some magic value'' sounds magic... 
+we set the action part of the entries storing claimed ids to
+be a unique designated value, $\claimmagic$.
 
-In order to check if an identifier is claimed, a controller tries to add
-a new entry setting the flag \texttt{\checko}, and using a different
-match, $m$, where the controller id, $c$, is shifted $16$ bits to the left, i.e., $m=( c_1\concat *^{16}\concat x_1)$,
-thereby inflicting a failure in case an entry with the same claimed value exists.
-If the check succeeds, we delete the entry. In any case since the check entry contains the controller id, it does not conflict with other check entries and there is no negative impact of delaying the deletion.
+
+In order to check if an identifier $x$ is claimed
+(Algorithm~\ref{alg:check}), a controller $c$ tries to add
+a ``tester'' entry, where the match value field is 
+$(c\concat*^{16}\concat x)$  and the flag \texttt{\checko} is set.
+Note that the controller identifier is shifted $16$ bits to the left in
+the match field, which allows us to ensures that the entry is uniquely
+identified, while not conflicting with other entries.  
+This attempt inflicts a failure in case another entry with claimed
+value $x$ exists. 
+If the check succeeds, i.e.,  no entry with claimed value $x$ is
+present, the tester entry is deleted.   
+%[[PK unnecessary?
+%In any case since the check entry contains the controller id, it does not conflict with other check entries and there is no negative impact of delaying the deletion.
+%]]
 %Considering $m_1$ and $m_2$ from the example above,
 %with respective actions $a_1=1$ and $a_2=2$,  they overlap
 %with different actions iff $x_1=x_2$. Therefore, if $m_1$ is used in the \claimcheck after $m_2$ was used in the claim operation,
 %a conflict is detected iff $x_1=x_2$, as desired.
 
-Note that in order to save space, when checking for claims, also the deletion of the added tester flow entry is included,
-which however has no effect on claims and checks of other controllers; hence, the deletion command does not
-have to be sent as part of a bundle. Therefore, the \texttt{\claimcheck} operation is atomic by nature,
-similar to the \texttt{claim} and \texttt{unclaim} operations, and is
-implemented as essentially one command.
+%[[PK too wordy?
+%Note that in order to save space, when checking for claims, also the deletion of the added tester flow entry is included,
+%which however has no effect on claims and checks of other controllers; hence, the deletion command does not
+%have to be sent as part of a bundle. Therefore, the \texttt{\claimcheck} operation is atomic by nature,
+%similar to the \texttt{claim} and \texttt{unclaim} operations, and is
+%implemented as essentially one command.
+Note that the tester rule has no effect on claims and checks of other
+controllers. Hence the add and delete commands do not have to be
+executed atomically (e.g., within a bundle): the \texttt{\claimcheck}
+operation ``takes effect'' at the moment it attempts to add the tester entry.   
+%Hence, the deletion command does not
+%have to be sent as part of a bundle. Therefore, the \texttt{\claimcheck} operation is atomic by nature,
+%similar to the \texttt{claim} and \texttt{unclaim} operations, and is
+%implemented as essentially one command.
+%]]
 
+%[[PK isn't it obvious?
 By employing the \textbf{read-state} command, we may easily implement
 an additional operation that returns all currently claimed ids: it is
-sufficient to go over the rules matching every controller identifier.
-In order to distinguish between claim entries and other policy
-entries, returned by  \textbf{read-state},
-%[[PK ``some magic value'' sounds magic... 
-we set the action part to
-be a unique designated value, $\claimmagic$.
+sufficient to go over the rules matching every controller identifier
+carrying action $\claimmagic$.
 %]]
-\petr{Action part of what? Does it relate to the
-  read-state command? Maybe change order: first talk about claim-magic
-and then about read-state?}
+%[[PK
+%In order to distinguish between claim entries and other policy
+%entries, returned by  \textbf{read-state},
+%%[[PK ``some magic value'' sounds magic... 
+%we set the action part to
+%be a unique designated value, $\claimmagic$.
+%%]]
+%]]
 
-
-{\footnotesize
+{\scriptsize
 
 \begin{algorithm}[t]
     \caption{$\textit{claim}(x)$}
@@ -977,29 +1002,43 @@ and then about read-state?}
 \vspace{1mm}
 \noindent\textbf{Write and compare.}
 The memory \memwrite and \compare
- operations can be implemented using similar techniques.
- \liron{
- As can be seen in Algorithms \ref{alg:write}-\ref{alg:compare},
-  the value part of the added flow entry match contains the memory address, $addr$, and the mask part contains
-  the written value $k$. More specifically, we use a ternary match string of the form $k'\concat \addr$, where $k'$ is result os replacing every zero bit in $k$ with a wildcard ($*$).}
+ operations are implemented using similar techniques.
+To write a value $k$ in a memory address $\addr$ (Algorithm~\ref{alg:write}), a new flow entry is
+added, in which the value part of the match field contains $\addr$ and
+the mask part contains $k$. 
+Therefore, the effective match string od the entry 
+ is $k'\concat \addr$, where $k'$ is result os replacing every zero bit in $k$ with a wildcard ($*$).
   In order to rewrite a memory location, the old entry needs to be deleted and a new one need to be added atomically.
   %Values written to the same address will replace one another,
 %following the command definition to replace the old flow entry with a new one in case they
 %share the same match parts.
-Similarly to claim entries, we set the action to a magic value, $\memmagic$, in order to distinguish them from policy entries returned by \textbf{read-state}.
+Similarly to claim entries, we set the action to a magic value,
+$\memmagic$, in order to distinguish them from policy entries.
+%[[PK not needed?
+%returned by \textbf{read-state}.
+%]]
 
-
-In order to check if a value is written at a given address,
-we try to add it the same way as in the \memwrite operation,
-but we also set the \texttt{\checko} flag. If the value is not there,
-our action differs from the existing entry, but still overlaps with it since only their masks differ \liron{(different mixtures of ones and wildcards in the $k'$ part)},
-thereby inflicting a failure.
-In case the value is there, our flow entry replaces the existing flow entry
+To check whether a value $k$ is written at a given
+address $\addr$ (Algorithm ~\ref{alg:compare}),
+a controller tries to add a new entry the same way as in the \memwrite operation,
+but additionally setting the \texttt{\checko} flag. 
+If a different value $k'$ is currently written, 
+%our action differs from the existing entry, but 
+the entry inflicts a failure, as it overlaps but does not coincide
+with the existing entry.
+Indeed, the value parts of the two entries are identical, but the
+masks differ.
+% \liron{(different mixtures of ones and wildcards in the $k'$ part)},
+%thereby inflicting a failure. 
+In case the currently written value is $k$, the existing flow entry is replaced
 with an identical one.
 
 \liron{Note that comparing an uninitialized address always succeeds and also writes to it the compared value. Initializing required addresses can be safely performed by an a-priori comparison with zero.}
+\petr{A bit unclear}
 
 %HERE: we can read state by reading flow monitor => read configuraiton abstraction => state of claimer ID objects list of all claimed identifiers
+
+{\scriptsize
 
 \begin{algorithm}[t]
     \caption{$\textit{write}(\addr,k)$}
@@ -1040,6 +1079,7 @@ with an identical one.
 			\Return $cmd$
     \end{algorithmic}
 \end{algorithm}
+}
 
 \vspace{1mm}
 \noindent\textbf{Note on efficiency.}
@@ -1048,6 +1088,10 @@ with an identical one.
 in the sense that it requires only a constant number of flow entries per memory address
 and resources scale linearly in the number of controllers. Also, in case of controller failures,
 at most a constant amount of space is lost.}
+\petr{Unclear which ``resources'' are meant here? Should this
+  discussion be postponed to policy updates, where ids indeed grow
+  linearly with the number of updates?}  
+
 
 \stefan{We also note that while we described our scheme in a simplified
 way where numbers continuously increase, it is straight-forward to use a modulo
@@ -1055,12 +1099,14 @@ scheme. While in our case 32-bit numbers are used,
 the flow table width (number of bits which can be matched in parallel)
 of modern switches is 40-bits and more.}
  \liron{I think we should say something like: "... of modern switches can get as high as a few hundreds'. }
+
+
 \section{Applications}\label{sec:apps}
 
-Given our mechanisms, we can easily implement
-powerful synchronization primitives such at compare-and-set:
-When executed within a
-transaction, a $\cas(\addr,\textit{old},\textit{new})$ operation 
+Our synchronization primitives can be used to 
+implement powerful synchronization primitives such at
+\emph{compare-and-set} (CAS).
+When executed within a transaction, a $\cas(\addr,\textit{old},\textit{new})$ operation 
 on a memory location $\addr$
 checks if the content of $\addr$ is $\textit{old}$ and if so,
 replaces it with $\textit{new}$ %and returns $\true$ 
@@ -1073,13 +1119,14 @@ $\textit{\compare}(\addr, old)$ followed by $\textit{\memwrite}(\addr,
 new)$ within the {\execatomic} construct.
 
 Let us now revisit our load-balancing application
-from the beginning of the paper.
+discssed in Section~\ref{sec:motivation}.
 A simple strategy to balance load in our 2-link example
- fails in the presence of
+ (Figure~\ref{fig:CAS-example}) fails in the presence of
 multiple controllers, even if 
 bundling and $\checko$ features are used:
 the flows are defined over ``independent'' 
 flow spaces. 
+
 
 As we show in the following, our mechanisms can be used 
 to render such algorithms concurrent.
@@ -1140,7 +1187,7 @@ consistent, without any modifications in the update function.
 %``singleton'' (consisting of one operation only)  transactions
 %containing such operations always commit. \liron{I think we can ommit this paragraph entirely - no need for bundle when it is not written}
 
-{\footnotesize
+{\scriptsize
 \begin{algorithm}[t]
     \caption{Policy update with only CAS}
     \label{alg:simple-update}
@@ -1179,7 +1226,7 @@ Finally, within an atomic transaction (\textbf{\execatomic}), it verifies whethe
 been claimed and that
 the policy has not been concurrently modified, and then updates the policy.
 
-{\small
+{\scriptsize
 \begin{algorithm}[t]
     \caption{Advanced policy update}
     \label{alg:update}
