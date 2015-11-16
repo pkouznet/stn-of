@@ -1208,10 +1208,13 @@ Finally, within an atomic transaction (\textbf{\execatomic}), it verifies whethe
 been claimed and that
 the policy has not been concurrently modified, and then updates the
 policy.
-Unlike Algorithm~\ref{alg:simple-update}, this algorithm is only
-\emph{lock-free}, as it allows scenarios in which only one live controller
-succeeds in installing its updates. We can easily make it
-wait-free by  
+%[[PK 
+%We observe that our  algorithm is only
+%\emph{lock-free}, as it allows scenarios in which only one live controller
+%succeeds in installing its updates. We can easily make it
+%wait-free by reading the state of the switch and claiming the current
+%policy id within the same {\execatomic} construct.
+%]]    
 
 \vspace{1mm}
 \noindent\textbf{A note on efficiency.}
@@ -1299,10 +1302,13 @@ each update consisting in replacing a single rule with another one.
 %When verifying the transactions, 
 %]]
 We could confirm that 
-despite the concurrency, 100 \% of the updates have been
+despite the concurrency, 100 \% of the transactions have been
 eventually completed.
 Of course, due to the concurrency, some transactions also needed to abort
 because of conflicts. 
+\petr{Reads strange: 100\% successfullt complete and some transactions
+  abort...} 
+
  
 While our framework can be used as a synchronization tool itself, we 
 currently also work on implementing it as an integral part of existing controllers 
