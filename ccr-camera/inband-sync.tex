@@ -1081,25 +1081,6 @@ with an identical one.
 \end{algorithm}
 }
 
-\vspace{1mm}
-\noindent\textbf{Note on efficiency.}
-
-\stefan{We conclude by observing that our implementation is switch space efficient,
-in the sense that it requires only a constant number of flow entries per memory address
-and resources scale linearly in the number of controllers. Also, in case of controller failures,
-at most a constant amount of space is lost.}
-\petr{Unclear which ``resources'' are meant here? Should this
-  discussion be postponed to policy updates, where ids indeed grow
-  linearly with the number of updates?}  
-
-
-\stefan{We also note that while we described our scheme in a simplified
-way where numbers continuously increase, it is straight-forward to use a modulo
-scheme. While in our case 32-bit numbers are used, 
-the flow table width (number of bits which can be matched in parallel)
-of modern switches is 40-bits and more.}
- \liron{I think we should say something like: "... of modern switches can get as high as a few hundreds'. }
-
 
 \section{Applications}\label{sec:apps}
 
@@ -1119,7 +1100,7 @@ $\textit{\compare}(\addr, old)$ followed by $\textit{\memwrite}(\addr,
 new)$ within the {\execatomic} construct.
 
 Let us now revisit our load-balancing application
-discssed in Section~\ref{sec:motivation}.
+discussed in Section~\ref{sec:motivation}.
 A simple strategy to balance load in our 2-link example
  (Figure~\ref{fig:CAS-example}) fails in the presence of
 multiple controllers, even if 
@@ -1127,17 +1108,18 @@ bundling and $\checko$ features are used:
 the flows are defined over ``independent'' 
 flow spaces. 
 
-
-As we show in the following, our mechanisms can be used 
-to render such algorithms concurrent.
-In particular, we can implement a
-generic template to
-implement concurrent policy compositions of a user-specific
+%[[PK ``render concurrent''? we already discuss a concurrent setting...
+%As we show in the following, our mechanisms can be used 
+%to render such algorithms concurrent.
+Using CAS, we can implement a
+generic template 
+for concurrent policy composition via a user-specific
 $\textsc{\ufunc}()$ function~\cite{stn}.
-This way, for example, by choosing our load-balancing
-function $\textsc{lb\_update}$, 
-the pathological scenario described in 
-Figure~\ref{fig:CAS-example} can be resolved.
+This can be, for example, a specific load-balancing
+function $\textsc{lb\_update}$, %\petr{Did we talk about this function before?}
+which, when applied atomically, excludes the pathological scenario described in 
+Figure~\ref{fig:CAS-example}. 
+We use CAS to exactly achieve this atomicity.
 % if we put
 %the policy update in our transactional $\execatomic$ construct together
 % with a \emph{Compare-and-Set} (CAS) operation on the policy identifier.
@@ -1215,16 +1197,49 @@ consistent, without any modifications in the update function.
 
 
 
-Algorithm~\ref{alg:update} is a more efficient alternative 
-to Algorithm~\ref{alg:simple-update}. It uses our id-claimer abstraction
-to bound the number of used policy identifiers.
-Here, the controller first reads the current policy id and claims to prevent another controller from using it 
-for a
-different policy (Lines~\ref{update:read-state1}-\ref{update:read-state2}).
-Then the controller claims the first \emph{unused} id and computes the update commands to be executed (Line~\ref{update:compute}).
+A less trivial Algorithm~\ref{alg:update} adresses the problem of
+policy identifiers growing without bound in  
+Algorithm~\ref{alg:simple-update} by, additionally, using our id-claimer abstraction.
+%to bound the number of used policy identifiers.
+Here, the controller first reads the current policy id and 
+claims it, which prevents another controller from using the id 
+for a different policy (Lines~\ref{update:read-state1}-\ref{update:read-state2}).Then the controller claims the first \emph{unused} id and computes the update commands to be executed (Line~\ref{update:compute}).
 Finally, within an atomic transaction (\textbf{\execatomic}), it verifies whether the chosen policy id has not
 been claimed and that
-the policy has not been concurrently modified, and then updates the policy.
+the policy has not been concurrently modified, and then updates the
+policy.
+Unlike Algorithm~\ref{alg:simple-update}, this algorithm is only
+\emph{lock-free}, as it allows scenarios in which only one live controller
+succeeds in installing its updates. We can easily make it
+wait-free by  
+
+\vspace{1mm}
+\noindent\textbf{A note on efficiency.}
+
+We observe that our implementations of synchronization primitives
+(Algorithms~\ref{alg:claim}-\ref{alg:compare}) 
+%is \emph{switch-space efficient}
+%in the sense that 
+require only a constant number of flow entries per memory address.
+The number of used addresses is constant for  
+Algorithm~\ref{alg:simple-update} and linear in the number of
+controllers for Algorithm~\ref{alg:update}. 
+%[[PK not constant: proportional to the number of failures. But this
+%is kind of obvious.
+%Also, in case of controller failures, at most a constant amount of space is lost.
+%]]
+
+\stefan{We also note that while we described our scheme in a simplified
+way where numbers continuously increase, it is straight-forward to use a modulo
+scheme. While in our case 32-bit numbers are used, 
+the flow table width (number of bits which can be matched in parallel)
+of modern switches is 40-bits and more.}
+
+ \liron{I think we should say something like: "... of modern switches can get as high as a few hundreds'. }
+
+\petr{The discussion is very confusing. Do we need it?}  
+
+
 
 {\scriptsize
 \begin{algorithm}[t]
@@ -1268,7 +1283,7 @@ To investigate the feasibility of our approach,
 we implemented a proof-of-concept of our algorithms
 as a python library which wraps ovs-ofctl, 
 a well-known command line tool for monitoring and administering OpenFlow switches. 
-\stefan{The code is made publicly available at TODO LIRON.}\liron{https://github.com/lironsc/of-sync-lib}
+The code is publicly available at \url{https://github.com/lironsc/of-sync-lib}.
 
 We experimented with the low-level abstractions as well as the 
 transactional policy update algorithm of our proof-of-concept, using
@@ -1278,16 +1293,22 @@ a virtual network simulator, Mininet.
 
 For instance, we experimented with a setting where three processes
 (controllers) issue thousands of concurrent policy updates
-to the switch, where 
-each update consists in replacing a single rule with another one.
-When verifying the transactions, we could confirm that 
-despite the concurrency, 100 \% of the transactions have been successfully completed.
-Of course, due to the concurrency, multiple transactions also needed to abort,
-due to conflicts. 
+to the switch, 
+each update consisting in replacing a single rule with another one.
+%[[PK unclear
+%When verifying the transactions, 
+%]]
+We could confirm that 
+despite the concurrency, 100 \% of the updates have been
+eventually completed.
+Of course, due to the concurrency, some transactions also needed to abort
+because of conflicts. 
  
-While our framework can be used as synchronization tool itself, we 
+While our framework can be used as a synchronization tool itself, we 
 currently also work on implementing it as an integral part of existing controllers 
 such as Ryu. 
+\petr{Did not get the difference between ``itself'' and ``part of
+  existing controllers''.} 
 
 
 \section{Conclusion}\label{sec:conclusion}
@@ -1299,17 +1320,17 @@ We believe that our centralized in-band
 synchronization approach is natural and attractive, as it avoids the
 complexities and limitations of distributed out-of-band agreement protocols, which may 
 introduce additional points of potential failures.
-Moreover, the switch is the element implementing the
-controller policies anyway.
-Interestingly, the mechanisms presented in this paper are simple and can be implemented using the \emph{standard OpenFlow}
+Moreover, the switch is the element implementing the controller policies anyway.
+The mechanisms presented in this paper are simple and can be implemented using the \emph{standard OpenFlow}
 protocol: they do not require any protocol/hardware extensions as postulated in recent literature~\cite{stn,netpaxos}.
 Our work may hence also contribute to the ongoing discussion of what can be implemented
 in-band in today's OpenFlow protocol~\cite{reclaim},
 as well as to useful high-level concurrency objects and
 language abstractions~\cite{pyretic}.
-In general, we understand our paper as a first step, and more
-research is required to investigate and compare useful
-inband synchronization abstractions, also in terms of performance.
+In general, we see our paper as a first step, and more
+work is required to investigate and compare useful
+in-band synchronization abstractions, also in terms of performance.
+
 {
 %\begin{footnotesize}
 \bibliographystyle{abbrv}
