@@ -463,7 +463,7 @@ The meta-configuration is implemented as a set of flow entries
 designed in a way that it does not affect the processing of data plane
 traffic. 
 We will later discuss later how this can be achieved, for example in 
-today's OpenFlow.
+today's OpenFlow. \liron{two times "later"!}
 
 %One way to achieve this, for example, is to set a low priority to
 %the meta flow entries and ensure that the regular flow entries
@@ -482,6 +482,7 @@ In the atomic mode, either \emph{all} operations in the sequence, henceforth sim
 called \emph{transaction},
 should be executed, or none (the transaction is rejected).
 In the non-atomic mode, no atomicity guarantees are provided.
+\liron{all these jumps from atomic to transactional and back is confusing...}
 
 We introduce two constructs
 %$\textbf{bundle}\{\;\ldots\;\}\rightarrow res$ to refer to represent a
@@ -705,7 +706,7 @@ the OpenFlow \emph{add flow monitor} command with the \textsf{ofpt\_initial} opt
 In this paper, we write \textbf{read-state} for sending
 this message, receiving a response, and returning the received configuration.
 \petr{Is it atomic? Should we say that the command returns a ``snapshot'' of the
-  configuration?}
+  configuration?}\liron{I am not sure if this is atomic, considering that we execute other things in a bundle then this is practically atomic for us. Perhaps we can leave it unspecified as it is now?}
 
 \vspace{1mm}
 \noindent\textbf{Bundling.}
@@ -839,7 +840,7 @@ detail.
 Each of the operations generates one or two FlowMod commands.
 The \textit{match} part in these commands specifies only the $64$bit meta-data
 field in the header space, leaving the remaining fields at default
-values.
+values.\liron{this is not accurate, the match part simply considers only the metadata field. no need to discuss other fields, in any case matching doesn't change fields and doesn't assume any values to other fields.}
 In defining the value and the mask,
 % of the math part,
 we
@@ -1006,8 +1007,8 @@ The memory \memwrite and \compare
 To write a value $k$ in a memory address $\addr$ (Algorithm~\ref{alg:write}), a new flow entry is
 added, in which the value part of the match field contains $\addr$ and
 the mask part contains $k$. 
-Therefore, the effective match string od the entry 
- is $k'\concat \addr$, where $k'$ is result os replacing every zero bit in $k$ with a wildcard ($*$).
+Therefore, the effective match string of the entry 
+ is $k'\concat \addr$, where $k'$ is result of replacing every zero bit in $k$ with a wildcard ($*$).
   In order to rewrite a memory location, the old entry needs to be deleted and a new one need to be added atomically.
   %Values written to the same address will replace one another,
 %following the command definition to replace the old flow entry with a new one in case they
@@ -1035,6 +1036,8 @@ with an identical one.
 
 \liron{Note that comparing an uninitialized address always succeeds and also writes to it the compared value. Initializing required addresses can be safely performed by an a-priori comparison with zero.}
 \petr{A bit unclear}
+
+\liron{SECOND TRY: Note that comparing an address for the first time, without writing it first, always succeeds and also writes to it the compared value. In case where such comparison may occur to some address $addr$, it is advised to first perform a safe initialization by calling $\textit{\compare}(\addr,0)$ which fails in case that $addr$ has already been used (and the initialization is not desired).}
 
 %HERE: we can read state by reading flow monitor => read configuraiton abstraction => state of claimer ID objects list of all claimed identifiers
 
@@ -1203,7 +1206,7 @@ Algorithm~\ref{alg:simple-update} by, additionally, using our id-claimer abstrac
 %to bound the number of used policy identifiers.
 Here, the controller first reads the current policy id and 
 claims it, which prevents another controller from using the id 
-for a different policy (Lines~\ref{update:read-state1}-\ref{update:read-state2}).Then the controller claims the first \emph{unused} id and computes the update commands to be executed (Line~\ref{update:compute}).
+for a different policy (Lines~\ref{update:read-state1}-\ref{update:read-state2}). Then the controller chooses an \emph{unused} id and computes the update commands to be executed (Line~\ref{update:compute}). \liron{I have replaced "claims the first" with "chooses an" following Petr email}
 Finally, within an atomic transaction (\textbf{\execatomic}), it verifies whether the chosen policy id has not
 been claimed and that
 the policy has not been concurrently modified, and then updates the
@@ -1223,7 +1226,7 @@ We observe that our implementations of synchronization primitives
 (Algorithms~\ref{alg:claim}-\ref{alg:compare}) 
 %is \emph{switch-space efficient}
 %in the sense that 
-require only a constant number of flow entries per memory address.
+require only a constant number of flow entries per memory address or claim.
 The number of used addresses is constant for  
 Algorithm~\ref{alg:simple-update} and linear in the number of
 controllers for Algorithm~\ref{alg:update}. 
@@ -1286,7 +1289,7 @@ To investigate the feasibility of our approach,
 we implemented a proof-of-concept of our algorithms
 as a python library which wraps ovs-ofctl, 
 a well-known command line tool for monitoring and administering OpenFlow switches. 
-The code is publicly available at \url{https://github.com/lironsc/of-sync-lib}.
+The code is publicly available at \url{https://github.com/lironsc/of-sync-lib}. \liron{perhaps we can put it as reference? (putting the link in bib)}
 
 We experimented with the low-level abstractions as well as the 
 transactional policy update algorithm of our proof-of-concept, using
