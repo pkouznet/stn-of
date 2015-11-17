@@ -1,5 +1,10 @@
 %\documentclass[11pt,pdftex,letter]{article}
-\documentclass[conference]{sigcomm-alternate}
+
+%\documentclass[conference]{sigcomm-alternate}
+
+%\documentclass[dvipdfm]{sig-alternate-2006}
+
+\documentclass{sig-alternate-2006}
 
 %\documentclass{sig-alternate-10pt}
 
@@ -421,7 +426,8 @@ synchronization problems.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=.56\columnwidth]{loadbal-1.pdf}~\hspace{-.7cm}~\includegraphics[width=.56\columnwidth]{loadbal-2.pdf}\\
+\includegraphics[width=.56\columnwidth]{loadbal-1.pdf}~\hspace{-.7cm}
+~\includegraphics[width=.56\columnwidth]{loadbal-2.pdf}\\
 \caption{\small \emph{Left:} Without synchronization, the two controllers naturally choose to
 install their flows on the left link, which results in an undesirable
 unbalanced state.
