@@ -468,9 +468,8 @@ memory locations, each provided with a distinct \emph{address}.
 The meta-configuration is implemented as a set of flow entries
 designed in a way that it does not affect the processing of data plane
 traffic. 
-We will later discuss later how this can be achieved, for example in 
-today's OpenFlow. \liron{two times "later"!}
-
+We will discuss later how this can be achieved, for example, in 
+today's OpenFlow. 
 %One way to achieve this, for example, is to set a low priority to
 %the meta flow entries and ensure that the regular flow entries
 %maintain higher priority levels. We will discuss other options later
@@ -483,21 +482,25 @@ today's OpenFlow. \liron{two times "later"!}
  %
 We provide the controllers with the ability to execute
 sequences of \emph{operations} on the
-switch configuration in an \emph{atomic} (transactional) or \emph{non-atomic} mode.
+switch configuration in an \emph{atomic} or \emph{non-atomic} mode.
 In the atomic mode, either \emph{all} operations in the sequence, henceforth simply
 called \emph{transaction},
 should be executed, or none (the transaction is rejected).
 In the non-atomic mode, no atomicity guarantees are provided.
-\liron{all these jumps from atomic to transactional and back is confusing...}
+%\liron{all these jumps from atomic to transactional and back is confusing...}
+%
 
-We introduce two constructs
+%For this purpose, we introduce two constructs:
 %$\textbf{bundle}\{\;\ldots\;\}\rightarrow res$ to refer to represent a
-$\exec\{op_1,\;\ldots\;op_k\}$ and $\execatomic\{op_1,\;\ldots\;op_k\}$
-which perform a sequence of commands $op_1,\ldots,op_k$ in
-a regular and atomic way, respectively.
-In particular, the construct $\execatomic\{op_1,\;\ldots\;op_k\}$  
-returns $\ack$ if and only if all commands in the sequence are performed successfully; otherwise
-$\error(\xid,\ecode)$ is returned, providing
+%$\exec\{\ldots\}$ and
+%$\execatomic\{\ldots\}$.
+In particular, construct $\exec\{op_1,\;\ldots\;op_k\}$ is used to perform a sequence of commands $op_1,\ldots,op_k$ in
+a conventional way.
+Construct $\execatomic\{op_1,\;\ldots\;op_k\}$ ensures that either all
+commands are successfully performed, in which case it returns
+$\ack$, or, if some of the commands cannot be performed, aborts the
+whole sequence and returns
+$\error(\xid,\ecode)$, providing
 the identifier of the first command in the sequence that failed
 together with the corresponding error code.
 
@@ -515,7 +518,7 @@ and the installation should succeed only if the identifier of the
 currently installed policy has not changed since the last time the
 controller read it.
 
-Therefore, we provide the following (transactional) operations.
+Therefore, we provide the following transactional operations.
 A $\textit{write}(\addr,k)$ operation sets the content at memory location
 $\addr$ to $k$.
 A $\textit{\compare}(\addr,k)$ operation \emph{aborts} the transaction
@@ -711,8 +714,10 @@ To read the current configuration of a switch (the existing flow entries), the c
 the OpenFlow \emph{add flow monitor} command with the \textsf{ofpt\_initial} optional flag.
 In this paper, we write \textbf{read-state} for sending
 this message, receiving a response, and returning the received configuration.
-\petr{Is it atomic? Should we say that the command returns a ``snapshot'' of the
-  configuration?}\liron{I am not sure if this is atomic, considering that we execute other things in a bundle then this is practically atomic for us. Perhaps we can leave it unspecified as it is now?}
+%\petr{Is it atomic? Should we say that the command returns a ``snapshot'' of the
+%  configuration?}
+%\liron{I am not sure if this is atomic, considering that we execute other things in a bundle then this is practically atomic for us. Perhaps we can leave it unspecified as it is now?}
+%[[PK moved this discussion to the algorithms 6 and 7]]
 
 \vspace{1mm}
 \noindent\textbf{Bundling.}
@@ -845,8 +850,10 @@ We now describe Algorithms~\ref{alg:claim}-\ref{alg:compare} in more
 detail.
 Each of the operations generates one or two FlowMod commands.
 The \textit{match} part in these commands specifies only the $64$bit meta-data
-field in the header space, leaving the remaining fields at default
-values.\liron{this is not accurate, the match part simply considers only the metadata field. no need to discuss other fields, in any case matching doesn't change fields and doesn't assume any values to other fields.}
+field in the header space.
+%, leaving the remaining fields at default
+%values.
+%\liron{this is not accurate, the match part simply considers only the metadata field. no need to discuss other fields, in any case matching doesn't change fields and doesn't assume any values to other fields.}
 In defining the value and the mask,
 % of the math part,
 we
@@ -1039,11 +1046,18 @@ masks differ.
 %thereby inflicting a failure. 
 In case the currently written value is $k$, the existing flow entry is replaced
 with an identical one.
+%[[PK on initialization
+Before using an address $\addr$, it is advised that a controller safely
+initializes it with a special initial value $0$ by calling
+$\textit{\compare}(\addr,0)$: 
+the first such command succeeds, and any 
+subsequent one will fail. 
+%]]
 
-\liron{Note that comparing an uninitialized address always succeeds and also writes to it the compared value. Initializing required addresses can be safely performed by an a-priori comparison with zero.}
-\petr{A bit unclear}
+%\liron{Note that comparing an uninitialized address always succeeds and also writes to it the compared value. Initializing required addresses can be safely performed by an a-priori comparison with zero.}
+%\petr{A bit unclear}
 
-\liron{SECOND TRY: Note that comparing an address for the first time, without writing it first, always succeeds and also writes to it the compared value. In case where such comparison may occur to some address $addr$, it is advised to first perform a safe initialization by calling $\textit{\compare}(\addr,0)$ which fails in case that $addr$ has already been used (and the initialization is not desired).}
+%\liron{SECOND TRY: Note that comparing an address for the first time, without writing it first, always succeeds and also writes to it the compared value. In case where such comparison may occur to some address $addr$, it is advised to first perform a safe initialization by calling $\textit{\compare}(\addr,0)$ which fails in case that $addr$ has already been used (and the initialization is not desired).}
 
 %HERE: we can read state by reading flow monitor => read configuraiton abstraction => state of claimer ID objects list of all claimed identifiers
 
@@ -1148,8 +1162,11 @@ $\textsc{\ufunc}()$ function to the current policy which results in a
 set of update FlowMod commands and then tries to apply them
 atomically together with a CAS operation on $\paddr$ replacing $\pid$
 with $\pid+1$.
-The latter ensures that if, concurrently, a new policy (with a different identifier) has been installed, the update
+The CAS operation ensures that if, concurrently, a new policy (with a different identifier) has been installed, the update
 fails and takes no effect.
+Note that, since all policy modifications are executed within a
+bundle providing controller-atomicity, the \textbf{read-state} command
+in Line~\ref{line:readstate} appears atomic.  
 Algorithm~\ref{alg:simple-update} can therefore also be used
 to render a na\"ive, single-controller load-balancing algorithm
 consistent, without any modifications in the update function.
@@ -1187,7 +1204,7 @@ consistent, without any modifications in the update function.
     \Ensure installed policy is consistent with previous one
  		%\Do
  		\Repeat
- 			\State $\pid,\textit{policy}\gets$ \textbf{read-state} %switch configuration}
+ 			\State $\pid,\textit{policy}\gets$ \textbf{read-state} \label{line:readstate}%switch configuration}
  			\State $\textit{update\_cmds}\gets \textsc{\ufunc}(policy)$
  			\startTxn
 	 			\State $CAS(\paddr,\pid,\pid+1)$,
@@ -1204,19 +1221,26 @@ consistent, without any modifications in the update function.
 \end{algorithm}
 }
 
-
-
-A less trivial Algorithm~\ref{alg:update} adresses the problem of
-policy identifiers growing without bound in  
-Algorithm~\ref{alg:simple-update} by, additionally, using our id-claimer abstraction.
+Algorithm~\ref{alg:simple-update} is correct assuming that policy
+identifiers may grow without bound. 
+In practice, we can use a module scheme on the 32-bit field of a flow entry
+used for storing the policy identifier, which, in principle,
+may lead to inconsistencies when the relative speeds of controllers is
+very high.   
+Algorithm~\ref{alg:update} adresses this issue 
+by using our id-claimer abstraction.
 %to bound the number of used policy identifiers.
 Here, the controller first reads the current policy id and 
 claims it, which prevents another controller from using the id 
-for a different policy (Lines~\ref{update:read-state1}-\ref{update:read-state2}). Then the controller chooses an \emph{unused} id and computes the update commands to be executed (Line~\ref{update:compute}). \liron{I have replaced "claims the first" with "chooses an" following Petr email}
+for a different policy
+(Lines~\ref{update:read-state1}-\ref{update:read-state2}). 
+Then the controller selects any \emph{unused} id and computes the update commands to be executed (Line~\ref{update:compute}). %\liron{I have replaced "claims the first" with "chooses an" following Petr email}
 Finally, within an atomic transaction (\textbf{\execatomic}), it verifies whether the chosen policy id has not
 been claimed and that
-the policy has not been concurrently modified, and then updates the
+the policy has not been concurrently modified, and then tries to update the
 policy.
+%
+
 %[[PK 
 %We observe that our  algorithm is only
 %\emph{lock-free}, as it allows scenarios in which only one live controller
@@ -1227,7 +1251,7 @@ policy.
 
 \vspace{1mm}
 \noindent\textbf{A note on efficiency.}
-
+%
 We observe that our implementations of synchronization primitives
 (Algorithms~\ref{alg:claim}-\ref{alg:compare}) 
 %is \emph{switch-space efficient}
@@ -1241,15 +1265,15 @@ controllers for Algorithm~\ref{alg:update}.
 %Also, in case of controller failures, at most a constant amount of space is lost.
 %]]
 
-\stefan{We also note that while we described our scheme in a simplified
-way where numbers continuously increase, it is straight-forward to use a modulo
-scheme. While in our case 32-bit numbers are used, 
-the flow table width (number of bits which can be matched in parallel)
-of modern switches is 40-bits and more.}
+%\stefan{We also note that while we described our scheme in a simplified
+%way where numbers continuously increase, it is straight-forward to use a modulo
+%scheme. While in our case 32-bit numbers are used, 
+%the flow table width (number of bits which can be matched in parallel)
+%of modern switches is 40-bits and more.}
 
- \liron{I think we should say something like: "... of modern switches can get as high as a few hundreds'. }
+ %\liron{I think we should say something like: "... of modern switches can get as high as a few hundreds'. }
 
-\petr{The discussion is very confusing. Do we need it?}  
+%\petr{The discussion is very confusing. Do we need it?}  
 
 
 
@@ -1295,7 +1319,9 @@ To investigate the feasibility of our approach,
 we implemented a proof-of-concept of our algorithms
 as a python library which wraps ovs-ofctl, 
 a well-known command line tool for monitoring and administering OpenFlow switches. 
-The code is publicly available at \url{https://github.com/lironsc/of-sync-lib}. \liron{perhaps we can put it as reference? (putting the link in bib)}
+The code is available online at
+\url{https://github.com/lironsc/of-sync-lib}. 
+%\liron{perhaps we can put it as reference? (putting the link in bib)}
 
 We experimented with the low-level abstractions as well as the 
 transactional policy update algorithm of our proof-of-concept, using
@@ -1304,26 +1330,19 @@ The tests were conducted using a software switch, Open vSwitch (version 2.4.0) a
 a virtual network simulator, Mininet.
 
 For instance, we experimented with a setting where three processes
-(controllers) issue thousands of concurrent policy updates
-to the switch, 
-each update consisting in replacing a single rule with another one.
+(controllers), concurrently issuing $1000$ concurrent policy updates
+each, where every update replaces a single rule with another one.
 %[[PK unclear
 %When verifying the transactions, 
 %]]
 We could confirm that 
-despite the concurrency, 100 \% of the transactions have been
-eventually completed.
-Of course, due to the concurrency, some transactions also needed to abort
-because of conflicts. 
-\petr{Reads strange: 100\% successfullt complete and some transactions
-  abort...} 
-
- 
-While our framework can be used as a synchronization tool itself, we 
-currently also work on implementing it as an integral part of existing controllers 
-such as Ryu. 
-\petr{Did not get the difference between ``itself'' and ``part of
-  existing controllers''.} 
+despite the concurrency, 100\% of the updates 
+eventually completed in committing their transactions, possibly after
+several aborts caused by conflicts. 
+%Of course, due to the concurrency, some transactions also needed to abort
+%because of conflicts. 
+%\petr{Reads strange: 100\% successfullt complete and some transactions
+ % abort...} 
 
 
 \section{Conclusion}\label{sec:conclusion}
@@ -1342,9 +1361,12 @@ Our work may hence also contribute to the ongoing discussion of what can be impl
 in-band in today's OpenFlow protocol~\cite{reclaim},
 as well as to useful high-level concurrency objects and
 language abstractions~\cite{pyretic}.
-In general, we see our paper as a first step, and more
+We see our paper as a first step, and more
 work is required to investigate and compare useful
 in-band synchronization abstractions, also in terms of performance.
+While our framework can be used as a synchronization library, we 
+also work on integrating it into an existing SDN controller, e.g., Ryu. 
+
 
 {
 %\begin{footnotesize}
