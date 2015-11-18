@@ -237,7 +237,7 @@ communication-intensive
 %control plane
 data plane
 events close to their origin~\cite{devoflow,kandoo}.
-Third, larger SDNs are likely to be operated by multiple administrators~\cite{stn} or may even offer
+Third, larger SDNs are likely to be operated by multiple administrators~\cite{infocom15} or may even offer
 participatory interfaces where different users can install and trigger policy changes
 concurrently~\cite{participatory}.
 
@@ -270,7 +270,7 @@ a wide range of synchronization abstractions
 to realize consistent distributed systems.
 In particular, the popular 
 %[[PK it is incorrect to only cite the book for the TM notion]]
-\emph{transactional  memory} abstraction (cf. a survey in~\cite{tm-book}). 
+\emph{transactional  memory} abstraction (cf.~the survey in~\cite{tm-book})
 %]]
 provides a
 collection of
@@ -375,7 +375,7 @@ and present a generic template to implement concurrent policy
 compositions of a user-specific update functions.
 Our synchronization abstraction also provides
 the missing link for the read-modify-write object
-postulated in CPC and STN~\cite{stn,infocom15}. %\petr{We do not seem to discuss the latter?}
+postulated in CPC and STN~\cite{infocom15}. %\petr{We do not seem to discuss the latter?}
 
 %\noindent\textbf{Organization}
 %The remainder of the paper is organized as follows.
@@ -509,7 +509,7 @@ together with the corresponding error code.
 \noindent\textbf{Synchronization primitives.}
 %
 We aim to enforce a consistent use of  \emph{policy identifiers},
-an important notion in consistent policy updates~\cite{network-update,stn}.
+an important notion in consistent policy updates~\cite{network-update,infocom15}.
 Intuitively, a controller should
 equip each to-be-installed policy with a distinct
 identifier,
@@ -530,7 +530,7 @@ in a transaction  we can make sure that the
 configuration is changed and the current policy identifier is updated
 only if the check operation \emph{succeeds} (i.e., does not abort).
 
-To make sure that policy identifiers do not grow without bound~\cite{stn}, we
+To make sure that policy identifiers do not grow without bound~\cite{infocom15}, we
 also provide an \emph{id-claimer} object.
 The object implements a weak type
 of locking by allowing a controller to claim a \emph{resource identifier} in a
@@ -599,7 +599,7 @@ A flow table is a set of \emph{flow entries}, each containing a rule,
 with a match, an action, and a \emph{priority} level, and flow entries
 are ordered according to their priorities.
 In the simplest setting, a switch maintains one flow table (table 0).
-A data-fplane packet arriving at a switch is first checked against
+A data-plane packet arriving at a switch is first checked against
 the rule with the highest priority and in table $0$.
 If the header of the packet fits the match fields of that rule,
 a default \emph{instruction} associates the packet with the corresponding action.
@@ -1137,7 +1137,7 @@ flow spaces.
 Using CAS, we can implement a
 generic template 
 for concurrent policy composition via a user-specific
-$\textsc{\ufunc}()$ function~\cite{stn}.
+$\textsc{\ufunc}()$ function~\cite{infocom15}.
 This can be, for example, a specific load-balancing
 function $\textsc{lb\_update}$, %\petr{Did we talk about this function before?}
 which, when applied atomically, excludes the pathological scenario described in 
@@ -1356,7 +1356,7 @@ complexities and limitations of distributed out-of-band agreement protocols, whi
 introduce additional points of potential failures.
 Moreover, the switch is the element implementing the controller policies anyway.
 The mechanisms presented in this paper are simple and can be implemented using the \emph{standard OpenFlow}
-protocol: they do not require any protocol/hardware extensions as postulated in recent literature~\cite{stn,netpaxos}.
+protocol: they do not require any protocol/hardware extensions as postulated in recent literature~\cite{infocom15,netpaxos}.
 Our work may hence also contribute to the ongoing discussion of what can be implemented
 in-band in today's OpenFlow protocol~\cite{reclaim},
 as well as to useful high-level concurrency objects and
@@ -1369,10 +1369,10 @@ also work on integrating it into an existing SDN controller, e.g., Ryu.
 
 
 {
-%\begin{footnotesize}
+\begin{footnotesize}
 \bibliographystyle{abbrv}
 \bibliography{references}  % main.bib is the name of the Bibliography in this case
-%\end{footnotesize}
+\end{footnotesize}
 }
 
 
