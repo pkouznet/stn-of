@@ -142,7 +142,7 @@
 
 %[[PK sorry for stubborness :)
 %\title{On the Synchronization Power of the OpenFlow Data Plane}
-\title{In-Band Synchronization for\\Distributed SDN Control Planes\thanks{Supported by the
+\title{In-Band Synchronization for\\Distributed SDN Control Planes\thanks{Supported by the European Research Council (ERC) Starting Grant no.~259085, the
 European Institute of Innovation \& Technology (EIT) project 13153 (Software Defined Networking) 
 and the FP7 EU project UNIFY.}}
 %\\ {\Large Towards Atomic Transactions In-Band}}
@@ -175,10 +175,9 @@ Denmark \quad $^3$ T\'el\'ecom ParisTech, France
 Control planes of forthcoming Software-Defined Networks (SDNs)
 will be \emph{distributed}: to ensure availability and fault-tolerance,
 to improve load-balancing, and to reduce overheads,
-modules of the control plane %operating on the data plane 
+modules of the control plane 
 should be physically distributed.
-However, %a distributed control plane also introduces
-%new challenges,
+However, 
 in order to guarantee \emph{consistency} of network operation, actions
 performed on the data plane by different controllers may need to 
 be \emph{synchronized},  which is a
@@ -186,7 +185,6 @@ be \emph{synchronized},  which is a
 In this paper, we propose a synchronization
 framework for control planes  based on atomic
 transactions, 
-%In particular, we make the case for 
 implemented \emph{in-band}, on the 
 data-plane switches.
 We argue that this in-band approach is attractive as 
@@ -201,8 +199,6 @@ by using part of
 the data plane configuration space as a shared memory
 and leveraging  the match-action
 paradigm, 
-%[[PK key-valued stores are not really discussed?
-%to realize simple key-value stores, 
 we can implement our synchronization framework in
 today's standard OpenFlow protocol, 
 and we report on
@@ -1055,8 +1051,8 @@ with an identical one.
 Before using an address $\addr$, it is advised that a controller safely
 initializes it with a special initial value $0$ by calling
 $\textit{\compare}(\addr,0)$: 
-the first such command succeeds, and any 
-subsequent one will fail. 
+the first such command succeeds, 
+and subsequent ones will do no harm.
 %]]
 
 %\liron{Note that comparing an uninitialized address always succeeds and also writes to it the compared value. Initializing required addresses can be safely performed by an a-priori comparison with zero.}
@@ -1128,7 +1124,7 @@ $\textit{\compare}(\addr, old)$ followed by $\textit{\memwrite}(\addr,
 new)$ within the {\execatomic} construct.
 
 Let us now revisit our load-balancing application
-discussed in Section~\ref{sec:motivation}.
+discussed in Figure~\ref{fig:CAS-example}.
 A simple strategy to balance load in our 2-link example
  (Figure~\ref{fig:CAS-example}) fails in the presence of
 multiple controllers, even if 
@@ -1238,7 +1234,7 @@ Here, the controller first reads the current policy id and
 claims it, which prevents another controller from using the id 
 for a different policy
 (Lines~\ref{update:read-state1}-\ref{update:read-state2}). 
-Then the controller selects any \emph{unused} id and computes the update commands to be executed (Line~\ref{update:compute}). %\liron{I have replaced "claims the first" with "chooses an" following Petr email}
+Then the controller chooses any \emph{unused} id and computes the update commands to be executed (Line~\ref{update:compute}). %\liron{I have replaced "claims the first" with "chooses an" following Petr email}
 Finally, within an atomic transaction (\textbf{\execatomic}), it verifies whether the chosen policy id has not
 been claimed and that
 the policy has not been concurrently modified, and then tries to update the
