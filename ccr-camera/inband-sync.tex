@@ -209,13 +209,13 @@ and we report on
 our proof-of-concept implementation.
 \end{abstract}
 
-\category{C.2.2}{Computer-Communication Networks}{Network Protocols}
+%\category{C.2.2}{Computer-Communication Networks}{Network Protocols}
 \category{C.2.3}{Network Operations}{Network Management}
 %\category{G.1.6}{Optimization}{Linear Programming}
 
-\terms{Networks}
+%\terms{Networks}
 
-\keywords{Software-Defined Networking, Distributed Control Planes, In-band Mechanisms}
+%\keywords{Software-Defined Networking, Distributed Control Planes, In-band Mechanisms}
 
 
 \section{Introduction}\label{sec:intro}
@@ -277,6 +277,9 @@ collection of
 concurrent processes with the ability of aggregating sequences of
 shared-memory operations in \emph{atomic  transactions} with
 all-or-nothing semantics.
+
+
+\paragraph{Contributions}
 
 %\vspace{1mm}
 %\noindent\textbf{Contributions.}
@@ -366,7 +369,7 @@ and can, for instance, be used to
 implement a generic consistent and fault-tolerant replicated 
 %[[PK why control-plane here: does not fit the Chubby et al. mentioned later.
 %control-plane 
-service~\cite{Her91} 
+service~\cite{Her91}, 
 %in a consistent and fault-tolerant way: 
 a mainstream building block in
 modern distributed systems (Chubby, Google Spanner, Amazon Webservices, etc.).
@@ -375,7 +378,7 @@ and present a generic template to implement concurrent policy
 compositions of a user-specific update functions.
 Our synchronization abstraction also provides
 the missing link for the read-modify-write object
-postulated in CPC and STN~\cite{infocom15}. %\petr{We do not seem to discuss the latter?}
+postulated in STN~\cite{infocom15}. %\petr{We do not seem to discuss the latter?}
 
 %\noindent\textbf{Organization}
 %The remainder of the paper is organized as follows.
@@ -391,8 +394,7 @@ postulated in CPC and STN~\cite{infocom15}. %\petr{We do not seem to discuss the
 %in Section~\ref{sec:conclusion}.
 
 
-\section{Motivation and Example}\label{sec:motivation}
-
+\paragraph{Motivation and Example}
 A transactional distributed system offers all-or-nothing semantics, 
 and aborts transactions in case of conflicts. 
 For instance, in the context of SDNs, a transaction trying to add a forwarding rule whose
@@ -457,7 +459,7 @@ by multiple controllers despite of concurrency and conflicts.
 \vspace{1mm}
 \noindent\textbf{Configuration space.}
 %
-We distinguish two parts of the configuration space of a switch:
+We distinguish between two parts of the configuration space of a switch:
 the ``normal'' configuration which determines the network policy and
 is used to process the data-plane traffic (e.g., forwarding rules),
 and the \emph{meta-configuration} that contains information used by the
@@ -564,12 +566,16 @@ but has not yet performed  $\textit{unclaim}(k)$.
 \section{Case Study: OpenFlow}\label{sec:background}
 %\petr{ the 1st sentence does not belong here}\liron{I think it serves as a motivation for the section, but it fines by me to remove it}
 
-As a case study, in this section, we show how to implement
+Before discussing applications in more detail, 
+as a case study and in order to introduce some notation, 
+we in this section show how to implement
 our transactional approach using today's standard SDN protocol,
- OpenFlow. 
+ OpenFlow  (version 1.4~\cite{openflow}).\footnote{We note
+however that hardware OpenFlow switches do not always 
+follow the spec as they should~\cite{know}, and will report on a
+prototype implementation later in this paper.} 
 
-\subsection{Background}
-
+\paragraph{Background}
 The configuration of an OpenFlow switch is a set of
 \emph{rules}.
 A rule is essentially a \emph{match-action} pair:
@@ -771,8 +777,7 @@ We also set the flag \texttt{ofpbf\_ordered},  to make sure that the
 bundle commands are executed in the order they were added to the
 bundle, thereby respecting dependencies between bundle commands.
 
-\subsection{Implementation} 
-
+\paragraph{Implementation} 
 At first sight, it may seem that bundling \emph{FlowMod} commands with  the $\checko$
 flag already provides a useful synchronization mechanism.
 Indeed, its ``mini-transaction'' nature allows a controller
@@ -913,7 +918,7 @@ In order to check if an identifier $x$ is claimed
 a ``tester'' entry, where the match value field is 
 $(c\concat*^{16}\concat x)$  and the flag \texttt{\checko} is set.
 Note that the controller identifier is shifted $16$ bits to the left in
-the match field, which allows us to ensures that the entry is uniquely
+the match field, which allows us to ensure that the entry is uniquely
 identified, while not conflicting with other entries.  
 This attempt inflicts a failure in case another entry with claimed
 value $x$ exists. 
@@ -1155,7 +1160,7 @@ condition that these rules can be \emph{composed} with the currently installed
 policy.
 Algorithm~\ref{alg:simple-update} uses the bundle feature to update
 the switch configuration, where the configuration contains both the
-policy and a meta-configuration memory address $\paddr$ that holds the \emph{policy identifier (\pid)} .
+policy and a meta-configuration memory address $\paddr$ that holds the \emph{policy identifier (\pid)}.
 In the algorithm, the controller first reads the currently installed
 policy together with its {\pid},  applies the
 $\textsc{\ufunc}()$ function to the current policy which results in a
@@ -1223,10 +1228,9 @@ consistent, without any modifications in the update function.
 
 Algorithm~\ref{alg:simple-update} is correct assuming that policy
 identifiers may grow without bound. 
-In practice, we can use a module scheme on the 32-bit field of a flow entry
-used for storing the policy identifier, which, in principle,
-may lead to inconsistencies when the relative speeds of controllers is
-very high.   
+In practice, we can use a modulo scheme on the 32-bit field of a flow entry
+used for storing the policy identifiers, which, in principle,
+may lead to inconsistencies if controllers proceed in different speeds.
 Algorithm~\ref{alg:update} adresses this issue 
 by using our id-claimer abstraction.
 %to bound the number of used policy identifiers.
@@ -1252,7 +1256,7 @@ policy.
 \vspace{1mm}
 \noindent\textbf{A note on efficiency.}
 %
-We observe that our implementations of synchronization primitives
+Our implementations of synchronization primitives
 (Algorithms~\ref{alg:claim}-\ref{alg:compare}) 
 %is \emph{switch-space efficient}
 %in the sense that 
@@ -1293,7 +1297,7 @@ controllers for Algorithm~\ref{alg:update}.
 	 			\State $\textbf{execute} \{\textit{unclaim}(\pid)\}$
  				\State {\bf continue} (\textbf{restart} loop)
  			\EndIf
- 			\State $\textit{my\_id}\gets$ choose a number from $C\setminus claims$
+ 			\State $\textit{my\_id}\gets$ choose a number from $\{C\setminus claims\}$
  			\State $\textit{update\_cmds}\gets \textsc{\ufunc}(policy)$ \label{update:compute}
  			\startTxn
  				\State $\claimcheck(my\_id)$,
@@ -1319,8 +1323,7 @@ To investigate the feasibility of our approach,
 we implemented a proof-of-concept of our algorithms
 as a python library which wraps ovs-ofctl, 
 a well-known command line tool for monitoring and administering OpenFlow switches. 
-The code is available online at
-\url{https://github.com/lironsc/of-sync-lib}. 
+The code is made available online\footnote{See \url{https://github.com/lironsc/of-sync-lib}.}. 
 %\liron{perhaps we can put it as reference? (putting the link in bib)}
 
 We experimented with the low-level abstractions as well as the 
@@ -1330,7 +1333,7 @@ The tests were conducted using a software switch, Open vSwitch (version 2.4.0) a
 a virtual network simulator, Mininet.
 
 For instance, we experimented with a setting where three processes
-(controllers), concurrently issuing $1000$ concurrent policy updates
+(controllers), concurrently issue $1000$ concurrent policy updates
 each, where every update replaces a single rule with another one.
 %[[PK unclear
 %When verifying the transactions, 
@@ -1366,7 +1369,8 @@ work is required to investigate and compare useful
 in-band synchronization abstractions, also in terms of performance.
 While our framework can be used as a synchronization library, we 
 also work on integrating it into an existing SDN controller, e.g., Ryu. 
-
+%Moreover, we will consider adding special
+%locking/synchronization primitives to OpenFlow. 
 
 {
 \begin{footnotesize}
